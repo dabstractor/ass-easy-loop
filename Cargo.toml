@@ -1,0 +1,18 @@
+[package]
+name = "ass-easy-loop"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7.3"
+embedded-hal = "1.0.0"
+fugit = "0.3.7"
+panic-halt = "1.0.0"
+portable-atomic = { version = "1.11", features = ["unsafe-assume-single-core"] }
+rp2040-boot2 = "0.3.0"
+rp2040-hal = { version = "0.11.0", features = ["rt", "rtic-monotonic"] }
+rp2040-pac = "0.6.0"
+rtic = { version = "2.2.0", features = ["thumbv6-backend"] }
+rtic-monotonics = { version = "2.1.0", features = ["rp2040"] }
+rtic-time = "2.0.0"
