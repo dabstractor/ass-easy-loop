@@ -1,0 +1,2 @@
+# Python dependencies for USB HID logging host utility
+hidapi>=0.14.0
