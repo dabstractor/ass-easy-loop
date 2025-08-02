@@ -8,6 +8,5 @@ pub mod handler;
 // Public re-exports for external use
 pub use parsing::{
     CommandReport, ParseResult, CommandQueue, CommandParser, init_command_handler,
-    QueuedCommand, QueuedResponse, ResponseQueue, TestCommand, TestResponse,
-    ResponseStatus, ErrorCode, AuthenticationValidator
+    QueuedCommand, ResponseQueue, AuthenticationValidator
 };

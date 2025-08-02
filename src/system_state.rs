@@ -12,7 +12,7 @@ use crate::battery::BatteryState;
 use crate::command::parsing::{CommandReport, TestResponse, ErrorCode};
 use crate::error_handling::{SystemError, SystemResult};
 use core::option::Option::{self, Some, None};
-use core::result::Result::{self, Ok, Err};
+use core::result::Result::{self, Ok};
 use core::iter::Iterator;
 use core::clone::Clone;
 

@@ -6,8 +6,8 @@ use crate::config::LogConfig;
 use heapless::Vec;
 use core::fmt::Write;
 use heapless::String;
-use core::option::Option::{self, Some, None};
-use core::result::Result::{self, Ok, Err};
+use core::option::Option::{self, None};
+use core::result::Result::{self, Ok};
 use core::ops::FnOnce;
 
 /// Resource safety wrapper for global state that must be accessed from multiple contexts

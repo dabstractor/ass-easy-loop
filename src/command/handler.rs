@@ -11,8 +11,8 @@ use crate::command::parsing::{
     CommandReport, ParseResult, TestResponse, ResponseStatus, ErrorCode,
     AuthenticationValidator, CommandQueue, ResponseQueue, QueuedCommand, QueuedResponse
 };
-use core::option::Option::{self, Some, None};
-use core::result::Result::{self, Ok, Err};
+use core::option::Option::{self, Some};
+use core::result::Result::{Ok, Err};
 use core::convert::TryFrom;
 
 /// USB HID command handler for processing output reports with enhanced queuing

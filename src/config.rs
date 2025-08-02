@@ -179,18 +179,23 @@ pub mod features {
     pub const ENABLE_RUNTIME_LOG_CONTROL: bool = true;
 
     /// Enable log message timestamps
+    #[allow(dead_code)]
     pub const ENABLE_LOG_TIMESTAMPS: bool = true;
 
     /// Enable log message module names
+    #[allow(dead_code)]
     pub const ENABLE_LOG_MODULE_NAMES: bool = true;
 
     /// Enable panic handler USB logging
+    #[allow(dead_code)]
     pub const ENABLE_PANIC_USB_LOGGING: bool = true;
 
     /// Enable performance monitoring
+    #[allow(dead_code)]
     pub const ENABLE_PERFORMANCE_MONITORING: bool = true;
 
     /// Enable memory usage tracking
+    #[allow(dead_code)]
     pub const ENABLE_MEMORY_TRACKING: bool = true;
 }
 

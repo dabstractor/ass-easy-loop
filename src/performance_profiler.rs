@@ -6,16 +6,23 @@
 //! 
 //! Requirements: 2.3, 3.5, 4.4
 
-use crate::{log_debug, log_info};
+use crate::log_info;
 use heapless::Vec;
 
 // Constants referenced in the implementation
+#[allow(dead_code)]
 const PROFILING_SAMPLE_SIZE: usize = 100;
+#[allow(dead_code)]
 const TIMING_TOLERANCE_PERCENT: f32 = 0.01;
+#[allow(dead_code)]
 const PEMF_TARGET_FREQUENCY_HZ: f32 = 2.0;
+#[allow(dead_code)]
 const PEMF_HIGH_DURATION_MS: u64 = 2;
+#[allow(dead_code)]
 const PEMF_LOW_DURATION_MS: u64 = 498;
+#[allow(dead_code)]
 const BATTERY_MONITOR_INTERVAL_MS: u64 = 100;
+#[allow(dead_code)]
 const LED_RESPONSE_TIMEOUT_MS: u64 = 500;
 
 /// Task execution time measurements
@@ -59,6 +66,7 @@ pub struct ProfilingResults {
 }
 
 /// Performance profiler for system-wide monitoring
+#[allow(dead_code)]
 pub struct PerformanceProfiler {
     sample_count: usize,
     execution_time_samples: Vec<TaskExecutionTimes, PROFILING_SAMPLE_SIZE>,
@@ -433,6 +441,7 @@ impl PerformanceProfiler {
 
 /// Performance report structure
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct PerformanceReport {
     pub profiling_duration_ms: u32,
     pub sample_count: usize,
@@ -491,6 +500,7 @@ impl PerformanceReport {
 }
 
 /// Global performance profiler instance
+#[allow(dead_code)]
 static mut GLOBAL_PROFILER: Option<PerformanceProfiler> = None;
 
 /// Initialize global performance profiler

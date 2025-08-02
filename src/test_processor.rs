@@ -700,6 +700,12 @@ pub enum TestExecutionError {
     TestAborted,
 }
 
+impl From<TestParameterError> for TestExecutionError {
+    fn from(_: TestParameterError) -> Self {
+        TestExecutionError::ValidationFailed
+    }
+}
+
 /// pEMF timing test statistics
 /// Requirements: 9.5 (timing statistics and error counts)
 #[derive(Clone, Copy, Debug)]
@@ -746,6 +752,24 @@ pub struct TimingDeviationReport {
     pub too_fast_count: u32,
     pub tolerance_percent: f32,
     pub test_passed: bool,
+}
+
+/// Comprehensive timing validation report with detailed analysis
+/// Requirements: 9.5 (timing statistics and error counts)
+#[derive(Clone, Copy, Debug)]
+pub struct ComprehensiveTimingReport {
+    pub test_duration_ms: u32,
+    pub total_measurements: u32,
+    pub within_tolerance_count: u32,
+    pub success_rate_percent: u32,
+    pub timing_accuracy_percent: f32,
+    pub average_timing_error_percent: f32,
+    pub max_jitter_us: u32,
+    pub timing_stability_score: u8,
+    pub deviation_count: u32,
+    pub max_deviation_us: u32,
+    pub test_passed: bool,
+    pub tolerance_percent: f32,
 }
 
 /// System stress test parameters
@@ -883,6 +907,1128 @@ impl StressPattern {
             0x03 => Some(StressPattern::Random),
             _ => None,
         }
+    }
+}
+
+/// Battery ADC validation test parameters
+/// Requirements: 9.1, 9.5 (battery ADC validation against known references)
+#[derive(Clone, Copy, Debug)]
+pub struct BatteryAdcParameters {
+    pub test_duration_ms: u32,
+    pub reference_voltage_mv: u32,
+    pub tolerance_percent: f32,
+    pub sample_count: u32,
+    pub calibration_enabled: bool,
+    pub state_transition_test: bool,
+    pub expected_adc_value: u16,
+    pub validation_mode: AdcValidationMode,
+}
+
+impl BatteryAdcParameters {
+    /// Create default battery ADC test parameters
+    pub fn default() -> Self {
+        Self {
+            test_duration_ms: 5000, // 5 seconds
+            reference_voltage_mv: 3300, // 3.3V reference
+            tolerance_percent: 2.0, // ±2% tolerance
+            sample_count: 50, // 50 samples
+            calibration_enabled: true,
+            state_transition_test: true,
+            expected_adc_value: 1500, // Normal battery state
+            validation_mode: AdcValidationMode::Accuracy,
+        }
+    }
+
+    /// Create battery ADC parameters from payload
+    pub fn from_payload(payload: &[u8]) -> Result<Self, TestParameterError> {
+        if payload.len() < 16 {
+            return Err(TestParameterError::PayloadTooShort);
+        }
+
+        let test_duration_ms = u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]);
+        let reference_voltage_mv = u32::from_le_bytes([payload[4], payload[5], payload[6], payload[7]]);
+        let tolerance_percent = f32::from_le_bytes([payload[8], payload[9], payload[10], payload[11]]);
+        let sample_count = u32::from_le_bytes([payload[12], payload[13], payload[14], payload[15]]);
+
+        let flags = if payload.len() > 16 { payload[16] } else { 0x03 }; // Default: calibration + state test
+        let expected_adc_value = if payload.len() > 18 {
+            u16::from_le_bytes([payload[17], payload[18]])
+        } else {
+            1500
+        };
+        let validation_mode = if payload.len() > 19 {
+            AdcValidationMode::from_u8(payload[19]).unwrap_or(AdcValidationMode::Accuracy)
+        } else {
+            AdcValidationMode::Accuracy
+        };
+
+        let params = Self {
+            test_duration_ms,
+            reference_voltage_mv,
+            tolerance_percent,
+            sample_count,
+            calibration_enabled: (flags & 0x01) != 0,
+            state_transition_test: (flags & 0x02) != 0,
+            expected_adc_value,
+            validation_mode,
+        };
+
+        params.validate()?;
+        Ok(params)
+    }
+
+    /// Validate battery ADC test parameters
+    pub fn validate(&self) -> Result<(), TestParameterError> {
+        if self.test_duration_ms == 0 || self.test_duration_ms > 60_000 {
+            return Err(TestParameterError::InvalidDuration);
+        }
+
+        if self.reference_voltage_mv < 1000 || self.reference_voltage_mv > 5000 {
+            return Err(TestParameterError::InvalidResourceLimits);
+        }
+
+        if self.tolerance_percent < 0.1 || self.tolerance_percent > 20.0 {
+            return Err(TestParameterError::InvalidTolerance);
+        }
+
+        if self.sample_count == 0 || self.sample_count > 1000 {
+            return Err(TestParameterError::InvalidSampleRate);
+        }
+
+        if self.expected_adc_value > 4095 {
+            return Err(TestParameterError::InvalidResourceLimits);
+        }
+
+        Ok(())
+    }
+
+    /// Serialize battery ADC parameters
+    pub fn serialize(&self) -> Vec<u8, 20> {
+        let mut serialized = Vec::new();
+
+        // Test duration (4 bytes)
+        let duration_bytes = self.test_duration_ms.to_le_bytes();
+        for &byte in &duration_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Reference voltage (4 bytes)
+        let voltage_bytes = self.reference_voltage_mv.to_le_bytes();
+        for &byte in &voltage_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Tolerance (4 bytes)
+        let tolerance_bytes = self.tolerance_percent.to_le_bytes();
+        for &byte in &tolerance_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Sample count (4 bytes)
+        let sample_bytes = self.sample_count.to_le_bytes();
+        for &byte in &sample_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Flags (1 byte)
+        let mut flags = 0u8;
+        if self.calibration_enabled { flags |= 0x01; }
+        if self.state_transition_test { flags |= 0x02; }
+        let _ = serialized.push(flags);
+
+        // Expected ADC value (2 bytes)
+        let adc_bytes = self.expected_adc_value.to_le_bytes();
+        for &byte in &adc_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Validation mode (1 byte)
+        let _ = serialized.push(self.validation_mode as u8);
+
+        serialized
+    }
+}
+
+/// ADC validation modes
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(u8)]
+pub enum AdcValidationMode {
+    Accuracy = 0x00,        // Test ADC reading accuracy
+    Calibration = 0x01,     // Test ADC calibration
+    StateTransition = 0x02, // Test battery state transitions
+    Comprehensive = 0x03,   // All validation modes
+}
+
+impl AdcValidationMode {
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0x00 => Some(AdcValidationMode::Accuracy),
+            0x01 => Some(AdcValidationMode::Calibration),
+            0x02 => Some(AdcValidationMode::StateTransition),
+            0x03 => Some(AdcValidationMode::Comprehensive),
+            _ => None,
+        }
+    }
+}
+
+/// LED test patterns for functionality validation
+/// Requirements: 9.1, 9.5 (LED control patterns validation)
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(u8)]
+pub enum LedTestPattern {
+    Solid = 0x00,       // LED continuously ON
+    Flashing = 0x01,    // LED flashing pattern (2Hz)
+    Off = 0x02,         // LED continuously OFF
+    Custom = 0x03,      // Custom pattern with configurable timing
+}
+
+impl LedTestPattern {
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0x00 => Some(LedTestPattern::Solid),
+            0x01 => Some(LedTestPattern::Flashing),
+            0x02 => Some(LedTestPattern::Off),
+            0x03 => Some(LedTestPattern::Custom),
+            _ => None,
+        }
+    }
+}
+
+/// LED functionality test parameters
+/// Requirements: 9.1, 9.5 (configurable LED test patterns and durations)
+#[derive(Clone, Copy, Debug)]
+pub struct LedFunctionalityParameters {
+    pub test_duration_ms: u32,
+    pub pattern: LedTestPattern,
+    pub flash_on_duration_ms: u32,
+    pub flash_off_duration_ms: u32,
+    pub timing_tolerance_percent: f32,
+    pub measurement_interval_ms: u32,
+    pub validate_timing: bool,
+    pub validate_pattern: bool,
+}
+
+impl LedFunctionalityParameters {
+    /// Create default LED functionality test parameters
+    pub fn default() -> Self {
+        Self {
+            test_duration_ms: 5000,        // 5 seconds
+            pattern: LedTestPattern::Flashing,
+            flash_on_duration_ms: 250,     // 250ms ON (2Hz pattern)
+            flash_off_duration_ms: 250,    // 250ms OFF (2Hz pattern)
+            timing_tolerance_percent: 5.0, // ±5% timing tolerance
+            measurement_interval_ms: 10,   // 10ms measurement interval
+            validate_timing: true,
+            validate_pattern: true,
+        }
+    }
+
+    /// Create LED parameters from payload
+    pub fn from_payload(payload: &[u8]) -> Result<Self, TestParameterError> {
+        if payload.len() < 20 {
+            return Err(TestParameterError::PayloadTooShort);
+        }
+
+        let test_duration_ms = u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]);
+        let pattern = LedTestPattern::from_u8(payload[4]).ok_or(TestParameterError::InvalidResourceLimits)?;
+        let flash_on_duration_ms = u32::from_le_bytes([payload[5], payload[6], payload[7], payload[8]]);
+        let flash_off_duration_ms = u32::from_le_bytes([payload[9], payload[10], payload[11], payload[12]]);
+        let timing_tolerance_percent = f32::from_le_bytes([payload[13], payload[14], payload[15], payload[16]]);
+        let measurement_interval_ms = u32::from_le_bytes([payload[17], payload[18], payload[19], payload[20]]);
+
+        let flags = if payload.len() > 21 { payload[21] } else { 0x03 }; // Default: validate timing + pattern
+
+        let params = Self {
+            test_duration_ms,
+            pattern,
+            flash_on_duration_ms,
+            flash_off_duration_ms,
+            timing_tolerance_percent,
+            measurement_interval_ms,
+            validate_timing: (flags & 0x01) != 0,
+            validate_pattern: (flags & 0x02) != 0,
+        };
+
+        params.validate()?;
+        Ok(params)
+    }
+
+    /// Validate LED functionality test parameters
+    pub fn validate(&self) -> Result<(), TestParameterError> {
+        if self.test_duration_ms == 0 || self.test_duration_ms > 60_000 {
+            return Err(TestParameterError::InvalidDuration);
+        }
+
+        if self.flash_on_duration_ms == 0 || self.flash_on_duration_ms > 10_000 {
+            return Err(TestParameterError::InvalidDuration);
+        }
+
+        if self.flash_off_duration_ms == 0 || self.flash_off_duration_ms > 10_000 {
+            return Err(TestParameterError::InvalidDuration);
+        }
+
+        if self.timing_tolerance_percent < 0.1 || self.timing_tolerance_percent > 50.0 {
+            return Err(TestParameterError::InvalidTolerance);
+        }
+
+        if self.measurement_interval_ms == 0 || self.measurement_interval_ms > 1000 {
+            return Err(TestParameterError::InvalidSampleRate);
+        }
+
+        // Validate that measurement interval is reasonable for the pattern timing
+        let min_pattern_duration = core::cmp::min(self.flash_on_duration_ms, self.flash_off_duration_ms);
+        if self.measurement_interval_ms > min_pattern_duration / 2 {
+            return Err(TestParameterError::InvalidSampleRate);
+        }
+
+        Ok(())
+    }
+
+    /// Serialize LED functionality parameters
+    pub fn serialize(&self) -> Vec<u8, 22> {
+        let mut serialized = Vec::new();
+
+        // Test duration (4 bytes)
+        let duration_bytes = self.test_duration_ms.to_le_bytes();
+        for &byte in &duration_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Pattern (1 byte)
+        let _ = serialized.push(self.pattern as u8);
+
+        // Flash ON duration (4 bytes)
+        let on_bytes = self.flash_on_duration_ms.to_le_bytes();
+        for &byte in &on_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Flash OFF duration (4 bytes)
+        let off_bytes = self.flash_off_duration_ms.to_le_bytes();
+        for &byte in &off_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Timing tolerance (4 bytes)
+        let tolerance_bytes = self.timing_tolerance_percent.to_le_bytes();
+        for &byte in &tolerance_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Measurement interval (4 bytes)
+        let interval_bytes = self.measurement_interval_ms.to_le_bytes();
+        for &byte in &interval_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Flags (1 byte)
+        let mut flags = 0u8;
+        if self.validate_timing { flags |= 0x01; }
+        if self.validate_pattern { flags |= 0x02; }
+        let _ = serialized.push(flags);
+
+        serialized
+    }
+}
+
+/// Battery ADC test measurements
+/// Requirements: 9.5 (ADC accuracy measurements)
+#[derive(Clone, Copy, Debug)]
+pub struct BatteryAdcMeasurements {
+    pub total_samples: u32,
+    pub average_adc_value: u16,
+    pub adc_variance: u32,
+    pub voltage_accuracy_percent: f32,
+    pub calibration_error_percent: f32,
+    pub state_transition_count: u32,
+    pub invalid_readings_count: u32,
+    pub test_duration_ms: u32,
+    pub reference_voltage_mv: u32,
+    pub measured_voltage_mv: u32,
+}
+
+impl BatteryAdcMeasurements {
+    /// Create new empty battery ADC measurements
+    pub fn new() -> Self {
+        Self {
+            total_samples: 0,
+            average_adc_value: 0,
+            adc_variance: 0,
+            voltage_accuracy_percent: 0.0,
+            calibration_error_percent: 0.0,
+            state_transition_count: 0,
+            invalid_readings_count: 0,
+            test_duration_ms: 0,
+            reference_voltage_mv: 0,
+            measured_voltage_mv: 0,
+        }
+    }
+
+    /// Calculate voltage accuracy from ADC measurements
+    pub fn calculate_voltage_accuracy(&mut self, reference_voltage_mv: u32) -> f32 {
+        if self.total_samples == 0 || reference_voltage_mv == 0 {
+            return 0.0;
+        }
+
+        // Convert average ADC to voltage using battery monitoring conversion
+        // Voltage = ADC * 3300mV / 4095 / voltage_divider_ratio
+        // Simplified: voltage_mv = ADC * 2386 / 1000
+        self.measured_voltage_mv = (self.average_adc_value as u32 * 2386) / 1000;
+        
+        let voltage_error = if self.measured_voltage_mv > reference_voltage_mv {
+            self.measured_voltage_mv - reference_voltage_mv
+        } else {
+            reference_voltage_mv - self.measured_voltage_mv
+        };
+
+        self.voltage_accuracy_percent = 100.0 - (voltage_error as f32 / reference_voltage_mv as f32 * 100.0);
+        self.voltage_accuracy_percent = self.voltage_accuracy_percent.max(0.0);
+        self.voltage_accuracy_percent
+    }
+
+    /// Calculate calibration error
+    pub fn calculate_calibration_error(&mut self, expected_adc: u16) -> f32 {
+        if expected_adc == 0 {
+            return 0.0;
+        }
+
+        let adc_error = if self.average_adc_value > expected_adc {
+            self.average_adc_value - expected_adc
+        } else {
+            expected_adc - self.average_adc_value
+        };
+
+        self.calibration_error_percent = (adc_error as f32 / expected_adc as f32) * 100.0;
+        self.calibration_error_percent
+    }
+
+    /// Serialize battery ADC measurements
+    pub fn serialize(&self) -> Vec<u8, 40> {
+        let mut serialized = Vec::new();
+
+        // Total samples (4 bytes)
+        let samples_bytes = self.total_samples.to_le_bytes();
+        for &byte in &samples_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Average ADC value (2 bytes)
+        let adc_bytes = self.average_adc_value.to_le_bytes();
+        for &byte in &adc_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // ADC variance (4 bytes)
+        let variance_bytes = self.adc_variance.to_le_bytes();
+        for &byte in &variance_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Voltage accuracy (4 bytes)
+        let accuracy_bytes = self.voltage_accuracy_percent.to_le_bytes();
+        for &byte in &accuracy_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Calibration error (4 bytes)
+        let cal_error_bytes = self.calibration_error_percent.to_le_bytes();
+        for &byte in &cal_error_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // State transition count (4 bytes)
+        let transition_bytes = self.state_transition_count.to_le_bytes();
+        for &byte in &transition_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Invalid readings count (4 bytes)
+        let invalid_bytes = self.invalid_readings_count.to_le_bytes();
+        for &byte in &invalid_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Test duration (4 bytes)
+        let duration_bytes = self.test_duration_ms.to_le_bytes();
+        for &byte in &duration_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Reference voltage (4 bytes)
+        let ref_voltage_bytes = self.reference_voltage_mv.to_le_bytes();
+        for &byte in &ref_voltage_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Measured voltage (4 bytes)
+        let measured_voltage_bytes = self.measured_voltage_mv.to_le_bytes();
+        for &byte in &measured_voltage_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        serialized
+    }
+}
+
+/// LED timing measurement for pattern validation
+/// Requirements: 9.1, 9.5 (LED timing accuracy validation)
+#[derive(Clone, Copy, Debug)]
+pub struct LedTimingMeasurement {
+    pub timestamp_ms: u32,
+    pub led_state: bool,        // true = ON, false = OFF
+    pub expected_state: bool,   // Expected state based on pattern
+    pub state_duration_ms: u32, // Duration in current state
+    pub timing_error_ms: i32,   // Positive = late, negative = early
+}
+
+/// LED functionality test measurements
+/// Requirements: 9.1, 9.5 (LED timing measurements and pattern validation)
+#[derive(Clone, Debug)]
+pub struct LedFunctionalityMeasurements {
+    pub total_measurements: u32,
+    pub pattern_cycles_completed: u32,
+    pub timing_measurements: Vec<LedTimingMeasurement, 64>,
+    pub average_on_duration_ms: u32,
+    pub average_off_duration_ms: u32,
+    pub timing_accuracy_percent: f32,
+    pub pattern_accuracy_percent: f32,
+    pub max_timing_error_ms: u32,
+    pub timing_violations_count: u32,
+    pub pattern_violations_count: u32,
+    pub test_duration_ms: u32,
+}
+
+impl LedFunctionalityMeasurements {
+    /// Create new empty LED functionality measurements
+    pub fn new() -> Self {
+        Self {
+            total_measurements: 0,
+            pattern_cycles_completed: 0,
+            timing_measurements: Vec::new(),
+            average_on_duration_ms: 0,
+            average_off_duration_ms: 0,
+            timing_accuracy_percent: 0.0,
+            pattern_accuracy_percent: 0.0,
+            max_timing_error_ms: 0,
+            timing_violations_count: 0,
+            pattern_violations_count: 0,
+            test_duration_ms: 0,
+        }
+    }
+
+    /// Add timing measurement to the test result
+    pub fn add_timing_measurement(&mut self, measurement: LedTimingMeasurement, 
+                                 tolerance_percent: f32) -> Result<(), SystemError> {
+        // Store the measurement
+        self.timing_measurements.push(measurement).map_err(|_| SystemError::SystemBusy)?;
+        self.total_measurements += 1;
+
+        // Check for timing violations
+        let expected_duration = if measurement.expected_state {
+            // Expected ON duration - use the measurement's state duration as reference
+            measurement.state_duration_ms
+        } else {
+            // Expected OFF duration
+            measurement.state_duration_ms
+        };
+
+        let tolerance_ms = (expected_duration as f32 * tolerance_percent / 100.0) as u32;
+        let timing_error_abs = measurement.timing_error_ms.abs() as u32;
+
+        if timing_error_abs > tolerance_ms {
+            self.timing_violations_count += 1;
+        }
+
+        // Update maximum timing error
+        if timing_error_abs > self.max_timing_error_ms {
+            self.max_timing_error_ms = timing_error_abs;
+        }
+
+        // Check for pattern violations (state mismatch)
+        if measurement.led_state != measurement.expected_state {
+            self.pattern_violations_count += 1;
+        }
+
+        Ok(())
+    }
+
+    /// Calculate timing and pattern accuracy statistics
+    pub fn calculate_accuracy_statistics(&mut self, expected_on_ms: u32, expected_off_ms: u32) {
+        if self.timing_measurements.is_empty() {
+            return;
+        }
+
+        let mut total_on_duration = 0u32;
+        let mut total_off_duration = 0u32;
+        let mut on_count = 0u32;
+        let mut off_count = 0u32;
+        let mut total_timing_error = 0u32;
+
+        // Analyze timing measurements
+        for measurement in &self.timing_measurements {
+            let timing_error_abs = measurement.timing_error_ms.abs() as u32;
+            total_timing_error += timing_error_abs;
+
+            if measurement.expected_state {
+                total_on_duration += measurement.state_duration_ms;
+                on_count += 1;
+            } else {
+                total_off_duration += measurement.state_duration_ms;
+                off_count += 1;
+            }
+        }
+
+        // Calculate average durations
+        self.average_on_duration_ms = if on_count > 0 { total_on_duration / on_count } else { 0 };
+        self.average_off_duration_ms = if off_count > 0 { total_off_duration / off_count } else { 0 };
+
+        // Calculate timing accuracy
+        let average_timing_error = total_timing_error as f32 / self.total_measurements as f32;
+        let expected_avg_duration = (expected_on_ms + expected_off_ms) as f32 / 2.0;
+        self.timing_accuracy_percent = 100.0 - (average_timing_error / expected_avg_duration * 100.0);
+        self.timing_accuracy_percent = self.timing_accuracy_percent.max(0.0);
+
+        // Calculate pattern accuracy
+        let pattern_errors = self.pattern_violations_count as f32;
+        self.pattern_accuracy_percent = 100.0 - (pattern_errors / self.total_measurements as f32 * 100.0);
+        self.pattern_accuracy_percent = self.pattern_accuracy_percent.max(0.0);
+
+        // Calculate completed cycles (approximate)
+        let total_expected_cycle_duration = expected_on_ms + expected_off_ms;
+        if total_expected_cycle_duration > 0 {
+            self.pattern_cycles_completed = self.test_duration_ms / total_expected_cycle_duration;
+        }
+    }
+
+    /// Serialize LED functionality measurements
+    pub fn serialize(&self) -> Vec<u8, 48> {
+        let mut serialized = Vec::new();
+
+        // Total measurements (4 bytes)
+        let measurements_bytes = self.total_measurements.to_le_bytes();
+        for &byte in &measurements_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Pattern cycles completed (4 bytes)
+        let cycles_bytes = self.pattern_cycles_completed.to_le_bytes();
+        for &byte in &cycles_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Average ON duration (4 bytes)
+        let on_duration_bytes = self.average_on_duration_ms.to_le_bytes();
+        for &byte in &on_duration_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Average OFF duration (4 bytes)
+        let off_duration_bytes = self.average_off_duration_ms.to_le_bytes();
+        for &byte in &off_duration_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Timing accuracy (4 bytes)
+        let timing_accuracy_bytes = self.timing_accuracy_percent.to_le_bytes();
+        for &byte in &timing_accuracy_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Pattern accuracy (4 bytes)
+        let pattern_accuracy_bytes = self.pattern_accuracy_percent.to_le_bytes();
+        for &byte in &pattern_accuracy_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Max timing error (4 bytes)
+        let max_error_bytes = self.max_timing_error_ms.to_le_bytes();
+        for &byte in &max_error_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Timing violations count (4 bytes)
+        let timing_violations_bytes = self.timing_violations_count.to_le_bytes();
+        for &byte in &timing_violations_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Pattern violations count (4 bytes)
+        let pattern_violations_bytes = self.pattern_violations_count.to_le_bytes();
+        for &byte in &pattern_violations_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Test duration (4 bytes)
+        let duration_bytes = self.test_duration_ms.to_le_bytes();
+        for &byte in &duration_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Timing measurements count (2 bytes) - limited to first few measurements
+        let measurements_count = core::cmp::min(self.timing_measurements.len(), 4) as u16;
+        let count_bytes = measurements_count.to_le_bytes();
+        for &byte in &count_bytes {
+            let _ = serialized.push(byte);
+        }
+
+        // Include first few timing measurements (2 bytes each for timestamp and error)
+        for i in 0..measurements_count as usize {
+            if let Some(measurement) = self.timing_measurements.get(i) {
+                let timestamp_short = (measurement.timestamp_ms & 0xFFFF) as u16;
+                let timestamp_bytes = timestamp_short.to_le_bytes();
+                for &byte in &timestamp_bytes {
+                    if serialized.push(byte).is_err() { break; }
+                }
+            }
+        }
+
+        serialized
+    }
+}
+
+/// LED functionality test result
+/// Requirements: 9.1, 9.5 (LED control validation with timing measurements)
+#[derive(Clone, Debug)]
+pub struct LedFunctionalityTestResult {
+    pub test_parameters: LedFunctionalityParameters,
+    pub measurements: LedFunctionalityMeasurements,
+    pub test_passed: bool,
+    pub error_details: Option<Vec<u8, 64>>,
+    pub start_timestamp_ms: u32,
+    pub end_timestamp_ms: u32,
+}
+
+impl LedFunctionalityTestResult {
+    /// Create new LED functionality test result
+    pub fn new(parameters: LedFunctionalityParameters, start_timestamp_ms: u32) -> Self {
+        Self {
+            test_parameters: parameters,
+            measurements: LedFunctionalityMeasurements::new(),
+            test_passed: false,
+            error_details: None,
+            start_timestamp_ms,
+            end_timestamp_ms: 0,
+        }
+    }
+
+    /// Add LED state measurement to the test result
+    pub fn add_led_measurement(&mut self, led_state: bool, expected_state: bool, 
+                              timestamp_ms: u32, state_duration_ms: u32) -> Result<(), SystemError> {
+        // Calculate timing error based on expected pattern timing
+        let expected_duration = match self.test_parameters.pattern {
+            LedTestPattern::Flashing => {
+                if expected_state {
+                    self.test_parameters.flash_on_duration_ms
+                } else {
+                    self.test_parameters.flash_off_duration_ms
+                }
+            },
+            LedTestPattern::Solid => {
+                // For solid pattern, LED should always be ON
+                if expected_state { u32::MAX } else { 0 }
+            },
+            LedTestPattern::Off => {
+                // For off pattern, LED should always be OFF
+                if expected_state { 0 } else { u32::MAX }
+            },
+            LedTestPattern::Custom => {
+                // Use configured timing
+                if expected_state {
+                    self.test_parameters.flash_on_duration_ms
+                } else {
+                    self.test_parameters.flash_off_duration_ms
+                }
+            },
+        };
+
+        let timing_error_ms = if expected_duration == u32::MAX || expected_duration == 0 {
+            0 // No timing error for continuous states
+        } else {
+            state_duration_ms as i32 - expected_duration as i32
+        };
+
+        let measurement = LedTimingMeasurement {
+            timestamp_ms,
+            led_state,
+            expected_state,
+            state_duration_ms,
+            timing_error_ms,
+        };
+
+        self.measurements.add_timing_measurement(measurement, self.test_parameters.timing_tolerance_percent)?;
+        Ok(())
+    }
+
+    /// Complete the test and calculate final results
+    pub fn complete_test(&mut self, end_timestamp_ms: u32) {
+        self.end_timestamp_ms = end_timestamp_ms;
+        self.measurements.test_duration_ms = end_timestamp_ms - self.start_timestamp_ms;
+
+        // Calculate accuracy statistics
+        self.measurements.calculate_accuracy_statistics(
+            self.test_parameters.flash_on_duration_ms,
+            self.test_parameters.flash_off_duration_ms
+        );
+
+        // Determine if test passed based on validation criteria
+        self.test_passed = self.evaluate_test_success();
+    }
+
+    /// Evaluate if the test passed based on validation criteria
+    fn evaluate_test_success(&self) -> bool {
+        // Check timing accuracy if enabled
+        if self.test_parameters.validate_timing {
+            let min_timing_accuracy = 100.0 - self.test_parameters.timing_tolerance_percent;
+            if self.measurements.timing_accuracy_percent < min_timing_accuracy {
+                return false;
+            }
+        }
+
+        // Check pattern accuracy if enabled
+        if self.test_parameters.validate_pattern {
+            if self.measurements.pattern_accuracy_percent < 95.0 { // 95% pattern accuracy required
+                return false;
+            }
+        }
+
+        // Check for excessive timing violations
+        let violation_rate = self.measurements.timing_violations_count as f32 / self.measurements.total_measurements as f32;
+        if violation_rate > 0.1 { // Allow up to 10% timing violations
+            return false;
+        }
+
+        // Check minimum measurement count
+        let expected_measurements = self.test_parameters.test_duration_ms / self.test_parameters.measurement_interval_ms;
+        if self.measurements.total_measurements < expected_measurements / 2 {
+            return false;
+        }
+
+        true
+    }
+
+    /// Get test duration in milliseconds
+    pub fn duration_ms(&self) -> u32 {
+        if self.end_timestamp_ms > self.start_timestamp_ms {
+            self.end_timestamp_ms - self.start_timestamp_ms
+        } else {
+            0
+        }
+    }
+
+    /// Serialize LED functionality test result for transmission
+    pub fn serialize(&self) -> Result<Vec<u8, 64>, ErrorCode> {
+        let mut payload = Vec::new();
+
+        // Test result header (8 bytes)
+        payload.push(TestType::LedFunctionality as u8).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        payload.push(if self.test_passed { TestStatus::Completed as u8 } else { TestStatus::Failed as u8 }).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        
+        let duration_bytes = self.duration_ms().to_le_bytes();
+        for &byte in &duration_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        let measurements_count = self.measurements.total_measurements.to_le_bytes();
+        for &byte in &measurements_count {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        // Key measurements (16 bytes)
+        let timing_accuracy_bytes = self.measurements.timing_accuracy_percent.to_le_bytes();
+        for &byte in &timing_accuracy_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        let pattern_accuracy_bytes = self.measurements.pattern_accuracy_percent.to_le_bytes();
+        for &byte in &pattern_accuracy_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        let max_error_bytes = self.measurements.max_timing_error_ms.to_le_bytes();
+        for &byte in &max_error_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        let violations_bytes = self.measurements.timing_violations_count.to_le_bytes();
+        for &byte in &violations_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        // Pattern information (8 bytes)
+        payload.push(self.test_parameters.pattern as u8).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        
+        let cycles_bytes = self.measurements.pattern_cycles_completed.to_le_bytes();
+        for &byte in &cycles_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        let avg_on_bytes = (self.measurements.average_on_duration_ms as u16).to_le_bytes();
+        for &byte in &avg_on_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        let avg_off_bytes = (self.measurements.average_off_duration_ms as u16).to_le_bytes();
+        for &byte in &avg_off_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        // Fill remaining space with test parameters summary
+        let params_serialized = self.test_parameters.serialize();
+        for &byte in params_serialized.iter().take(payload.capacity() - payload.len()) {
+            if payload.push(byte).is_err() {
+                break;
+            }
+        }
+
+        Ok(payload)
+    }
+}
+
+/// Battery state transition record
+/// Requirements: 9.1, 9.5 (battery state transition testing)
+#[derive(Clone, Copy, Debug)]
+pub struct BatteryStateTransition {
+    pub timestamp_ms: u32,
+    pub from_state: BatteryState,
+    pub to_state: BatteryState,
+    pub adc_value: u16,
+    pub voltage_mv: u32,
+    pub transition_valid: bool,
+}
+
+/// Battery state enumeration (matching battery.rs)
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[repr(u8)]
+pub enum BatteryState {
+    Low = 0x00,      // ADC ≤ 1425
+    Normal = 0x01,   // 1425 < ADC < 1675
+    Charging = 0x02, // ADC ≥ 1675
+}
+
+impl BatteryState {
+    /// Determine battery state from ADC reading
+    pub fn from_adc_reading(adc_value: u16) -> Self {
+        if adc_value <= 1425 {
+            BatteryState::Low
+        } else if adc_value < 1675 {
+            BatteryState::Normal
+        } else {
+            BatteryState::Charging
+        }
+    }
+
+    /// Get ADC threshold values for this state
+    pub fn get_thresholds(&self) -> (u16, u16) {
+        match self {
+            BatteryState::Low => (0, 1425),
+            BatteryState::Normal => (1425, 1675),
+            BatteryState::Charging => (1675, u16::MAX),
+        }
+    }
+
+    /// Check if transition to another state is valid
+    pub fn is_valid_transition(&self, to_state: BatteryState, adc_value: u16) -> bool {
+        match (*self, to_state) {
+            (BatteryState::Low, BatteryState::Normal) => adc_value > 1425,
+            (BatteryState::Normal, BatteryState::Low) => adc_value <= 1425,
+            (BatteryState::Normal, BatteryState::Charging) => adc_value >= 1675,
+            (BatteryState::Charging, BatteryState::Normal) => adc_value < 1675,
+            (BatteryState::Low, BatteryState::Charging) => adc_value >= 1675,
+            (BatteryState::Charging, BatteryState::Low) => adc_value <= 1425,
+            _ => *self == to_state, // Same state is always valid
+        }
+    }
+
+    pub fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            0x00 => Some(BatteryState::Low),
+            0x01 => Some(BatteryState::Normal),
+            0x02 => Some(BatteryState::Charging),
+            _ => None,
+        }
+    }
+}
+
+/// Battery ADC validation test result
+/// Requirements: 9.1, 9.5 (ADC accuracy measurements and state transition testing)
+#[derive(Clone, Debug)]
+pub struct BatteryAdcTestResult {
+    pub test_parameters: BatteryAdcParameters,
+    pub measurements: BatteryAdcMeasurements,
+    pub state_transitions: Vec<BatteryStateTransition, 16>,
+    pub test_passed: bool,
+    pub error_details: Option<Vec<u8, 64>>,
+    pub start_timestamp_ms: u32,
+    pub end_timestamp_ms: u32,
+}
+
+impl BatteryAdcTestResult {
+    /// Create new battery ADC test result
+    pub fn new(parameters: BatteryAdcParameters, start_timestamp_ms: u32) -> Self {
+        Self {
+            test_parameters: parameters,
+            measurements: BatteryAdcMeasurements::new(),
+            state_transitions: Vec::new(),
+            test_passed: false,
+            error_details: None,
+            start_timestamp_ms,
+            end_timestamp_ms: 0,
+        }
+    }
+
+    /// Add ADC sample to the test result
+    pub fn add_adc_sample(&mut self, adc_value: u16, _timestamp_ms: u32) -> Result<(), SystemError> {
+        // Update measurements
+        let new_total = self.measurements.total_samples + 1;
+        let old_average = self.measurements.average_adc_value as u32;
+        let new_average = ((old_average * self.measurements.total_samples) + adc_value as u32) / new_total;
+        
+        self.measurements.total_samples = new_total;
+        self.measurements.average_adc_value = new_average as u16;
+
+        // Update variance (simplified calculation)
+        let deviation = if adc_value > new_average as u16 {
+            adc_value - new_average as u16
+        } else {
+            new_average as u16 - adc_value
+        };
+        self.measurements.adc_variance = ((self.measurements.adc_variance * (new_total - 1)) + deviation as u32) / new_total;
+
+        // Check for invalid readings (outside ADC range)
+        if adc_value > 4095 {
+            self.measurements.invalid_readings_count += 1;
+        }
+
+        Ok(())
+    }
+
+    /// Add state transition to the test result
+    pub fn add_state_transition(&mut self, from_state: BatteryState, to_state: BatteryState, 
+                               adc_value: u16, timestamp_ms: u32) -> Result<(), SystemError> {
+        let voltage_mv = (adc_value as u32 * 2386) / 1000; // Convert ADC to voltage
+        let transition_valid = from_state.is_valid_transition(to_state, adc_value);
+
+        let transition = BatteryStateTransition {
+            timestamp_ms,
+            from_state,
+            to_state,
+            adc_value,
+            voltage_mv,
+            transition_valid,
+        };
+
+        self.state_transitions.push(transition).map_err(|_| SystemError::SystemBusy)?;
+        self.measurements.state_transition_count += 1;
+
+        Ok(())
+    }
+
+    /// Complete the test and calculate final results
+    pub fn complete_test(&mut self, end_timestamp_ms: u32) {
+        self.end_timestamp_ms = end_timestamp_ms;
+        self.measurements.test_duration_ms = end_timestamp_ms - self.start_timestamp_ms;
+        self.measurements.reference_voltage_mv = self.test_parameters.reference_voltage_mv;
+
+        // Calculate voltage accuracy
+        self.measurements.calculate_voltage_accuracy(self.test_parameters.reference_voltage_mv);
+
+        // Calculate calibration error
+        self.measurements.calculate_calibration_error(self.test_parameters.expected_adc_value);
+
+        // Determine if test passed based on validation criteria
+        self.test_passed = self.evaluate_test_success();
+    }
+
+    /// Evaluate if the test passed based on validation criteria
+    fn evaluate_test_success(&self) -> bool {
+        // Check voltage accuracy
+        if self.measurements.voltage_accuracy_percent < (100.0 - self.test_parameters.tolerance_percent) {
+            return false;
+        }
+
+        // Check calibration error
+        if self.measurements.calibration_error_percent > self.test_parameters.tolerance_percent {
+            return false;
+        }
+
+        // Check for invalid readings
+        let invalid_reading_rate = (self.measurements.invalid_readings_count as f32 / self.measurements.total_samples as f32) * 100.0;
+        if invalid_reading_rate > 5.0 { // Allow up to 5% invalid readings
+            return false;
+        }
+
+        // Check state transitions if enabled
+        if self.test_parameters.state_transition_test {
+            let invalid_transitions = self.state_transitions.iter()
+                .filter(|t| !t.transition_valid)
+                .count();
+            
+            if invalid_transitions > 0 {
+                return false;
+            }
+        }
+
+        // Check minimum sample count
+        if self.measurements.total_samples < self.test_parameters.sample_count / 2 {
+            return false;
+        }
+
+        true
+    }
+
+    /// Get test duration in milliseconds
+    pub fn duration_ms(&self) -> u32 {
+        if self.end_timestamp_ms > self.start_timestamp_ms {
+            self.end_timestamp_ms - self.start_timestamp_ms
+        } else {
+            0
+        }
+    }
+
+    /// Serialize battery ADC test result to command response
+    pub fn serialize_to_response(&self, command_id: u8) -> Result<CommandReport, ErrorCode> {
+        let mut payload: Vec<u8, 60> = Vec::new();
+
+        // Test result header (8 bytes)
+        payload.push(TestType::BatteryAdcCalibration as u8).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        payload.push(if self.test_passed { TestStatus::Completed as u8 } else { TestStatus::Failed as u8 }).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        
+        let duration_bytes = self.duration_ms().to_le_bytes();
+        for &byte in &duration_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        // Key measurements (16 bytes)
+        let samples_bytes = self.measurements.total_samples.to_le_bytes();
+        for &byte in &samples_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        let accuracy_bytes = self.measurements.voltage_accuracy_percent.to_le_bytes();
+        for &byte in &accuracy_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        let cal_error_bytes = self.measurements.calibration_error_percent.to_le_bytes();
+        for &byte in &cal_error_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        let transitions_bytes = self.measurements.state_transition_count.to_le_bytes();
+        for &byte in &transitions_bytes {
+            payload.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        // Additional measurements (remaining space)
+        let remaining_space = 60 - payload.len();
+        let measurements_serialized = self.measurements.serialize();
+        let measurements_len = core::cmp::min(measurements_serialized.len(), remaining_space);
+        
+        for i in 0..measurements_len {
+            payload.push(measurements_serialized[i]).map_err(|_| ErrorCode::PayloadTooLarge)?;
+        }
+
+        CommandReport::new(TestResponse::TestResult as u8, command_id, &payload)
     }
 }
 
@@ -1215,103 +2361,7 @@ impl UsbCommunicationStatistics {
     }
 }
 
-impl StressTestStatistics {
-    /// Create new empty statistics
-    pub fn new() -> Self {
-        Self {
-            test_duration_ms: 0,
-            peak_cpu_usage_percent: 0,
-            average_cpu_usage_percent: 0,
-            peak_memory_usage_bytes: 0,
-            average_memory_usage_bytes: 0,
-            memory_allocation_failures: 0,
-            performance_degradation_events: 0,
-            min_performance_percent: 100,
-            average_response_time_us: 0,
-            max_response_time_us: 0,
-            operations_completed: 0,
-            operations_failed: 0,
-            system_stability_score: 100,
-        }
-    }
 
-    /// Calculate success rate percentage
-    pub fn success_rate_percent(&self) -> f32 {
-        let total_operations = self.operations_completed + self.operations_failed;
-        if total_operations == 0 {
-            return 100.0;
-        }
-        (self.operations_completed as f32 / total_operations as f32) * 100.0
-    }
-
-    /// Check if test meets performance criteria
-    pub fn meets_performance_criteria(&self, min_performance_percent: u8, max_failures: u32) -> bool {
-        self.min_performance_percent >= min_performance_percent 
-            && self.operations_failed <= max_failures
-            && self.system_stability_score >= 70
-    }
-
-    /// Serialize statistics to bytes for transmission
-    pub fn serialize(&self) -> Vec<u8, 48> {
-        let mut serialized = Vec::new();
-
-        // Test duration (4 bytes)
-        let duration_bytes = self.test_duration_ms.to_le_bytes();
-        for &byte in &duration_bytes {
-            let _ = serialized.push(byte);
-        }
-
-        // CPU usage stats (2 bytes)
-        let _ = serialized.push(self.peak_cpu_usage_percent);
-        let _ = serialized.push(self.average_cpu_usage_percent);
-
-        // Memory usage stats (8 bytes)
-        let peak_mem_bytes = self.peak_memory_usage_bytes.to_le_bytes();
-        for &byte in &peak_mem_bytes {
-            let _ = serialized.push(byte);
-        }
-        let avg_mem_bytes = self.average_memory_usage_bytes.to_le_bytes();
-        for &byte in &avg_mem_bytes {
-            let _ = serialized.push(byte);
-        }
-
-        // Error counts (8 bytes)
-        let alloc_fail_bytes = self.memory_allocation_failures.to_le_bytes();
-        for &byte in &alloc_fail_bytes {
-            let _ = serialized.push(byte);
-        }
-        let perf_degrade_bytes = self.performance_degradation_events.to_le_bytes();
-        for &byte in &perf_degrade_bytes {
-            let _ = serialized.push(byte);
-        }
-
-        // Performance metrics (9 bytes)
-        let _ = serialized.push(self.min_performance_percent);
-        let avg_response_bytes = self.average_response_time_us.to_le_bytes();
-        for &byte in &avg_response_bytes {
-            let _ = serialized.push(byte);
-        }
-        let max_response_bytes = self.max_response_time_us.to_le_bytes();
-        for &byte in &max_response_bytes {
-            let _ = serialized.push(byte);
-        }
-
-        // Operation counts (8 bytes)
-        let completed_bytes = self.operations_completed.to_le_bytes();
-        for &byte in &completed_bytes {
-            let _ = serialized.push(byte);
-        }
-        let failed_bytes = self.operations_failed.to_le_bytes();
-        for &byte in &failed_bytes {
-            let _ = serialized.push(byte);
-        }
-
-        // System stability score (1 byte)
-        let _ = serialized.push(self.system_stability_score);
-
-        serialized
-    }
-}
 
 /// Memory usage monitor for stress testing
 /// Requirements: 9.2 (memory usage monitoring during stress conditions)
@@ -2052,6 +3102,143 @@ impl TestCommandProcessor {
         within_tolerance
     }
 
+    /// Get test result by test ID
+    /// Requirements: 9.5 (test result structure with timing statistics and error counts)
+    pub fn get_test_result(&self, test_id: u8) -> Option<TestResult> {
+        if let Some(ref active_test) = self.active_test {
+            if active_test.result.test_id == test_id {
+                return Some(active_test.result.clone());
+            }
+        }
+        
+        // Check completed tests (in a real implementation, this would check a history)
+        // For now, return None if not the active test
+        None
+    }
+
+    /// Enhanced timing deviation detection with detailed analysis
+    /// Requirements: 9.1, 9.5 (timing deviation detection and reporting)
+    pub fn detect_detailed_timing_deviations(&self, tolerance_percent: f32) -> Vec<TimingDeviation, 32> {
+        let mut deviations: Vec<TimingDeviation, 32> = Vec::new();
+        
+        if let Some(ref active_test) = self.active_test {
+            if active_test.test_type == TestType::PemfTimingValidation {
+                let measurements = &active_test.result.measurements;
+                let pemf_params = Self::parse_pemf_timing_parameters(&active_test.parameters.custom_parameters)
+                    .unwrap_or_else(PemfTimingParameters::default);
+                
+                // Analyze each timing measurement for deviations
+                for (index, measurement) in measurements.timing_measurements.iter().enumerate() {
+                    let expected_timing_us = pemf_params.expected_total_period_us;
+                    let timing_error_percent = ((measurement.execution_time_us as f32 - expected_timing_us as f32) / expected_timing_us as f32 * 100.0).abs();
+                    
+                    if timing_error_percent > tolerance_percent {
+                        let deviation_us = if measurement.execution_time_us > expected_timing_us {
+                            measurement.execution_time_us - expected_timing_us
+                        } else {
+                            expected_timing_us - measurement.execution_time_us
+                        };
+                        
+                        let deviation = TimingDeviation {
+                            measurement_index: index as u16,
+                            timestamp_ms: measurement.timestamp_ms,
+                            expected_timing_us,
+                            actual_timing_us: measurement.execution_time_us,
+                            deviation_us,
+                            deviation_percent: timing_error_percent,
+                            deviation_type: if measurement.execution_time_us > expected_timing_us {
+                                TimingDeviationType::TooSlow
+                            } else {
+                                TimingDeviationType::TooFast
+                            },
+                        };
+                        
+                        if deviations.push(deviation).is_err() {
+                            break; // Vector is full
+                        }
+                    }
+                }
+            }
+        }
+        
+        deviations
+    }
+
+    /// Generate comprehensive timing validation report
+    /// Requirements: 9.5 (timing statistics and error counts)
+    pub fn generate_comprehensive_timing_report(&self) -> Option<ComprehensiveTimingReport> {
+        if let Some(ref active_test) = self.active_test {
+            if active_test.test_type == TestType::PemfTimingValidation {
+                let measurements = &active_test.result.measurements;
+                let deviations = self.detect_detailed_timing_deviations(active_test.parameters.tolerance_percent);
+                
+                // Calculate comprehensive statistics
+                let total_measurements = measurements.timing_measurements.len() as u32;
+                let within_tolerance_count = self.count_measurements_within_tolerance(measurements, active_test.parameters.tolerance_percent);
+                let success_rate_percent = if total_measurements > 0 {
+                    (within_tolerance_count * 100) / total_measurements
+                } else {
+                    0
+                };
+                
+                // Calculate timing stability metrics
+                let timing_stability = self.calculate_timing_stability(measurements);
+                
+                return Some(ComprehensiveTimingReport {
+                    test_duration_ms: active_test.result.duration_ms(),
+                    total_measurements,
+                    within_tolerance_count,
+                    success_rate_percent,
+                    timing_accuracy_percent: measurements.timing_accuracy,
+                    average_timing_error_percent: self.calculate_average_timing_error(measurements),
+                    max_jitter_us: measurements.jitter_measurements.pemf_jitter_us,
+                    timing_stability_score: timing_stability,
+                    deviation_count: deviations.len() as u32,
+                    max_deviation_us: deviations.iter().map(|d| d.deviation_us).max().unwrap_or(0),
+                    test_passed: success_rate_percent >= 95 && measurements.timing_accuracy >= 95.0,
+                    tolerance_percent: active_test.parameters.tolerance_percent,
+                });
+            }
+        }
+        
+        None
+    }
+
+    /// Calculate timing stability score (0-100)
+    fn calculate_timing_stability(&self, measurements: &TestMeasurements) -> u8 {
+        if measurements.timing_measurements.len() < 2 {
+            return 100; // Perfect stability with insufficient data
+        }
+        
+        // Calculate coefficient of variation for timing measurements
+        let timings: Vec<f32, 32> = measurements.timing_measurements.iter()
+            .map(|m| m.execution_time_us as f32)
+            .collect();
+        
+        let mean = timings.iter().sum::<f32>() / timings.len() as f32;
+        let variance = timings.iter()
+            .map(|t| (t - mean) * (t - mean))
+            .sum::<f32>() / timings.len() as f32;
+        // Simple square root approximation for no_std
+        let std_dev = if variance > 0.0 {
+            let mut x = variance;
+            let mut prev = 0.0;
+            while (x - prev).abs() > 0.001 {
+                prev = x;
+                x = (x + variance / x) / 2.0;
+            }
+            x
+        } else {
+            0.0
+        };
+        
+        let coefficient_of_variation = if mean > 0.0 { std_dev / mean } else { 0.0 };
+        
+        // Convert to stability score (lower variation = higher stability)
+        let stability_score = (1.0 - coefficient_of_variation.min(1.0)) * 100.0;
+        stability_score as u8
+    }
+
     /// Process a test command and return response
     /// Requirements: 2.1, 2.2, 2.3 (command processing with validation and result collection)
     pub fn process_test_command(
@@ -2073,10 +3260,37 @@ impl TestCommandProcessor {
 
         // Parse test parameters from remaining payload
         let parameters = if command.payload.len() > 1 {
-            TestParameters::from_payload(&command.payload[1..])
-                .map_err(|_| ErrorCode::InvalidFormat)?
+            match test_type {
+                TestType::LedFunctionality => {
+                    // Parse LED-specific parameters
+                    if command.payload.len() >= 22 {
+                        let led_params = LedFunctionalityParameters::from_payload(&command.payload[1..])
+                            .map_err(|_| ErrorCode::InvalidFormat)?;
+                        Self::create_led_functionality_test_parameters(&led_params)
+                            .map_err(|_| ErrorCode::InvalidFormat)?
+                    } else {
+                        // Use default LED parameters
+                        let led_params = LedFunctionalityParameters::default();
+                        Self::create_led_functionality_test_parameters(&led_params)
+                            .map_err(|_| ErrorCode::InvalidFormat)?
+                    }
+                },
+                _ => {
+                    // Use generic parameter parsing for other test types
+                    TestParameters::from_payload(&command.payload[1..])
+                        .map_err(|_| ErrorCode::InvalidFormat)?
+                }
+            }
         } else {
-            TestParameters::new()
+            match test_type {
+                TestType::LedFunctionality => {
+                    // Use default LED parameters
+                    let led_params = LedFunctionalityParameters::default();
+                    Self::create_led_functionality_test_parameters(&led_params)
+                        .map_err(|_| ErrorCode::InvalidFormat)?
+                },
+                _ => TestParameters::new()
+            }
         };
 
         // Start the test
@@ -2282,6 +3496,494 @@ impl TestCommandProcessor {
         } else {
             None
         }
+    }
+
+    /// Execute battery ADC validation test
+    /// Requirements: 9.1, 9.5 (battery ADC test that validates voltage readings against known references)
+    pub fn execute_battery_adc_test(
+        &mut self,
+        adc_params: BatteryAdcParameters,
+        timestamp_ms: u32,
+    ) -> Result<u8, TestExecutionError> {
+        // Create test parameters from battery ADC parameters
+        let test_params = Self::create_battery_adc_test_parameters(&adc_params)?;
+        
+        // Start the battery ADC test
+        let test_id = self.start_test(TestType::BatteryAdcCalibration, test_params, timestamp_ms)?;
+        
+        // Initialize battery ADC test specific data in custom measurements
+        if let Some(ref mut active_test) = self.active_test {
+            // Store battery ADC parameters in custom measurements for later use
+            let serialized_params = adc_params.serialize();
+            active_test.result.measurements.custom_measurements.clear();
+            for &byte in &serialized_params {
+                if active_test.result.measurements.custom_measurements.push(byte).is_err() {
+                    break;
+                }
+            }
+        }
+        
+        Ok(test_id)
+    }
+
+    /// Create battery ADC test parameters from BatteryAdcParameters
+    /// Requirements: 9.1 (configurable test parameters)
+    pub fn create_battery_adc_test_parameters(adc_params: &BatteryAdcParameters) -> Result<TestParameters, TestParameterError> {
+        let mut parameters = TestParameters::new();
+        
+        // Set battery ADC specific parameters
+        parameters.duration_ms = adc_params.test_duration_ms;
+        parameters.tolerance_percent = adc_params.tolerance_percent;
+        parameters.sample_rate_hz = (adc_params.sample_count * 1000) / adc_params.test_duration_ms; // Calculate sample rate
+        
+        // Set validation criteria for battery ADC testing
+        parameters.validation_criteria.max_error_count = (adc_params.sample_count / 20).max(1); // Allow 5% error rate
+        parameters.validation_criteria.min_success_rate_percent = (100.0 - adc_params.tolerance_percent) as u8;
+        parameters.validation_criteria.max_timing_deviation_us = 10_000; // 10ms timing tolerance
+        parameters.validation_criteria.require_stable_operation = true;
+        
+        // Set resource limits for non-intrusive testing
+        parameters.resource_limits.max_cpu_usage_percent = 15; // Minimal CPU usage for ADC reading
+        parameters.resource_limits.max_memory_usage_bytes = 1024; // 1KB max memory
+        parameters.resource_limits.max_execution_time_ms = adc_params.test_duration_ms + 2000; // Add 2s buffer
+        parameters.resource_limits.allow_preemption = true; // Allow higher priority tasks to preempt
+        
+        // Add battery ADC specific custom parameters
+        let serialized_params = adc_params.serialize();
+        parameters.custom_parameters.clear();
+        for &byte in &serialized_params {
+            parameters.custom_parameters.push(byte).map_err(|_| TestParameterError::PayloadTooLarge)?;
+        }
+        
+        // Validate parameters
+        parameters.validate()?;
+        
+        Ok(parameters)
+    }
+
+    /// Parse battery ADC parameters from custom parameter bytes
+    pub fn parse_battery_adc_parameters(custom_params: &[u8]) -> Option<BatteryAdcParameters> {
+        if custom_params.len() < 20 {
+            return None;
+        }
+        
+        match BatteryAdcParameters::from_payload(custom_params) {
+            Ok(params) => Some(params),
+            Err(_) => None,
+        }
+    }
+
+    /// Add ADC sample to active battery ADC test
+    /// Requirements: 9.1, 9.5 (ADC accuracy measurements)
+    pub fn add_battery_adc_sample(&mut self, adc_value: u16, timestamp_ms: u32) -> Result<(), TestExecutionError> {
+        if let Some(ref mut active_test) = self.active_test {
+            if active_test.test_type == TestType::BatteryAdcCalibration {
+                // Add timing measurement for ADC reading
+                let measurement = TimingMeasurement {
+                    task_name: "battery_adc",
+                    execution_time_us: 100, // Typical ADC reading time
+                    expected_time_us: 100,
+                    timestamp_ms,
+                };
+                
+                active_test.result.measurements.add_timing_measurement(measurement)
+                    .map_err(|_| TestExecutionError::TestAborted)?;
+                
+                // Update custom measurements with ADC data
+                // Store ADC value in first 2 bytes of custom measurements
+                if active_test.result.measurements.custom_measurements.len() >= 2 {
+                    let adc_bytes = adc_value.to_le_bytes();
+                    active_test.result.measurements.custom_measurements[0] = adc_bytes[0];
+                    active_test.result.measurements.custom_measurements[1] = adc_bytes[1];
+                }
+                
+                return Ok(());
+            }
+        }
+        
+        Err(TestExecutionError::TestAborted)
+    }
+
+    /// Add battery state transition to active battery ADC test
+    /// Requirements: 9.1, 9.5 (battery state transition testing)
+    pub fn add_battery_state_transition(&mut self, from_state: BatteryState, to_state: BatteryState, 
+                                       adc_value: u16, timestamp_ms: u32) -> Result<(), TestExecutionError> {
+        if let Some(ref mut active_test) = self.active_test {
+            if active_test.test_type == TestType::BatteryAdcCalibration {
+                // Validate state transition
+                let transition_valid = from_state.is_valid_transition(to_state, adc_value);
+                
+                if !transition_valid {
+                    active_test.result.measurements.error_count += 1;
+                }
+                
+                // Store transition data in custom measurements (if space available)
+                let transition_data = [
+                    from_state as u8,
+                    to_state as u8,
+                    (adc_value & 0xFF) as u8,
+                    ((adc_value >> 8) & 0xFF) as u8,
+                    if transition_valid { 1 } else { 0 },
+                ];
+                
+                let start_idx = active_test.result.measurements.custom_measurements.len();
+                for (i, &byte) in transition_data.iter().enumerate() {
+                    if start_idx + i < 64 {
+                        if active_test.result.measurements.custom_measurements.len() <= start_idx + i {
+                            let _ = active_test.result.measurements.custom_measurements.push(byte);
+                        } else {
+                            active_test.result.measurements.custom_measurements[start_idx + i] = byte;
+                        }
+                    }
+                }
+                
+                return Ok(());
+            }
+        }
+        
+        Err(TestExecutionError::TestAborted)
+    }
+
+    /// Get battery ADC test statistics from active test
+    /// Requirements: 9.5 (ADC accuracy measurements)
+    pub fn get_battery_adc_statistics(&self) -> Option<BatteryAdcMeasurements> {
+        if let Some(ref active_test) = self.active_test {
+            if active_test.test_type == TestType::BatteryAdcCalibration {
+                // Parse battery ADC parameters from custom measurements
+                if let Some(adc_params) = Self::parse_battery_adc_parameters(&active_test.result.measurements.custom_measurements) {
+                    let mut measurements = BatteryAdcMeasurements::new();
+                    
+                    // Extract current ADC value from custom measurements
+                    if active_test.result.measurements.custom_measurements.len() >= 2 {
+                        let adc_value = u16::from_le_bytes([
+                            active_test.result.measurements.custom_measurements[0],
+                            active_test.result.measurements.custom_measurements[1],
+                        ]);
+                        measurements.average_adc_value = adc_value;
+                    }
+                    
+                    // Calculate statistics from timing measurements
+                    measurements.total_samples = active_test.result.measurements.timing_measurements.len() as u32;
+                    measurements.test_duration_ms = active_test.result.end_timestamp_ms.saturating_sub(active_test.result.start_timestamp_ms);
+                    measurements.reference_voltage_mv = adc_params.reference_voltage_mv;
+                    measurements.invalid_readings_count = active_test.result.measurements.error_count;
+                    
+                    // Calculate voltage accuracy
+                    measurements.calculate_voltage_accuracy(adc_params.reference_voltage_mv);
+                    measurements.calculate_calibration_error(adc_params.expected_adc_value);
+                    
+                    // Count state transitions from custom measurements
+                    let transition_count = (active_test.result.measurements.custom_measurements.len().saturating_sub(2)) / 5;
+                    measurements.state_transition_count = transition_count as u32;
+                    
+                    return Some(measurements);
+                }
+            }
+        }
+        
+        None
+    }
+
+    /// Complete battery ADC test and generate comprehensive result
+    /// Requirements: 9.1, 9.5 (comprehensive ADC validation)
+    pub fn complete_battery_adc_test(&mut self, timestamp_ms: u32) -> Option<BatteryAdcTestResult> {
+        if let Some(ref mut active_test) = self.active_test {
+            if active_test.test_type == TestType::BatteryAdcCalibration {
+                // Parse battery ADC parameters
+                if let Some(adc_params) = Self::parse_battery_adc_parameters(&active_test.result.measurements.custom_measurements) {
+                    let mut adc_result = BatteryAdcTestResult::new(adc_params, active_test.result.start_timestamp_ms);
+                    
+                    // Extract ADC samples from timing measurements
+                    for measurement in &active_test.result.measurements.timing_measurements {
+                        if measurement.task_name == "battery_adc" {
+                            // Use execution time as ADC value (stored during add_battery_adc_sample)
+                            let adc_value = if active_test.result.measurements.custom_measurements.len() >= 2 {
+                                u16::from_le_bytes([
+                                    active_test.result.measurements.custom_measurements[0],
+                                    active_test.result.measurements.custom_measurements[1],
+                                ])
+                            } else {
+                                1500 // Default value
+                            };
+                            
+                            let _ = adc_result.add_adc_sample(adc_value, measurement.timestamp_ms);
+                        }
+                    }
+                    
+                    // Extract state transitions from custom measurements
+                    let mut idx = 2; // Skip first 2 bytes (current ADC value)
+                    while idx + 4 < active_test.result.measurements.custom_measurements.len() {
+                        let from_state = BatteryState::from_u8(active_test.result.measurements.custom_measurements[idx]);
+                        let to_state = BatteryState::from_u8(active_test.result.measurements.custom_measurements[idx + 1]);
+                        let adc_value = u16::from_le_bytes([
+                            active_test.result.measurements.custom_measurements[idx + 2],
+                            active_test.result.measurements.custom_measurements[idx + 3],
+                        ]);
+                        
+                        if let (Some(from), Some(to)) = (from_state, to_state) {
+                            let _ = adc_result.add_state_transition(from, to, adc_value, timestamp_ms);
+                        }
+                        
+                        idx += 5;
+                    }
+                    
+                    // Complete the test
+                    adc_result.complete_test(timestamp_ms);
+                    
+                    return Some(adc_result);
+                }
+            }
+        }
+        
+        None
+    }
+
+    /// Execute LED functionality test
+    /// Requirements: 9.1, 9.5 (LED control patterns validation with timing accuracy)
+    pub fn execute_led_functionality_test(
+        &mut self,
+        led_params: LedFunctionalityParameters,
+        timestamp_ms: u32,
+    ) -> Result<u8, TestExecutionError> {
+        // Create test parameters from LED functionality parameters
+        let test_params = Self::create_led_functionality_test_parameters(&led_params)?;
+        
+        // Start the LED functionality test
+        let test_id = self.start_test(TestType::LedFunctionality, test_params, timestamp_ms)?;
+        
+        // Initialize LED functionality test specific data in custom measurements
+        if let Some(ref mut active_test) = self.active_test {
+            // Store LED functionality parameters in custom measurements for later use
+            let serialized_params = led_params.serialize();
+            
+            // Store parameters in custom measurements (first 22 bytes)
+            for (i, &byte) in serialized_params.iter().enumerate() {
+                if i < active_test.result.measurements.custom_measurements.capacity() {
+                    let _ = active_test.result.measurements.custom_measurements.push(byte);
+                }
+            }
+            
+            // Initialize LED test result structure
+            let led_result = LedFunctionalityTestResult::new(led_params, timestamp_ms);
+            
+            // Store LED test result in custom measurements (serialized format)
+            // This will be updated as the test progresses
+            let result_serialized = led_result.serialize().map_err(|_| TestExecutionError::ValidationFailed)?;
+            
+            // Reserve space for LED test result updates (append after parameters)
+            let params_len = serialized_params.len();
+            for (i, &byte) in result_serialized.iter().enumerate() {
+                let idx = params_len + i;
+                if idx < active_test.result.measurements.custom_measurements.capacity() {
+                    if active_test.result.measurements.custom_measurements.len() <= idx {
+                        // Extend the vector to the required size
+                        while active_test.result.measurements.custom_measurements.len() <= idx {
+                            let _ = active_test.result.measurements.custom_measurements.push(0);
+                        }
+                    }
+                    active_test.result.measurements.custom_measurements[idx] = byte;
+                }
+            }
+        }
+        
+        Ok(test_id)
+    }
+
+    /// Create test parameters for LED functionality test
+    /// Requirements: 2.2 (test parameter validation and range checking)
+    fn create_led_functionality_test_parameters(led_params: &LedFunctionalityParameters) -> Result<TestParameters, TestExecutionError> {
+        // Validate LED parameters
+        led_params.validate().map_err(|_| TestExecutionError::ValidationFailed)?;
+        
+        let mut test_params = TestParameters::new();
+        test_params.duration_ms = led_params.test_duration_ms;
+        test_params.tolerance_percent = led_params.timing_tolerance_percent;
+        test_params.sample_rate_hz = 1000 / led_params.measurement_interval_ms; // Convert interval to frequency
+        
+        // Configure validation criteria for LED test
+        test_params.validation_criteria.max_error_count = (led_params.test_duration_ms / led_params.measurement_interval_ms) / 10; // Allow 10% errors
+        test_params.validation_criteria.min_success_rate_percent = if led_params.validate_pattern { 95 } else { 80 };
+        test_params.validation_criteria.max_timing_deviation_us = (led_params.timing_tolerance_percent * 1000.0) as u32;
+        test_params.validation_criteria.require_stable_operation = led_params.validate_timing;
+        
+        // Configure resource limits for LED test (minimal impact)
+        test_params.resource_limits.max_cpu_usage_percent = 5; // LED test should use minimal CPU
+        test_params.resource_limits.max_memory_usage_bytes = 1024; // 1KB memory limit
+        
+        // Store LED-specific parameters in custom parameters
+        let led_serialized = led_params.serialize();
+        test_params.custom_parameters.clear();
+        for &byte in led_serialized.iter().take(test_params.custom_parameters.capacity()) {
+            let _ = test_params.custom_parameters.push(byte);
+        }
+        
+        test_params.validate().map_err(|_| TestExecutionError::ValidationFailed)?;
+        Ok(test_params)
+    }
+
+    /// Update LED functionality test with timing measurement
+    /// Requirements: 9.1, 9.5 (LED timing accuracy validation for flash patterns)
+    pub fn update_led_functionality_test(&mut self, led_state: bool, expected_state: bool, 
+                                        timestamp_ms: u32, state_duration_ms: u32) -> Result<(), SystemError> {
+        if let Some(ref mut active_test) = self.active_test {
+            if active_test.test_type == TestType::LedFunctionality {
+                // Extract LED parameters from custom measurements
+                if active_test.result.measurements.custom_measurements.len() >= 22 {
+                    let params_bytes = &active_test.result.measurements.custom_measurements[0..22];
+                    if let Ok(led_params) = LedFunctionalityParameters::from_payload(params_bytes) {
+                        // Calculate timing error based on expected pattern timing
+                        let expected_duration = match led_params.pattern {
+                            LedTestPattern::Flashing => {
+                                if expected_state {
+                                    led_params.flash_on_duration_ms
+                                } else {
+                                    led_params.flash_off_duration_ms
+                                }
+                            },
+                            LedTestPattern::Solid => {
+                                // For solid pattern, LED should always be ON
+                                if expected_state { u32::MAX } else { 0 }
+                            },
+                            LedTestPattern::Off => {
+                                // For off pattern, LED should always be OFF
+                                if expected_state { 0 } else { u32::MAX }
+                            },
+                            LedTestPattern::Custom => {
+                                // Use configured timing
+                                if expected_state {
+                                    led_params.flash_on_duration_ms
+                                } else {
+                                    led_params.flash_off_duration_ms
+                                }
+                            },
+                        };
+
+                        let timing_error_ms = if expected_duration == u32::MAX || expected_duration == 0 {
+                            0 // No timing error for continuous states
+                        } else {
+                            state_duration_ms as i32 - expected_duration as i32
+                        };
+
+                        // Create timing measurement
+                        let measurement = LedTimingMeasurement {
+                            timestamp_ms,
+                            led_state,
+                            expected_state,
+                            state_duration_ms,
+                            timing_error_ms,
+                        };
+
+                        // Update test measurements
+                        // Store measurement count in custom measurements
+                        let measurement_count_bytes = (active_test.result.measurements.timing_measurements.len() + 1).to_le_bytes();
+                        for (i, &byte) in measurement_count_bytes.iter().enumerate() {
+                            if i < 4 && active_test.result.measurements.custom_measurements.len() > i {
+                                active_test.result.measurements.custom_measurements[i] = byte;
+                            }
+                        }
+                        
+                        // Check for timing violations
+                        let tolerance_ms = (expected_duration as f32 * led_params.timing_tolerance_percent / 100.0) as u32;
+                        let timing_error_abs = timing_error_ms.abs() as u32;
+
+                        if timing_error_abs > tolerance_ms {
+                            active_test.result.measurements.error_count += 1;
+                        }
+
+                        // Check for pattern violations (state mismatch)
+                        if led_state != expected_state {
+                            active_test.result.measurements.error_count += 1;
+                        }
+
+                        // Update timing statistics in custom measurements
+                        let measurement_data = [
+                            (timestamp_ms & 0xFF) as u8,
+                            ((timestamp_ms >> 8) & 0xFF) as u8,
+                            if led_state { 1 } else { 0 },
+                            if expected_state { 1 } else { 0 },
+                            (timing_error_abs & 0xFF) as u8,
+                        ];
+
+                        // Store measurement data in custom measurements (append after parameters and result)
+                        let start_idx = 22 + 32; // After parameters (22) and result space (32)
+                        let measurement_idx = active_test.result.measurements.timing_measurements.len() * 5;
+                        
+                        for (i, &byte) in measurement_data.iter().enumerate() {
+                            let idx = start_idx + measurement_idx + i;
+                            if idx < active_test.result.measurements.custom_measurements.capacity() {
+                                if active_test.result.measurements.custom_measurements.len() <= idx {
+                                    // Extend the vector to the required size
+                                    while active_test.result.measurements.custom_measurements.len() <= idx {
+                                        let _ = active_test.result.measurements.custom_measurements.push(0);
+                                    }
+                                }
+                                active_test.result.measurements.custom_measurements[idx] = byte;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
+    /// Complete LED functionality test and generate final results
+    /// Requirements: 9.1, 9.5 (LED control validation with timing measurements)
+    pub fn complete_led_functionality_test(&mut self, timestamp_ms: u32) -> Result<LedFunctionalityTestResult, TestExecutionError> {
+        // First validate and extract parameters
+        if let Some(ref mut active_test) = self.active_test {
+            if active_test.test_type == TestType::LedFunctionality {
+                // Extract LED parameters from custom measurements
+                if active_test.result.measurements.custom_measurements.len() >= 22 {
+                    let params_bytes = &active_test.result.measurements.custom_measurements[0..22];
+                    if let Ok(led_params) = LedFunctionalityParameters::from_payload(params_bytes) {
+                        // Create final LED test result
+                        let mut led_result = LedFunctionalityTestResult::new(led_params, active_test.result.start_timestamp_ms);
+                        
+                        // Calculate final statistics
+                        let total_measurements = active_test.result.measurements.timing_measurements.len() as u32;
+                        let error_count = active_test.result.measurements.error_count;
+                        
+                        // Calculate accuracy percentages
+                        let error_rate = if total_measurements > 0 {
+                            error_count as f32 / total_measurements as f32
+                        } else {
+                            1.0
+                        };
+                        
+                        led_result.measurements.total_measurements = total_measurements;
+                        led_result.measurements.timing_violations_count = error_count;
+                        led_result.measurements.timing_accuracy_percent = (1.0 - error_rate) * 100.0;
+                        led_result.measurements.pattern_accuracy_percent = (1.0 - error_rate) * 100.0;
+                        
+                        // Calculate pattern cycles completed
+                        let total_cycle_duration = led_params.flash_on_duration_ms + led_params.flash_off_duration_ms;
+                        if total_cycle_duration > 0 {
+                            led_result.measurements.pattern_cycles_completed = led_params.test_duration_ms / total_cycle_duration;
+                        }
+                        
+                        // Set test duration
+                        led_result.measurements.test_duration_ms = timestamp_ms - active_test.result.start_timestamp_ms;
+                        
+                        // Complete the test
+                        led_result.complete_test(timestamp_ms);
+                        
+                        // Update active test status
+                        active_test.result.status = if led_result.test_passed {
+                            TestStatus::Completed
+                        } else {
+                            TestStatus::Failed
+                        };
+                        active_test.result.end_timestamp_ms = timestamp_ms;
+                        
+                        return Ok(led_result);
+                    }
+                }
+            }
+        }
+        
+        Err(TestExecutionError::TestAborted)
     }
 
     /// Execute system stress test

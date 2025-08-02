@@ -5,7 +5,7 @@ use crate::logging::{LogLevel, log_message};
 use heapless::String;
 use core::fmt::Write;
 use core::result::Result::{self, Ok, Err};
-use core::ops::{FnMut, FnOnce};
+use core::ops::FnMut;
 
 /// System error types for graceful error handling
 /// Requirements: 7.1 (graceful error handling for non-critical operations)

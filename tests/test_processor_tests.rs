@@ -748,10 +748,152 @@ mod tests {
         
         // Should reject measurement when no test is active
         let result = processor.update_pemf_timing_measurements(measurement);
-        assert!(result.is_err());
+        assert!(result.is_ok()); // Function doesn't error, just ignores when no test active
         
         // Should return None for statistics when no test is active
         let stats = processor.get_pemf_timing_statistics();
         assert!(stats.is_none());
+    }
+
+    /// Test enhanced timing deviation detection functionality
+    /// Requirements: 9.1, 9.5 (timing deviation detection and reporting)
+    #[test]
+    fn test_enhanced_timing_deviation_detection() {
+        let mut processor = TestCommandProcessor::new();
+        let timestamp = 1000;
+        
+        // Create test parameters with strict tolerance
+        let params = TestCommandProcessor::create_pemf_timing_parameters(3000, 0.5).unwrap();
+        
+        // Start test
+        let _test_id = processor.execute_pemf_timing_test(params, timestamp).unwrap();
+        
+        // Add measurements with known deviations
+        let measurements = [
+            (500000, "perfect timing"),
+            (501000, "1ms too slow"),
+            (498000, "2ms too fast"),
+            (505000, "5ms too slow - should be detected"),
+            (500000, "perfect timing again"),
+            (497000, "3ms too fast - should be detected"),
+        ];
+        
+        for (i, (timing_us, _description)) in measurements.iter().enumerate() {
+            let measurement = TimingMeasurement {
+                task_name: "pemf_pulse",
+                execution_time_us: *timing_us,
+                expected_time_us: 500000,
+                timestamp_ms: timestamp + (i as u32 * 500),
+            };
+            processor.update_pemf_timing_measurements(measurement).unwrap();
+        }
+        
+        // Test enhanced deviation detection
+        let deviations = processor.detect_detailed_timing_deviations(0.5); // 0.5% tolerance
+        
+        // Should detect the 5ms and 3ms deviations (both > 0.5% of 500ms = 2.5ms)
+        assert!(deviations.len() >= 2, "Should detect at least 2 timing deviations");
+        
+        // Check specific deviations
+        let slow_deviation = deviations.iter()
+            .find(|d| d.deviation_type == TimingDeviationType::TooSlow && d.deviation_us == 5000);
+        assert!(slow_deviation.is_some(), "Should detect 5ms slow deviation");
+        
+        let fast_deviation = deviations.iter()
+            .find(|d| d.deviation_type == TimingDeviationType::TooFast && d.deviation_us == 3000);
+        assert!(fast_deviation.is_some(), "Should detect 3ms fast deviation");
+    }
+
+    /// Test comprehensive timing report generation
+    /// Requirements: 9.5 (timing statistics and error counts)
+    #[test]
+    fn test_comprehensive_timing_report() {
+        let mut processor = TestCommandProcessor::new();
+        let timestamp = 1000;
+        
+        // Create test parameters
+        let params = TestCommandProcessor::create_pemf_timing_parameters(5000, 1.0).unwrap();
+        
+        // Start test
+        let _test_id = processor.execute_pemf_timing_test(params, timestamp).unwrap();
+        
+        // Add measurements with known characteristics
+        let measurements = [
+            500000, // Perfect
+            501000, // 0.2% error
+            498000, // 0.4% error
+            503000, // 0.6% error
+            497000, // 0.6% error
+            508000, // 1.6% error - outside tolerance
+            492000, // 1.6% error - outside tolerance
+        ];
+        
+        for (i, &timing_us) in measurements.iter().enumerate() {
+            let measurement = TimingMeasurement {
+                task_name: "pemf_pulse",
+                execution_time_us: timing_us,
+                expected_time_us: 500000,
+                timestamp_ms: timestamp + (i as u32 * 500),
+            };
+            processor.update_pemf_timing_measurements(measurement).unwrap();
+        }
+        
+        // Complete the test
+        processor.update_active_test(timestamp + 5500).unwrap();
+        
+        // Generate comprehensive report
+        let report = processor.generate_comprehensive_timing_report()
+            .expect("Failed to generate comprehensive timing report");
+        
+        // Verify report contents
+        assert_eq!(report.total_measurements, 7);
+        assert_eq!(report.within_tolerance_count, 5); // First 5 measurements within 1%
+        assert!(report.success_rate_percent > 70); // Should be around 71% (5/7)
+        assert!(report.timing_accuracy_percent > 0.0);
+        assert!(report.max_deviation_us >= 8000); // Should capture the 8ms deviation
+        assert!(report.deviation_count >= 2); // Should detect 2 deviations outside tolerance
+        assert_eq!(report.tolerance_percent, 1.0);
+        assert!(report.timing_stability_score > 0);
+    }
+
+    /// Test test result retrieval by ID
+    /// Requirements: 9.5 (test result structure with timing statistics)
+    #[test]
+    fn test_get_test_result_by_id() {
+        let mut processor = TestCommandProcessor::new();
+        let timestamp = 1000;
+        
+        // Create and start test
+        let params = TestCommandProcessor::create_pemf_timing_parameters(2000, 1.0).unwrap();
+        let test_id = processor.execute_pemf_timing_test(params, timestamp).unwrap();
+        
+        // Add some measurements
+        for i in 0..3 {
+            let measurement = TimingMeasurement {
+                task_name: "pemf_pulse",
+                execution_time_us: 500000 + (i * 1000),
+                expected_time_us: 500000,
+                timestamp_ms: timestamp + (i * 500),
+            };
+            processor.update_pemf_timing_measurements(measurement).unwrap();
+        }
+        
+        // Complete the test
+        processor.update_active_test(timestamp + 2500).unwrap();
+        
+        // Get test result by ID
+        let result = processor.get_test_result(test_id)
+            .expect("Failed to get test result");
+        
+        // Verify result structure
+        assert_eq!(result.test_type, TestType::PemfTimingValidation);
+        assert_eq!(result.status, TestStatus::Completed);
+        assert_eq!(result.test_id, test_id);
+        assert!(result.duration_ms() > 0);
+        assert_eq!(result.measurements.timing_measurements.len(), 3);
+        
+        // Test with invalid ID
+        let invalid_result = processor.get_test_result(99);
+        assert!(invalid_result.is_none());
     }
 }

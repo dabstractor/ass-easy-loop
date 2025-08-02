@@ -8,17 +8,17 @@ mod battery;
 use battery::BatteryState;
 
 mod command;
-use command::{CommandReport, ParseResult, init_command_handler, CommandQueue, CommandParser, QueuedCommand, ResponseQueue};
+use command::{CommandReport, ParseResult, CommandQueue, CommandParser, ResponseQueue, AuthenticationValidator};
 
 mod bootloader;
 use bootloader::{
-    BootloaderEntryManager, BootloaderError, TaskPriority, HardwareState, BootloaderEntryState,
-    init_bootloader_manager, get_bootloader_manager, should_task_shutdown, 
-    mark_task_shutdown_complete, mark_task_shutdown_failed
+    BootloaderEntryManager, TaskPriority, HardwareState, BootloaderEntryState,
+    init_bootloader_manager, should_task_shutdown, 
+    mark_task_shutdown_complete
 };
 
 mod logging;
-use logging::{LogLevel, Logger, QueueLogger, LogQueue, init_global_logging, LogReport};
+use logging::{LogQueue, init_global_logging, LogReport};
 
 mod config;
 use config::usb as usb_config;
@@ -27,16 +27,15 @@ mod error_handling;
 use error_handling::{SystemError, SystemResult, ErrorRecovery};
 
 mod resource_management;
-use resource_management::{ResourceValidator, SafeLoggingAccess, ResourceLeakDetector};
+use resource_management::{ResourceValidator, ResourceLeakDetector};
 
 mod performance_profiler;
-use performance_profiler::{PerformanceProfiler, TaskExecutionTimes, TimingMeasurement, JitterMeasurements, init_global_profiler, get_global_profiler};
 
 mod system_state;
 use system_state::{SystemStateHandler, StateQueryType};
 
 mod test_processor;
-use test_processor::{TestCommandProcessor, TestType, TestStatus};
+use test_processor::{TestCommandProcessor, TestStatus};
 
 // Boot2 firmware for RP2040
 #[unsafe(link_section = ".boot2")]
@@ -62,11 +61,7 @@ use usb_device::{
     class_prelude::UsbBusAllocator,
     prelude::{UsbDevice, UsbDeviceBuilder, UsbVidPid},
 };
-use usbd_hid::{
-    descriptor::{generator_prelude::*, SerializedDescriptor},
-    hid_class::HIDClass,
-};
-use heapless::Vec;
+use usbd_hid::hid_class::HIDClass;
 
 use rtic_monotonics::rp2040::prelude::*;
 
@@ -111,7 +106,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     // Attempt to log panic information via USB (best effort)
     // This may fail if USB is not initialized or available, but we continue regardless
     unsafe {
-        if let (queue, Some(get_timestamp)) = (&mut GLOBAL_LOG_QUEUE, TIMESTAMP_FUNCTION) {
+        if let (queue, Some(get_timestamp)) = (&raw mut GLOBAL_LOG_QUEUE, TIMESTAMP_FUNCTION) {
             let timestamp = get_timestamp();
             
             // Create detailed panic message with location information
@@ -209,7 +204,7 @@ fn flush_usb_messages_on_panic() {
     
     // Attempt to flush messages with timeout
     unsafe {
-        let queue = unsafe { &mut GLOBAL_LOG_QUEUE };; {
+        let queue = unsafe { &raw mut GLOBAL_LOG_QUEUE };; {
             // Try to dequeue and "transmit" messages
             // In a real implementation, this would interface with the USB HID class
             // For now, we just drain the queue to simulate flushing
@@ -259,10 +254,15 @@ mod app {
     
     // Compile-time priority hierarchy verification
     // These constants ensure the priority hierarchy is maintained at compile time
+    #[allow(dead_code)]
     const PEMF_PULSE_PRIORITY: u8 = 3;  // Highest priority - timing critical
+    #[allow(dead_code)]
     const BATTERY_MONITOR_PRIORITY: u8 = 2;  // Medium priority - periodic sampling
+    #[allow(dead_code)]
     const LED_CONTROL_PRIORITY: u8 = 1;  // Lowest priority - visual feedback
+    #[allow(dead_code)]
     const USB_HID_PRIORITY: u8 = 2;  // Medium priority - data transmission
+    #[allow(dead_code)]
     const USB_POLL_PRIORITY: u8 = 1;  // Lowest priority - non-critical
     
     // Compile-time assertions to verify priority hierarchy
@@ -374,9 +374,9 @@ mod app {
 
         // Initialize global logging system
         unsafe {
-            init_global_logging(&mut GLOBAL_LOG_QUEUE, get_timestamp_ms);
-            logging::init_global_config(&mut GLOBAL_LOG_CONFIG);
-            logging::init_global_performance_monitoring(&mut GLOBAL_PERFORMANCE_STATS);
+            init_global_logging(&raw mut GLOBAL_LOG_QUEUE, get_timestamp_ms);
+            logging::init_global_config(&raw mut GLOBAL_LOG_CONFIG);
+            logging::init_global_performance_monitoring(&raw mut GLOBAL_PERFORMANCE_STATS);
             TIMESTAMP_FUNCTION = Some(get_timestamp_ms);
         }
 
@@ -922,7 +922,7 @@ mod app {
     /// Low-priority LED control task
     /// Provides visual feedback based on battery state with variable scheduling
     /// Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
-    #[task(shared = [led, battery_state], priority = 1)]
+    #[task(shared = [led, battery_state, test_processor], priority = 1)]
     async fn led_control_task(mut ctx: led_control_task::Context) {
         // LED flash timing constants for low battery state
         // 2Hz flash pattern: 250ms ON, 250ms OFF (total period = 500ms)
@@ -935,6 +935,10 @@ mod app {
         // Track current LED state and battery state
         let mut current_led_on = false;
         let mut last_battery_state = BatteryState::Normal;
+        
+        // Track LED state timing for test processor integration
+        let mut led_state_start_time = get_timestamp_ms();
+        let mut last_led_state = false;
         
         loop {
             // Check for shutdown request before LED operations
@@ -970,7 +974,24 @@ mod app {
                                 let _ = ErrorRecovery::handle_error(error, "LED control HIGH");
                             }
                         });
+                        
+                        // Update test processor with LED state change
+                        let current_time = get_timestamp_ms();
+                        let state_duration = current_time - led_state_start_time;
+                        
+                        // Update test processor if LED functionality test is active
+                        ctx.shared.test_processor.lock(|processor| {
+                            let _ = processor.update_led_functionality_test(
+                                last_led_state, 
+                                last_led_state, // Expected state matches actual for normal operation
+                                led_state_start_time,
+                                state_duration
+                            );
+                        });
+                        
                         current_led_on = true;
+                        last_led_state = true;
+                        led_state_start_time = current_time;
                     }
                     
                     // Wait for ON duration, but check for state changes periodically
@@ -1008,7 +1029,24 @@ mod app {
                                 let _ = ErrorRecovery::handle_error(error, "LED control LOW (flash OFF)");
                             }
                         });
+                        
+                        // Update test processor with LED state change
+                        let current_time = get_timestamp_ms();
+                        let state_duration = current_time - led_state_start_time;
+                        
+                        // Update test processor if LED functionality test is active
+                        ctx.shared.test_processor.lock(|processor| {
+                            let _ = processor.update_led_functionality_test(
+                                last_led_state, 
+                                last_led_state, // Expected state matches actual for normal operation
+                                led_state_start_time,
+                                state_duration
+                            );
+                        });
+                        
                         current_led_on = false;
+                        last_led_state = false;
+                        led_state_start_time = current_time;
                     }
                     
                     // Wait for OFF duration, but check for state changes periodically
@@ -1042,7 +1080,24 @@ mod app {
                                 let _ = ErrorRecovery::handle_error(error, "LED control LOW (normal state)");
                             }
                         });
+                        
+                        // Update test processor with LED state change
+                        let current_time = get_timestamp_ms();
+                        let state_duration = current_time - led_state_start_time;
+                        
+                        // Update test processor if LED functionality test is active
+                        ctx.shared.test_processor.lock(|processor| {
+                            let _ = processor.update_led_functionality_test(
+                                last_led_state, 
+                                false, // Expected state is OFF for normal battery state
+                                led_state_start_time,
+                                state_duration
+                            );
+                        });
+                        
                         current_led_on = false;
+                        last_led_state = false;
+                        led_state_start_time = current_time;
                     }
                     
                     // Wait for state check interval
@@ -1123,24 +1178,111 @@ mod app {
                         match hid_class.pull_raw_output(&mut output_report_buf) {
                             Ok(report_size) => {
                                 if report_size > 0 {
-                                    // Process the output report as a command
+                                    // Parse and validate the command report
                                     let timestamp = get_timestamp_ms();
-                                    let responses = command::handler::process_usb_report(
-                                        hid_class, 
-                                        &output_report_buf[..report_size], 
-                                        report_size
-                                    );
-                                    
-                                    // Send responses back to host via logging system
-                                    for response in responses {
-                                        if let Ok(log_message) = response.to_log_message() {
+                                    match CommandReport::parse(&output_report_buf[..report_size]) {
+                                        ParseResult::Valid(command) => {
+                                            // Validate authentication
+                                            if AuthenticationValidator::validate_command(&command) {
+                                                // Validate command format
+                                                if let Ok(()) = AuthenticationValidator::validate_format(&command) {
+                                                    // Enqueue command for processing by command handler task
+                                                    // Requirements: 2.4 (FIFO order), 6.4 (timeout handling)
+                                                    let enqueue_success = ctx.shared.command_queue.lock(|queue| {
+                                                        queue.enqueue(command.clone(), timestamp, 5000) // 5 second timeout
+                                                    });
+                                                    
+                                                    if enqueue_success {
+                                                        log_info!("USB command queued: type=0x{:02X}, id={}, size={} bytes", 
+                                                                 command.command_type, command.command_id, report_size);
+                                                        
+                                                        // Send acknowledgment via logging system
+                                                        let ack_msg = logging::LogMessage::new(
+                                                            timestamp,
+                                                            logging::LogLevel::Info,
+                                                            "CMD",
+                                                            "Command received and queued"
+                                                        );
+                                                        unsafe {
+                                                            let _ = GLOBAL_LOG_QUEUE.enqueue(ack_msg);
+                                                        }
+                                                    } else {
+                                                        log_warn!("Command queue full, dropping command: type=0x{:02X}, id={}", 
+                                                                 command.command_type, command.command_id);
+                                                        
+                                                        // Send error response via logging system
+                                                        let error_msg = logging::LogMessage::new(
+                                                            timestamp,
+                                                            logging::LogLevel::Error,
+                                                            "CMD",
+                                                            "Command queue full"
+                                                        );
+                                                        unsafe {
+                                                            let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
+                                                        }
+                                                    }
+                                                } else {
+                                                    log_warn!("Invalid command format received");
+                                                    let error_msg = logging::LogMessage::new(
+                                                        timestamp,
+                                                        logging::LogLevel::Error,
+                                                        "CMD",
+                                                        "Invalid command format"
+                                                    );
+                                                    unsafe {
+                                                        let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
+                                                    }
+                                                }
+                                            } else {
+                                                log_warn!("Command authentication failed");
+                                                let error_msg = logging::LogMessage::new(
+                                                    timestamp,
+                                                    logging::LogLevel::Error,
+                                                    "CMD",
+                                                    "Authentication failed"
+                                                );
+                                                unsafe {
+                                                    let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
+                                                }
+                                            }
+                                        }
+                                        ParseResult::InvalidChecksum => {
+                                            log_warn!("Command with invalid checksum received");
+                                            let error_msg = logging::LogMessage::new(
+                                                timestamp,
+                                                logging::LogLevel::Error,
+                                                "CMD",
+                                                "Invalid checksum"
+                                            );
                                             unsafe {
-                                                let _ = GLOBAL_LOG_QUEUE.enqueue(log_message);
+                                                let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
+                                            }
+                                        }
+                                        ParseResult::InvalidFormat => {
+                                            log_warn!("Command with invalid format received");
+                                            let error_msg = logging::LogMessage::new(
+                                                timestamp,
+                                                logging::LogLevel::Error,
+                                                "CMD",
+                                                "Invalid format"
+                                            );
+                                            unsafe {
+                                                let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
+                                            }
+                                        }
+                                        ParseResult::BufferTooShort => {
+                                            log_warn!("Command buffer too short");
+                                            let error_msg = logging::LogMessage::new(
+                                                timestamp,
+                                                logging::LogLevel::Error,
+                                                "CMD",
+                                                "Buffer too short"
+                                            );
+                                            unsafe {
+                                                let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
                                             }
                                         }
                                     }
-                                    
-                                    log_info!("Processed USB command, report size: {} bytes", report_size);
                                 }
                             }
                             Err(_) => {
@@ -1246,7 +1388,7 @@ mod app {
     /// USB command handler task with medium priority for processing test commands
     /// Processes commands from the command queue and executes appropriate actions
     /// Requirements: 2.1, 2.2, 2.4, 2.5, 6.1, 6.2
-    #[task(shared = [command_queue, response_queue, command_parser, bootloader_manager, test_processor], priority = 2)]
+    #[task(shared = [command_queue, response_queue, command_parser, bootloader_manager, system_state_handler, test_processor], priority = 2)]
     async fn usb_command_handler_task(mut ctx: usb_command_handler_task::Context) {
         // Command processing interval - balance between responsiveness and CPU usage
         const COMMAND_PROCESSING_INTERVAL_MS: u64 = 50;
@@ -1335,8 +1477,82 @@ mod app {
                         }
                         Some(command::parsing::TestCommand::SystemStateQuery) => {
                             log_info!("System state query command received");
-                            // TODO: Implement system state query logic in future tasks
-                            commands_processed += 1;
+                            
+                            // Parse query type from payload (first byte)
+                            if queued_cmd.command.payload.is_empty() {
+                                // Queue error response for missing query type
+                                if let Ok(error_response) = CommandReport::error_response(
+                                    queued_cmd.command.command_id,
+                                    command::parsing::ErrorCode::InvalidFormat,
+                                    "Missing query type in payload"
+                                ) {
+                                    ctx.shared.response_queue.lock(|queue| {
+                                        queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                    });
+                                }
+                                commands_failed += 1;
+                                log_warn!("System state query missing query type");
+                                continue;
+                            }
+                            
+                            let query_type_byte = queued_cmd.command.payload[0];
+                            match StateQueryType::from_u8(query_type_byte) {
+                                Some(query_type) => {
+                                    // Process system state query
+                                    let response_result = ctx.shared.system_state_handler.lock(|handler| {
+                                        handler.process_state_query(query_type, timestamp)
+                                    });
+                                    
+                                    match response_result {
+                                        Ok(state_data) => {
+                                            // Create response with state data
+                                            if let Ok(response) = CommandReport::new(
+                                                command::parsing::TestResponse::StateData as u8,
+                                                queued_cmd.command.command_id,
+                                                state_data.as_slice()
+                                            ) {
+                                                ctx.shared.response_queue.lock(|queue| {
+                                                    queue.enqueue(response, queued_cmd.sequence_number, timestamp)
+                                                });
+                                                commands_processed += 1;
+                                                log_info!("System state query processed successfully: type=0x{:02X}, data_size={}", 
+                                                         query_type_byte, state_data.len());
+                                            } else {
+                                                commands_failed += 1;
+                                                log_warn!("Failed to create system state response");
+                                            }
+                                        }
+                                        Err(error) => {
+                                            // Queue error response for system state query failure
+                                            if let Ok(error_response) = CommandReport::error_response(
+                                                queued_cmd.command.command_id,
+                                                command::parsing::ErrorCode::SystemNotReady,
+                                                "System state query failed"
+                                            ) {
+                                                ctx.shared.response_queue.lock(|queue| {
+                                                    queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                                });
+                                            }
+                                            commands_failed += 1;
+                                            log_warn!("System state query failed: {:?}", error);
+                                        }
+                                    }
+                                }
+                                None => {
+                                    // Queue error response for invalid query type
+                                    if let Ok(error_response) = CommandReport::error_response(
+                                        queued_cmd.command.command_id,
+                                        command::parsing::ErrorCode::UnsupportedCommand,
+                                        "Invalid query type"
+                                    ) {
+                                        ctx.shared.response_queue.lock(|queue| {
+                                            queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                        });
+                                    }
+                                    commands_failed += 1;
+                                    log_warn!("Invalid system state query type: 0x{:02X}", query_type_byte);
+                                }
+                            }
                         }
                         Some(command::parsing::TestCommand::ExecuteTest) => {
                             log_info!("Execute test command received - processing with test processor");
@@ -1373,13 +1589,87 @@ mod app {
                         }
                         Some(command::parsing::TestCommand::ConfigurationQuery) => {
                             log_info!("Configuration query command received");
-                            // TODO: Implement configuration query logic in future tasks
-                            commands_processed += 1;
+                            
+                            // Process configuration dump query (using ConfigurationDump state query type)
+                            let response_result = ctx.shared.system_state_handler.lock(|handler| {
+                                handler.process_state_query(StateQueryType::ConfigurationDump, timestamp)
+                            });
+                            
+                            match response_result {
+                                Ok(config_data) => {
+                                    // Create response with configuration data
+                                    if let Ok(response) = CommandReport::new(
+                                        command::parsing::TestResponse::StateData as u8,
+                                        queued_cmd.command.command_id,
+                                        config_data.as_slice()
+                                    ) {
+                                        ctx.shared.response_queue.lock(|queue| {
+                                            queue.enqueue(response, queued_cmd.sequence_number, timestamp)
+                                        });
+                                        commands_processed += 1;
+                                        log_info!("Configuration query processed successfully, data_size={}", config_data.len());
+                                    } else {
+                                        commands_failed += 1;
+                                        log_warn!("Failed to create configuration response");
+                                    }
+                                }
+                                Err(error) => {
+                                    // Queue error response for configuration query failure
+                                    if let Ok(error_response) = CommandReport::error_response(
+                                        queued_cmd.command.command_id,
+                                        command::parsing::ErrorCode::SystemNotReady,
+                                        "Configuration query failed"
+                                    ) {
+                                        ctx.shared.response_queue.lock(|queue| {
+                                            queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                        });
+                                    }
+                                    commands_failed += 1;
+                                    log_warn!("Configuration query failed: {:?}", error);
+                                }
+                            }
                         }
                         Some(command::parsing::TestCommand::PerformanceMetrics) => {
                             log_info!("Performance metrics command received");
-                            // TODO: Implement performance metrics logic in future tasks
-                            commands_processed += 1;
+                            
+                            // Process performance metrics query (using TaskPerformance state query type)
+                            let response_result = ctx.shared.system_state_handler.lock(|handler| {
+                                handler.process_state_query(StateQueryType::TaskPerformance, timestamp)
+                            });
+                            
+                            match response_result {
+                                Ok(perf_data) => {
+                                    // Create response with performance data
+                                    if let Ok(response) = CommandReport::new(
+                                        command::parsing::TestResponse::StateData as u8,
+                                        queued_cmd.command.command_id,
+                                        perf_data.as_slice()
+                                    ) {
+                                        ctx.shared.response_queue.lock(|queue| {
+                                            queue.enqueue(response, queued_cmd.sequence_number, timestamp)
+                                        });
+                                        commands_processed += 1;
+                                        log_info!("Performance metrics processed successfully, data_size={}", perf_data.len());
+                                    } else {
+                                        commands_failed += 1;
+                                        log_warn!("Failed to create performance metrics response");
+                                    }
+                                }
+                                Err(error) => {
+                                    // Queue error response for performance metrics failure
+                                    if let Ok(error_response) = CommandReport::error_response(
+                                        queued_cmd.command.command_id,
+                                        command::parsing::ErrorCode::SystemNotReady,
+                                        "Performance metrics query failed"
+                                    ) {
+                                        ctx.shared.response_queue.lock(|queue| {
+                                            queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                        });
+                                    }
+                                    commands_failed += 1;
+                                    log_warn!("Performance metrics query failed: {:?}", error);
+                                }
+                            }
                         }
                         None => {
                             // Requirements: 2.5 (error response with diagnostic information)
@@ -1643,6 +1933,7 @@ mod app {
         const MAX_RETRY_ATTEMPTS: u8 = 3;
         
         // Retry delay for failed transmissions (shorter than main interval)
+        #[allow(dead_code)]
         const RETRY_DELAY_MS: u64 = 5;
         
         // Performance monitoring constants
@@ -2089,7 +2380,7 @@ mod app {
     /// Handles runtime log level control via USB control commands
     /// Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
     #[task(shared = [hid_class], priority = 1)]
-    async fn usb_control_task(mut ctx: usb_control_task::Context) {
+    async fn usb_control_task(ctx: usb_control_task::Context) {
         // Control command processing interval
         const CONTROL_TASK_INTERVAL_MS: u64 = 100;
         

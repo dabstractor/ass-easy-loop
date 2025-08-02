@@ -38,5 +38,7 @@ pub use test_processor::{
     TestCommandProcessor, TestType, TestStatus, TestParameters, TestResult,
     TestMeasurements, ResourceUsageStats, PerformanceMetrics, TestProcessorStatistics,
     ActiveTest, ResourceMonitor, TestExecutionError, TestParameterError,
-    UsbCommunicationTestParameters, UsbCommunicationStatistics, TimingMeasurement
+    UsbCommunicationTestParameters, UsbCommunicationStatistics, TimingMeasurement,
+    PemfTimingStatistics, PemfTimingParameters, TimingDeviation, TimingDeviationReport,
+    TimingDeviationType, ComprehensiveTimingReport
 };
