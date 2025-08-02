@@ -1,0 +1,312 @@
+//! Command handler module for USB HID output reports
+//! Provides helper functions for processing USB commands
+//! The actual RTIC tasks are defined in main.rs
+//! Requirements: 2.1, 2.2, 6.1, 6.2
+
+use heapless::Vec;
+use usbd_hid::hid_class::HIDClass;
+use crate::logging::{LogReport, LogMessage, LogLevel};
+use rp2040_hal::usb::UsbBus;
+use crate::command::parsing::{
+    CommandReport, ParseResult, TestResponse, ResponseStatus, ErrorCode,
+    AuthenticationValidator, CommandQueue, ResponseQueue, QueuedCommand, QueuedResponse
+};
+use core::option::Option::{self, Some, None};
+use core::result::Result::{self, Ok, Err};
+use core::convert::TryFrom;
+
+/// USB HID command handler for processing output reports with enhanced queuing
+/// Requirements: 2.4 (FIFO command execution), 2.5 (error responses), 6.4 (timeout handling)
+pub struct UsbCommandHandler {
+    command_queue: CommandQueue<8>,
+    response_queue: ResponseQueue<8>,
+    processed_count: u32,
+    error_count: u32,
+    timeout_count: u32,
+    default_timeout_ms: u32,
+}
+
+impl UsbCommandHandler {
+    /// Create a new USB command handler with enhanced queuing
+    pub const fn new() -> Self {
+        Self {
+            command_queue: CommandQueue::new(),
+            response_queue: ResponseQueue::new(),
+            processed_count: 0,
+            error_count: 0,
+            timeout_count: 0,
+            default_timeout_ms: 5000, // 5 second default timeout
+        }
+    }
+
+    /// Set default command timeout in milliseconds
+    pub fn set_default_timeout(&mut self, timeout_ms: u32) {
+        self.default_timeout_ms = timeout_ms;
+    }
+
+    /// Process a USB HID output report containing a command
+    /// This function is called by the RTIC task in main.rs
+    /// 
+    /// # Arguments
+    /// * `report_buf` - The raw USB report data (64 bytes)
+    /// * `report_len` - The length of the received report
+    /// * `timestamp` - Current timestamp for logging
+    ///
+    /// # Returns
+    /// A vector of LogReport responses to send back to the host
+    pub fn process_output_report(&mut self, report_buf: &[u8], report_len: usize, timestamp: u32) -> Vec<LogReport, 8> {
+        let mut responses: Vec<LogReport, 8> = Vec::new();
+        
+        // Validate report length
+        if report_len != 64 {
+            let error_msg = LogMessage::new(
+                timestamp,
+                LogLevel::Error,
+                "CMD",
+                "Invalid report length"
+            );
+            if let Ok(log_report) = LogReport::try_from(error_msg.serialize()) {
+                let _ = responses.push(log_report);
+            }
+            self.error_count += 1;
+            return responses;
+        }
+
+        // Parse the command report
+        match CommandReport::parse(report_buf) {
+            ParseResult::Valid(command) => {
+                // Validate authentication
+                if !AuthenticationValidator::validate_command(&command) {
+                    let error_response = self.create_error_response(
+                        command.command_id,
+                        ErrorCode::InvalidChecksum,
+                        "Authentication failed",
+                        timestamp
+                    );
+                    if let Some(response) = error_response {
+                        let _ = responses.push(response);
+                    }
+                    self.error_count += 1;
+                    return responses;
+                }
+
+                // Validate command format
+                if let Err(error_code) = AuthenticationValidator::validate_format(&command) {
+                    let error_response = self.create_error_response(
+                        command.command_id,
+                        error_code,
+                        "Invalid command format",
+                        timestamp
+                    );
+                    if let Some(response) = error_response {
+                        let _ = responses.push(response);
+                    }
+                    self.error_count += 1;
+                    return responses;
+                }
+
+                // Queue the command for processing with timeout
+                // Requirements: 2.4 (FIFO order), 6.4 (timeout handling)
+                if self.command_queue.enqueue(command.clone(), timestamp, self.default_timeout_ms) {
+                    // Create acknowledgment response
+                    let ack_response = self.create_ack_response(command.command_id, timestamp);
+                    if let Some(response) = ack_response {
+                        let _ = responses.push(response);
+                    }
+                    self.processed_count += 1;
+
+                    // Log successful command reception with sequence tracking
+                    let _sequence_num = self.command_queue.current_sequence().saturating_sub(1);
+                    let log_msg = LogMessage::new(
+                        timestamp,
+                        LogLevel::Info,
+                        "CMD",
+                        "Command queued for processing"
+                    );
+                    if let Ok(log_report) = LogReport::try_from(log_msg.serialize()) {
+                        let _ = responses.push(log_report);
+                    }
+                } else {
+                    // Queue is full - Requirements: 2.5 (error response with diagnostic info)
+                    let error_response = self.create_error_response(
+                        command.command_id,
+                        ErrorCode::SystemNotReady,
+                        "Command queue full",
+                        timestamp
+                    );
+                    if let Some(response) = error_response {
+                        let _ = responses.push(response);
+                    }
+                    self.error_count += 1;
+                }
+            }
+            ParseResult::InvalidChecksum => {
+                let error_msg = LogMessage::new(
+                    timestamp,
+                    LogLevel::Error,
+                    "CMD",
+                    "Invalid command checksum"
+                );
+                if let Ok(log_report) = LogReport::try_from(error_msg.serialize()) {
+                    let _ = responses.push(log_report);
+                }
+                self.error_count += 1;
+            }
+            ParseResult::InvalidFormat => {
+                let error_msg = LogMessage::new(
+                    timestamp,
+                    LogLevel::Error,
+                    "CMD",
+                    "Invalid command format"
+                );
+                if let Ok(log_report) = LogReport::try_from(error_msg.serialize()) {
+                    let _ = responses.push(log_report);
+                }
+                self.error_count += 1;
+            }
+            ParseResult::BufferTooShort => {
+                let error_msg = LogMessage::new(
+                    timestamp,
+                    LogLevel::Error,
+                    "CMD",
+                    "Command buffer too short"
+                );
+                if let Ok(log_report) = LogReport::try_from(error_msg.serialize()) {
+                    let _ = responses.push(log_report);
+                }
+                self.error_count += 1;
+            }
+        }
+        
+        responses
+    }
+
+    /// Get the next command from the queue for processing
+    /// Requirements: 2.4 (FIFO order execution)
+    pub fn get_next_command(&mut self) -> Option<QueuedCommand> {
+        self.command_queue.dequeue()
+    }
+
+    /// Process command timeouts and remove expired commands
+    /// Requirements: 6.4 (timeout handling)
+    pub fn process_timeouts(&mut self, current_time_ms: u32) -> usize {
+        let removed_count = self.command_queue.remove_timed_out_commands(current_time_ms);
+        self.timeout_count += removed_count as u32;
+        removed_count
+    }
+
+    /// Queue a response for transmission to host
+    /// Requirements: 2.5 (error responses with diagnostic information)
+    pub fn queue_response(&mut self, response: CommandReport, sequence_number: u32, timestamp_ms: u32) -> bool {
+        self.response_queue.enqueue(response, sequence_number, timestamp_ms)
+    }
+
+    /// Get the next response for transmission
+    pub fn get_next_response(&mut self) -> Option<QueuedResponse> {
+        self.response_queue.dequeue()
+    }
+
+    /// Requeue a response for retry after transmission failure
+    pub fn requeue_response_for_retry(&mut self, response: QueuedResponse) -> bool {
+        const MAX_RETRIES: u8 = 3;
+        self.response_queue.requeue_for_retry(response, MAX_RETRIES)
+    }
+
+    /// Create an acknowledgment response for a successfully received command
+    fn create_ack_response(&self, command_id: u8, timestamp: u32) -> Option<LogReport> {
+        // Create ACK response payload
+        let mut payload: Vec<u8, 60> = Vec::new();
+        let _ = payload.push(ResponseStatus::Success as u8);
+        let _ = payload.push(command_id);
+
+        if let Ok(ack_command) = CommandReport::new(TestResponse::Ack as u8, command_id, &payload) {
+            let serialized = ack_command.serialize();
+            LogReport::try_from(serialized).ok()
+        } else {
+            // Fallback to log message
+            let log_msg = LogMessage::new(
+                timestamp,
+                LogLevel::Info,
+                "CMD",
+                "Command acknowledged"
+            );
+            LogReport::try_from(log_msg.serialize()).ok()
+        }
+    }
+
+    /// Create an error response for a failed command
+    fn create_error_response(&self, command_id: u8, error_code: ErrorCode, message: &str, timestamp: u32) -> Option<LogReport> {
+        if let Ok(error_command) = CommandReport::error_response(command_id, error_code, message) {
+            let serialized = error_command.serialize();
+            LogReport::try_from(serialized).ok()
+        } else {
+            // Fallback to log message
+            let log_msg = LogMessage::new(
+                timestamp,
+                LogLevel::Error,
+                "CMD",
+                message
+            );
+            LogReport::try_from(log_msg.serialize()).ok()
+        }
+    }
+
+    /// Get enhanced command processing statistics
+    pub fn get_stats(&self) -> CommandHandlerStats {
+        CommandHandlerStats {
+            processed_commands: self.processed_count,
+            error_count: self.error_count,
+            timeout_count: self.timeout_count,
+            command_queue_length: self.command_queue.len(),
+            command_queue_capacity: self.command_queue.capacity(),
+            dropped_commands: self.command_queue.dropped_count(),
+            response_queue_length: self.response_queue.len(),
+            response_queue_capacity: self.response_queue.capacity(),
+            dropped_responses: self.response_queue.dropped_count(),
+            transmission_failures: self.response_queue.transmission_failure_count(),
+            current_sequence: self.command_queue.current_sequence(),
+        }
+    }
+
+    /// Reset statistics counters
+    pub fn reset_stats(&mut self) {
+        self.processed_count = 0;
+        self.error_count = 0;
+        self.timeout_count = 0;
+        self.command_queue.reset_stats();
+        self.response_queue.reset_stats();
+    }
+}
+
+/// Enhanced command handler statistics with timeout and response tracking
+#[derive(Clone, Copy, Debug)]
+pub struct CommandHandlerStats {
+    pub processed_commands: u32,
+    pub error_count: u32,
+    pub timeout_count: u32,
+    pub command_queue_length: usize,
+    pub command_queue_capacity: usize,
+    pub dropped_commands: usize,
+    pub response_queue_length: usize,
+    pub response_queue_capacity: usize,
+    pub dropped_responses: usize,
+    pub transmission_failures: usize,
+    pub current_sequence: u32,
+}
+
+/// Process a USB HID output report (legacy function for compatibility)
+/// This function is called by the RTIC task in main.rs
+/// 
+/// # Arguments
+/// * `hid_class` - The HID class instance for USB communication
+/// * `report_buf` - The raw USB report data
+/// * `report_len` - The length of the received report
+///
+/// # Returns
+/// A vector of LogReport responses to send back to the host
+pub fn process_usb_report(_hid_class: &mut HIDClass<UsbBus>, report_buf: &[u8], report_len: usize) -> Vec<LogReport, 8> {
+    // Create a temporary handler for processing
+    let mut handler = UsbCommandHandler::new();
+    let timestamp = 0; // Placeholder timestamp
+    handler.process_output_report(report_buf, report_len, timestamp)
+}

@@ -7,7 +7,6 @@ use crate::logging::LogLevel;
 use core::result::Result::{self, Ok, Err};
 use core::option::Option::{self, Some, None};
 use core::default::Default;
-use core::ops::FnOnce;
 
 /// USB Device Configuration
 pub mod usb {
@@ -198,8 +197,7 @@ pub mod features {
 /// Runtime logging configuration structure
 /// This struct holds runtime-configurable logging parameters that can be modified via USB control commands
 /// Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
-#[derive(Clone, Copy, PartialEq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct LogConfig {
     /// Runtime maximum log level (can be more restrictive than compile-time MAX_LOG_LEVEL)
     pub max_level: LogLevel,

@@ -16,8 +16,7 @@ use hal::{
 use rp2040_hal as hal;
 
 #[derive(Clone, Copy, PartialEq)]
-#[cfg_attr(test, derive(Debug))]
-#[cfg_attr(not(test), derive(Debug))]
+#[cfg_attr(any(test, not(test)), derive(Debug))]
 pub enum BatteryState {
     Low,      // ADC ≤ 1425 (< 3.1V)
     Normal,   // 1425 < ADC < 1675 (3.1V - 3.6V)

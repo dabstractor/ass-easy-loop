@@ -8,7 +8,6 @@ use portable_atomic::{AtomicUsize, Ordering};
 use core::iter::Iterator;
 use core::option::Option::{self, Some, None};
 use core::result::Result::{self, Ok, Err};
-use core::fmt::Write;
 use core::ops::FnOnce;
 
 
@@ -161,20 +160,42 @@ pub struct LogReport {
     pub data: [u8; 64],
 }
 
+#[cfg(not(test))]
+impl core::convert::TryFrom<[u8; 64]> for LogReport {
+    type Error = &'static str;
+
+    fn try_from(bytes: [u8; 64]) -> Result<Self, Self::Error> {
+        Ok(Self { data: bytes })
+    }
+}
+
 impl LogReport {
     /// Get the HID report descriptor for this report type
+    /// Updated to support both input reports (device to host) and output reports (host to device)
+    /// Requirements: 2.1, 2.2 - USB HID bidirectional communication
     pub fn descriptor() -> &'static [u8] {
-        // Simple vendor-defined HID descriptor for 64-byte input reports
+        // Vendor-defined HID descriptor for 64-byte bidirectional reports
         &[
             0x06, 0x00, 0xFF,  // Usage Page (Vendor Defined 0xFF00)
             0x09, 0x01,        // Usage (0x01)
             0xA1, 0x01,        // Collection (Application)
-            0x09, 0x02,        //   Usage (0x02)
+            
+            // Input Report (Device to Host) - for log messages
+            0x09, 0x02,        //   Usage (0x02) - Log Data
             0x15, 0x00,        //   Logical Minimum (0)
             0x26, 0xFF, 0x00,  //   Logical Maximum (255)
-            0x75, 0x08,        //   Report Size (8)
-            0x95, 0x40,        //   Report Count (64)
+            0x75, 0x08,        //   Report Size (8 bits)
+            0x95, 0x40,        //   Report Count (64 bytes)
             0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+            
+            // Output Report (Host to Device) - for commands
+            0x09, 0x03,        //   Usage (0x03) - Command Data
+            0x15, 0x00,        //   Logical Minimum (0)
+            0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+            0x75, 0x08,        //   Report Size (8 bits)
+            0x95, 0x40,        //   Report Count (64 bytes)
+            0x91, 0x02,        //   Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+            
             0xC0,              // End Collection
         ]
     }

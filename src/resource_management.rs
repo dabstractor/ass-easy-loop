@@ -6,6 +6,9 @@ use crate::config::LogConfig;
 use heapless::Vec;
 use core::fmt::Write;
 use heapless::String;
+use core::option::Option::{self, Some, None};
+use core::result::Result::{self, Ok, Err};
+use core::ops::FnOnce;
 
 /// Resource safety wrapper for global state that must be accessed from multiple contexts
 /// This provides a safer interface for accessing global resources while maintaining
@@ -52,7 +55,29 @@ impl ResourceValidator {
     /// Validate that no global mutable state exists outside RTIC framework
     /// Requirements: 7.3 (verify no global mutable state outside RTIC framework)
     pub fn validate_global_state_management() -> ValidationResult {
-        let mut issues = Vec::<&'static str, 8>::new();
+        // Check for global mutable state that should be managed differently
+        // Note: Some global state is necessary for panic handling and logging
+        // but should be minimized and properly documented
+        
+        // Acceptable global state (with justification):
+        // - GLOBAL_LOG_QUEUE: Required for panic handler and logging system
+        // - TIMESTAMP_FUNCTION: Required for panic handler timing
+        // - GLOBAL_LOG_CONFIG: Required for runtime configuration
+        // - GLOBAL_PERFORMANCE_STATS: Required for system monitoring
+        // - USB_BUS: Required by USB device library architecture
+        
+        log_message(LogLevel::Info, "RESOURCE_VALIDATOR", "Global state validation: Checking RTIC compliance");
+        log_message(LogLevel::Info, "RESOURCE_VALIDATOR", "Acceptable global state (justified):");
+        log_message(LogLevel::Info, "RESOURCE_VALIDATOR", "- GLOBAL_LOG_QUEUE: Panic handler and logging system");
+        log_message(LogLevel::Info, "RESOURCE_VALIDATOR", "- TIMESTAMP_FUNCTION: Panic handler timing");
+        log_message(LogLevel::Info, "RESOURCE_VALIDATOR", "- GLOBAL_LOG_CONFIG: Runtime configuration");
+        log_message(LogLevel::Info, "RESOURCE_VALIDATOR", "- GLOBAL_PERFORMANCE_STATS: System monitoring");
+        log_message(LogLevel::Info, "RESOURCE_VALIDATOR", "- USB_BUS: USB library requirement");
+        
+        // Check for problematic global state patterns
+        // (This would be expanded with specific checks in a full implementation)
+        
+        let issues = Vec::<&'static str, 8>::new();
         
         // Check for global mutable state that should be managed differently
         // Note: Some global state is necessary for panic handling and logging
@@ -139,7 +164,7 @@ pub struct SafeLoggingAccess;
 impl SafeLoggingAccess {
     /// Safely access the global log queue with proper error handling
     /// Requirements: 7.2 (memory-safe operations)
-    pub fn with_log_queue<F, R>(f: F) -> Option<R>
+    pub fn with_log_queue<F, R>(_f: F) -> Option<R>
     where
         F: FnOnce(&mut LogQueue<32>) -> R,
     {
@@ -154,7 +179,7 @@ impl SafeLoggingAccess {
 
     /// Safely access the global configuration with proper error handling
     /// Requirements: 7.2 (memory-safe operations)
-    pub fn with_log_config<F, R>(f: F) -> Option<R>
+    pub fn with_log_config<F, R>(_f: F) -> Option<R>
     where
         F: FnOnce(&mut LogConfig) -> R,
     {

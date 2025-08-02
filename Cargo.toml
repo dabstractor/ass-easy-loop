@@ -31,6 +31,9 @@ usb-device = "0.3.2"
 heapless = "0.8.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 
+# Command processing dependencies
+# bitvec = "1.0.1"  // Removed due to std dependency issues on embedded targets
+
 # Conditional dependencies for different targets
 [target.'cfg(not(target_arch = "arm"))'.dependencies]
 portable-atomic = "1.11"
@@ -42,6 +45,11 @@ portable-atomic = { version = "1.11", features = ["unsafe-assume-single-core"] }
 default = ["battery-logs", "pemf-logs", "system-logs", "usb-logs"]
 std = []
 
+# Command processing feature flags
+command-processor = []
+test-commands = []
+system-state-queries = []
+
 # Logging category feature flags for conditional compilation
 battery-logs = []
 pemf-logs = []
@@ -52,6 +60,11 @@ usb-logs = []
 debug-logging = ["battery-logs", "pemf-logs", "system-logs", "usb-logs"]
 minimal-logging = []
 production = ["battery-logs", "system-logs"]
+
+[dev-dependencies]
+defmt = "0.3.8"
+defmt-rtt = "0.4.1"
+panic-probe = { version = "0.3.2", features = ["print-defmt"] }
 
 # Test configuration to avoid panic handler conflicts
 [[test]]
