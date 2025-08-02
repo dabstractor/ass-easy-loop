@@ -1,0 +1,142 @@
+{
+  "test_config": {
+    "name": "CI/CD Validation Suite",
+    "description": "Comprehensive automated validation for CI/CD pipeline integration",
+    "steps": [
+      {
+        "name": "device_communication_test",
+        "test_type": "USB_COMMUNICATION_TEST",
+        "parameters": {
+          "message_count": 5,
+          "timeout_ms": 1000
+        },
+        "timeout": 10.0,
+        "retry_count": 1,
+        "required": true,
+        "depends_on": []
+      },
+      {
+        "name": "pemf_timing_validation",
+        "test_type": "PEMF_TIMING_VALIDATION",
+        "parameters": {
+          "duration_ms": 3000,
+          "tolerance_percent": 1.0
+        },
+        "timeout": 15.0,
+        "retry_count": 0,
+        "required": true,
+        "depends_on": ["device_communication_test"]
+      },
+      {
+        "name": "battery_monitoring_test",
+        "test_type": "BATTERY_ADC_CALIBRATION",
+        "parameters": {
+          "reference_voltage": 3.3
+        },
+        "timeout": 10.0,
+        "retry_count": 1,
+        "required": true,
+        "depends_on": ["device_communication_test"]
+      },
+      {
+        "name": "led_control_validation",
+        "test_type": "LED_FUNCTIONALITY",
+        "parameters": {
+          "pattern": "basic",
+          "duration_ms": 1000
+        },
+        "timeout": 8.0,
+        "retry_count": 0,
+        "required": false,
+        "depends_on": ["device_communication_test"]
+      },
+      {
+        "name": "system_stress_test",
+        "test_type": "SYSTEM_STRESS_TEST",
+        "parameters": {
+          "duration_ms": 5000,
+          "load_level": 3
+        },
+        "timeout": 20.0,
+        "retry_count": 0,
+        "required": false,
+        "depends_on": ["pemf_timing_validation", "battery_monitoring_test"]
+      },
+      {
+        "name": "usb_communication_validation",
+        "test_type": "USB_COMMUNICATION_TEST",
+        "parameters": {
+          "message_count": 10,
+          "timeout_ms": 2000
+        },
+        "timeout": 15.0,
+        "retry_count": 1,
+        "required": true,
+        "depends_on": ["led_control_validation"]
+      }
+    ],
+    "parallel_execution": true,
+    "max_parallel_devices": 4,
+    "global_timeout": 180.0
+  },
+  "required_devices": 1,
+  "max_parallel_devices": 4,
+  "firmware_path": null,
+  "timeout_seconds": 300.0,
+  "retry_attempts": 1,
+  "fail_fast": true,
+  "generate_artifacts": true,
+  "artifact_retention_days": 30,
+  "ci_specific_settings": {
+    "github_actions": {
+      "generate_step_summary": true,
+      "upload_artifacts": true,
+      "artifact_retention_days": 90
+    },
+    "jenkins": {
+      "publish_junit": true,
+      "archive_artifacts": true,
+      "send_notifications": true
+    },
+    "gitlab_ci": {
+      "generate_coverage_report": false,
+      "upload_test_reports": true,
+      "pages_deployment": false
+    },
+    "azure_devops": {
+      "publish_test_results": true,
+      "publish_code_coverage": false,
+      "create_work_items_on_failure": false
+    }
+  },
+  "environment_requirements": {
+    "minimum_python_version": "3.8",
+    "required_packages": [
+      "pyusb>=1.2.1",
+      "hidapi>=0.12.0",
+      "reportlab>=3.6.0"
+    ],
+    "system_requirements": {
+      "usb_access": true,
+      "hardware_devices": true,
+      "network_access": false
+    }
+  },
+  "notification_settings": {
+    "on_success": {
+      "enabled": false,
+      "channels": []
+    },
+    "on_failure": {
+      "enabled": true,
+      "channels": ["email", "slack"],
+      "include_logs": true,
+      "include_artifacts": true
+    },
+    "on_regression": {
+      "enabled": true,
+      "channels": ["email", "slack", "teams"],
+      "escalation_level": "high"
+    }
+  }
+}

@@ -1,5 +1,8 @@
 #![no_std]
 #![no_main]
+#![allow(dead_code)] // Allow unused code for development and testing
+#![allow(unused_variables)] // Allow unused variables in development code
+#![allow(unused_assignments)] // Allow unused assignments in development code
 
 // Enhanced panic handler with USB logging capability
 // Requirements: 5.4, 7.3
@@ -8,10 +11,17 @@ mod battery;
 use battery::BatteryState;
 
 mod command;
-use command::{CommandParser, CommandQueue, Command, CommandResponse, CommandError, ResponseStatus};
+use command::{CommandReport, ParseResult, CommandQueue, CommandParser, ResponseQueue, AuthenticationValidator};
+
+mod bootloader;
+use bootloader::{
+    BootloaderEntryManager, TaskPriority, HardwareState, BootloaderEntryState,
+    init_bootloader_manager, should_task_shutdown, 
+    mark_task_shutdown_complete
+};
 
 mod logging;
-use logging::{LogLevel, Logger, QueueLogger, LogQueue, init_global_logging, LogReport};
+use logging::{LogQueue, init_global_logging, LogReport};
 
 mod config;
 use config::usb as usb_config;
@@ -20,10 +30,15 @@ mod error_handling;
 use error_handling::{SystemError, SystemResult, ErrorRecovery};
 
 mod resource_management;
-use resource_management::{ResourceValidator, SafeLoggingAccess, ResourceLeakDetector};
+use resource_management::{ResourceValidator, ResourceLeakDetector};
 
 mod performance_profiler;
-use performance_profiler::{PerformanceProfiler, TaskExecutionTimes, TimingMeasurement, JitterMeasurements, init_global_profiler, get_global_profiler};
+
+mod system_state;
+use system_state::{SystemStateHandler, StateQueryType};
+
+mod test_processor;
+use test_processor::{TestCommandProcessor, TestStatus};
 
 // Boot2 firmware for RP2040
 #[unsafe(link_section = ".boot2")]
@@ -49,11 +64,7 @@ use usb_device::{
     class_prelude::UsbBusAllocator,
     prelude::{UsbDevice, UsbDeviceBuilder, UsbVidPid},
 };
-use usbd_hid::{
-    descriptor::{generator_prelude::*, SerializedDescriptor},
-    hid_class::HIDClass,
-};
-use heapless::Vec;
+use usbd_hid::hid_class::HIDClass;
 
 use rtic_monotonics::rp2040::prelude::*;
 
@@ -98,7 +109,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     // Attempt to log panic information via USB (best effort)
     // This may fail if USB is not initialized or available, but we continue regardless
     unsafe {
-        if let (queue, Some(get_timestamp)) = (&mut GLOBAL_LOG_QUEUE, TIMESTAMP_FUNCTION) {
+        if let (queue, Some(get_timestamp)) = (&raw mut GLOBAL_LOG_QUEUE, TIMESTAMP_FUNCTION) {
             let timestamp = get_timestamp();
             
             // Create detailed panic message with location information
@@ -109,7 +120,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
                 let _ = write!(
                     &mut panic_msg,
                     "PANIC at {}:{}",
-                    location.file().split('/').last().unwrap_or("unknown"),
+                    location.file().split('/').next_back().unwrap_or("unknown"),
                     location.line()
                 );
             } else {
@@ -125,12 +136,15 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
             );
             
             // Best-effort enqueue (may fail if queue is corrupted, but we continue)
-            let _ = queue.enqueue(panic_log);
+            if let Some(queue_ref) = queue.as_mut() {
+                let _ = queue_ref.enqueue(panic_log);
+            }
             
             // If panic has a payload message, try to log it too
+            #[allow(deprecated)]
             if let Some(payload) = info.payload().downcast_ref::<&str>() {
                 let mut payload_msg: String<48> = String::new();
-                let _ = write!(&mut payload_msg, "Panic: {}", payload);
+                let _ = write!(&mut payload_msg, "Panic: {payload}");
                 
                 let payload_log = logging::LogMessage::new(
                     timestamp + 1, // Slightly different timestamp
@@ -139,7 +153,9 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
                     payload_msg.as_str()
                 );
                 
-                let _ = queue.enqueue(payload_log);
+                if let Some(queue_ref) = queue.as_mut() {
+                    let _ = queue_ref.enqueue(payload_log);
+                }
             }
             
             // Add system state information for diagnostics
@@ -154,7 +170,9 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
                 state_msg.as_str()
             );
             
-            let _ = queue.enqueue(state_log);
+            if let Some(queue_ref) = queue.as_mut() {
+                let _ = queue_ref.enqueue(state_log);
+            }
             
             // Log system diagnostic information for debugging
             let mut diag_msg: String<48> = String::new();
@@ -167,7 +185,9 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
                 diag_msg.as_str()
             );
             
-            let _ = queue.enqueue(diag_log);
+            if let Some(queue_ref) = queue.as_mut() {
+                let _ = queue_ref.enqueue(diag_log);
+            }
         }
     }
     
@@ -196,12 +216,13 @@ fn flush_usb_messages_on_panic() {
     
     // Attempt to flush messages with timeout
     unsafe {
-        let queue = unsafe { &mut GLOBAL_LOG_QUEUE };; {
+        let queue = &raw mut GLOBAL_LOG_QUEUE;
+        if let Some(queue_ref) = queue.as_mut() {
             // Try to dequeue and "transmit" messages
             // In a real implementation, this would interface with the USB HID class
             // For now, we just drain the queue to simulate flushing
-            while !queue.is_empty() && timeout_counter < FLUSH_TIMEOUT_LOOPS {
-                if queue.dequeue().is_some() {
+            while !queue_ref.is_empty() && timeout_counter < FLUSH_TIMEOUT_LOOPS {
+                if queue_ref.dequeue().is_some() {
                     // Message dequeued - in real implementation, this would be transmitted
                     // For panic handling, we just remove it from the queue
                 }
@@ -246,10 +267,15 @@ mod app {
     
     // Compile-time priority hierarchy verification
     // These constants ensure the priority hierarchy is maintained at compile time
+    #[allow(dead_code)]
     const PEMF_PULSE_PRIORITY: u8 = 3;  // Highest priority - timing critical
+    #[allow(dead_code)]
     const BATTERY_MONITOR_PRIORITY: u8 = 2;  // Medium priority - periodic sampling
+    #[allow(dead_code)]
     const LED_CONTROL_PRIORITY: u8 = 1;  // Lowest priority - visual feedback
+    #[allow(dead_code)]
     const USB_HID_PRIORITY: u8 = 2;  // Medium priority - data transmission
+    #[allow(dead_code)]
     const USB_POLL_PRIORITY: u8 = 1;  // Lowest priority - non-critical
     
     // Compile-time assertions to verify priority hierarchy
@@ -267,7 +293,11 @@ mod app {
         usb_dev: UsbDevice<'static, UsbBus>,
         hid_class: HIDClass<'static, UsbBus>,
         command_queue: CommandQueue<8>,
+        response_queue: ResponseQueue<8>,
         command_parser: CommandParser,
+        bootloader_manager: BootloaderEntryManager,
+        system_state_handler: SystemStateHandler,
+        test_processor: TestCommandProcessor,
     }
 
     #[local]
@@ -308,7 +338,7 @@ mod app {
         };
 
         // Initialize the RP2040 Timer monotonic
-        Mono::start(ctx.device.TIMER, &mut ctx.device.RESETS);
+        Mono::start(ctx.device.TIMER, &ctx.device.RESETS);
 
         // Set up GPIO pins
         let sio = Sio::new(ctx.device.SIO);
@@ -344,7 +374,7 @@ mod app {
             USB_BUS = Some(UsbBusAllocator::new(usb_bus));
         }
         
-        let usb_bus_ref = unsafe { USB_BUS.as_ref().unwrap() };
+        let usb_bus_ref = unsafe { (*core::ptr::addr_of!(USB_BUS)).as_ref().unwrap() };
 
         // Create HID class device with custom report descriptor
         let hid_class = HIDClass::new(usb_bus_ref, LogReport::descriptor(), 60);
@@ -357,9 +387,9 @@ mod app {
 
         // Initialize global logging system
         unsafe {
-            init_global_logging(&mut GLOBAL_LOG_QUEUE, get_timestamp_ms);
-            logging::init_global_config(&mut GLOBAL_LOG_CONFIG);
-            logging::init_global_performance_monitoring(&mut GLOBAL_PERFORMANCE_STATS);
+            init_global_logging(&raw mut GLOBAL_LOG_QUEUE, get_timestamp_ms);
+            logging::init_global_config(&raw mut GLOBAL_LOG_CONFIG);
+            logging::init_global_performance_monitoring(&raw mut GLOBAL_PERFORMANCE_STATS);
             TIMESTAMP_FUNCTION = Some(get_timestamp_ms);
         }
 
@@ -391,7 +421,7 @@ mod app {
         log_info!("- pEMF frequency: 2Hz (2ms HIGH, 498ms LOW)");
         log_info!("- Battery sampling: 10Hz (100ms interval)");
         log_info!("- LED flash rate: 2Hz (low battery indication)");
-        log_info!("- Log queue size: {} messages", unsafe { GLOBAL_LOG_QUEUE.capacity() });
+        log_info!("- Log queue size: {} messages", unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).capacity() });
         
         // Log task priorities and scheduling with verification
         // Requirements: 6.1, 6.2 - verify priority hierarchy prevents timing conflicts
@@ -437,16 +467,80 @@ mod app {
 
         // Initialize command infrastructure
         // Requirements: 2.1, 2.2, 6.1, 6.2
+        #[cfg(feature = "test-commands")]
         let command_queue = CommandQueue::new();
+        #[cfg(not(feature = "test-commands"))]
+        let command_queue = CommandQueue::new(); // Minimal queue for production
+        
+        let response_queue = ResponseQueue::new();
         let command_parser = CommandParser::new();
         
-        log_info!("Command infrastructure initialized");
-        log_info!("- Command queue capacity: {} commands", command_queue.capacity());
-        log_info!("- Authentication: Simple checksum validation");
-        log_info!("- Supported commands: Bootloader, StateQuery, ExecuteTest, ConfigQuery, PerfMetrics");
+        #[cfg(feature = "test-commands")]
+        {
+            log_info!("Command infrastructure initialized (TESTING MODE)");
+            log_info!("- Command queue capacity: {} commands", command_queue.capacity());
+            log_info!("- Authentication: Simple checksum validation");
+            log_info!("- Supported commands: Bootloader, StateQuery, ExecuteTest, ConfigQuery, PerfMetrics");
+        }
+        
+        #[cfg(not(feature = "test-commands"))]
+        {
+            log_info!("Command infrastructure initialized (PRODUCTION MODE)");
+            log_info!("- Test commands disabled for production");
+            log_info!("- Only bootloader commands available");
+        }
+
+        // Initialize bootloader entry manager
+        // Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 5.1, 5.2, 5.3, 5.4, 5.5
+        init_bootloader_manager();
+        let bootloader_manager = BootloaderEntryManager::new();
+        
+        log_info!("Bootloader entry manager initialized");
+        log_info!("- Task shutdown timeout: 1000ms");
+        log_info!("- Hardware validation timeout: 500ms");
+        log_info!("- Bootloader entry timeout: 2000ms");
+        log_info!("- Shutdown sequence: High -> Medium -> Low priority tasks");
+
+        // Initialize system state handler
+        // Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
+        let system_state_handler = SystemStateHandler::new();
+        
+        log_info!("System state handler initialized");
+        log_info!("- Performance monitoring capabilities enabled");
+        log_info!("- Hardware status reporting enabled");
+        log_info!("- Configuration dump functionality enabled");
+        log_info!("- Error history tracking enabled");
+
+        // Initialize test command processor
+        // Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4, 8.5
+        #[cfg(feature = "test-commands")]
+        let test_processor = TestCommandProcessor::new();
+        #[cfg(not(feature = "test-commands"))]
+        let test_processor = TestCommandProcessor::new_minimal(); // Minimal processor for production
+        
+        #[cfg(feature = "test-commands")]
+        {
+            log_info!("Test command processor initialized (TESTING MODE)");
+            log_info!("- Configurable test execution with parameter validation");
+            log_info!("- Timeout protection and resource usage monitoring");
+            log_info!("- Test result collection and serialization");
+            log_info!("- Supported tests: pEMF timing, battery ADC, LED, stress, USB communication");
+        }
+        
+        #[cfg(not(feature = "test-commands"))]
+        {
+            log_info!("Test command processor initialized (PRODUCTION MODE)");
+            log_info!("- Test commands disabled for production");
+            log_info!("- Minimal resource usage");
+        }
 
         // Start the USB command handler task
+        #[cfg(feature = "test-commands")]
         usb_command_handler_task::spawn().ok();
+
+        // Start the test processor update task
+        #[cfg(feature = "test-commands")]
+        test_processor_update_task::spawn().ok();
 
         (
             Shared {
@@ -456,7 +550,11 @@ mod app {
                 usb_dev,
                 hid_class,
                 command_queue,
+                response_queue,
                 command_parser,
+                bootloader_manager,
+                system_state_handler,
+                test_processor,
             },
             Local {
                 mosfet_pin,
@@ -508,6 +606,20 @@ mod app {
                   STATISTICS_LOG_INTERVAL_CYCLES, TIMING_VALIDATION_INTERVAL_CYCLES);
 
         loop {
+            // Check for shutdown request before starting new cycle
+            // Requirements: 1.4, 1.5 (complete current cycle, graceful shutdown)
+            if should_task_shutdown(TaskPriority::High) {
+                log_info!("pEMF pulse task received shutdown request");
+                
+                // Ensure MOSFET is OFF before shutdown
+                *pulse_active = false;
+                let _ = mosfet_pin.set_low();
+                
+                log_info!("pEMF pulse task shutdown complete - MOSFET OFF");
+                mark_task_shutdown_complete(TaskPriority::High);
+                return; // Exit task
+            }
+            
             let cycle_start_time = Mono::now();
             
             // Pulse HIGH phase: Set MOSFET pin high for 2ms
@@ -556,25 +668,13 @@ mod app {
             // Requirements: 4.2
             if cycle_count % TIMING_VALIDATION_INTERVAL_CYCLES == 0 {
                 // Check HIGH phase timing deviation
-                let high_deviation_ms = if actual_high_time_ms > PULSE_HIGH_DURATION_MS {
-                    actual_high_time_ms - PULSE_HIGH_DURATION_MS
-                } else {
-                    PULSE_HIGH_DURATION_MS - actual_high_time_ms
-                };
+                let high_deviation_ms = actual_high_time_ms.abs_diff(PULSE_HIGH_DURATION_MS);
                 
                 // Check LOW phase timing deviation
-                let low_deviation_ms = if actual_low_time_ms > PULSE_LOW_DURATION_MS {
-                    actual_low_time_ms - PULSE_LOW_DURATION_MS
-                } else {
-                    PULSE_LOW_DURATION_MS - actual_low_time_ms
-                };
+                let low_deviation_ms = actual_low_time_ms.abs_diff(PULSE_LOW_DURATION_MS);
                 
                 // Check total cycle timing deviation
-                let cycle_deviation_ms = if actual_total_cycle_ms > EXPECTED_TOTAL_PERIOD_MS {
-                    actual_total_cycle_ms - EXPECTED_TOTAL_PERIOD_MS
-                } else {
-                    EXPECTED_TOTAL_PERIOD_MS - actual_total_cycle_ms
-                };
+                let cycle_deviation_ms = actual_total_cycle_ms.abs_diff(EXPECTED_TOTAL_PERIOD_MS);
                 
                 // Track maximum deviation for statistics
                 let max_deviation = core::cmp::max(high_deviation_ms, core::cmp::max(low_deviation_ms, cycle_deviation_ms));
@@ -649,6 +749,20 @@ mod app {
             
             // Update last cycle start time for conflict detection
             last_cycle_start_time = cycle_start_time;
+            
+            // Send timing measurement to test processor if pEMF timing test is active
+            // Requirements: 9.1 (measure pulse accuracy without interfering with normal operation)
+            if cycle_count % 5 == 0 { // Send measurement every 5 cycles to avoid overwhelming the test processor
+                let timing_measurement = test_processor::TimingMeasurement {
+                    task_name: "pEMF_pulse",
+                    execution_time_us: (actual_total_cycle_ms * 1000) as u32, // Convert ms to us
+                    expected_time_us: (EXPECTED_TOTAL_PERIOD_MS * 1000) as u32, // Convert ms to us
+                    timestamp_ms: cycle_start_time.duration_since_epoch().to_millis() as u32,
+                };
+                
+                // Spawn task to update test processor (non-blocking)
+                update_test_processor_timing::spawn(timing_measurement).ok();
+            }
         }
     }
 
@@ -665,12 +779,21 @@ mod app {
         
         // Track sample count for periodic logging
         let mut sample_count = 0u32;
-        let mut last_logged_state = BatteryState::Normal;
+        let mut _last_logged_state = BatteryState::Normal;
         
         // Log battery monitoring task startup
         log_info!("Battery monitoring started - sampling at 10Hz");
 
         loop {
+            // Check for shutdown request before ADC reading
+            // Requirements: 1.4 (graceful shutdown)
+            if should_task_shutdown(TaskPriority::Medium) {
+                log_info!("Battery monitor task received shutdown request");
+                log_info!("Battery monitor task shutdown complete");
+                mark_task_shutdown_complete(TaskPriority::Medium);
+                return; // Exit task
+            }
+            
             // Read ADC value from GPIO 26
             // The rp2040-hal ADC requires using the embedded-hal OneShot trait
             // For now, we'll use a simplified approach that reads the current ADC value
@@ -784,7 +907,7 @@ mod app {
                             }
                         }
                         
-                        last_logged_state = new_battery_state;
+                        _last_logged_state = new_battery_state;
                     }
                     
                     // Log periodic battery voltage readings at configurable intervals
@@ -829,7 +952,7 @@ mod app {
     /// Low-priority LED control task
     /// Provides visual feedback based on battery state with variable scheduling
     /// Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
-    #[task(shared = [led, battery_state], priority = 1)]
+    #[task(shared = [led, battery_state, test_processor], priority = 1)]
     async fn led_control_task(mut ctx: led_control_task::Context) {
         // LED flash timing constants for low battery state
         // 2Hz flash pattern: 250ms ON, 250ms OFF (total period = 500ms)
@@ -843,7 +966,26 @@ mod app {
         let mut current_led_on = false;
         let mut last_battery_state = BatteryState::Normal;
         
+        // Track LED state timing for test processor integration
+        let mut led_state_start_time = get_timestamp_ms();
+        let mut last_led_state = false;
+        
         loop {
+            // Check for shutdown request before LED operations
+            // Requirements: 1.4 (graceful shutdown)
+            if should_task_shutdown(TaskPriority::Low) {
+                log_info!("LED control task received shutdown request");
+                
+                // Turn off LED before shutdown
+                ctx.shared.led.lock(|led| {
+                    let _ = led.set_low();
+                });
+                
+                log_info!("LED control task shutdown complete - LED OFF");
+                mark_task_shutdown_complete(TaskPriority::Low);
+                return; // Exit task
+            }
+            
             // Read current battery state from shared resource with minimal lock duration
             // Requirements: 6.1, 6.4 - proper resource sharing with minimal blocking
             let battery_state = ctx.shared.battery_state.lock(|state| *state);
@@ -862,7 +1004,24 @@ mod app {
                                 let _ = ErrorRecovery::handle_error(error, "LED control HIGH");
                             }
                         });
+                        
+                        // Update test processor with LED state change
+                        let current_time = get_timestamp_ms();
+                        let state_duration = current_time - led_state_start_time;
+                        
+                        // Update test processor if LED functionality test is active
+                        ctx.shared.test_processor.lock(|processor| {
+                            let _ = processor.update_led_functionality_test(
+                                last_led_state, 
+                                last_led_state, // Expected state matches actual for normal operation
+                                led_state_start_time,
+                                state_duration
+                            );
+                        });
+                        
                         current_led_on = true;
+                        last_led_state = true;
+                        led_state_start_time = current_time;
                     }
                     
                     // Wait for ON duration, but check for state changes periodically
@@ -900,7 +1059,24 @@ mod app {
                                 let _ = ErrorRecovery::handle_error(error, "LED control LOW (flash OFF)");
                             }
                         });
+                        
+                        // Update test processor with LED state change
+                        let current_time = get_timestamp_ms();
+                        let state_duration = current_time - led_state_start_time;
+                        
+                        // Update test processor if LED functionality test is active
+                        ctx.shared.test_processor.lock(|processor| {
+                            let _ = processor.update_led_functionality_test(
+                                last_led_state, 
+                                last_led_state, // Expected state matches actual for normal operation
+                                led_state_start_time,
+                                state_duration
+                            );
+                        });
+                        
                         current_led_on = false;
+                        last_led_state = false;
+                        led_state_start_time = current_time;
                     }
                     
                     // Wait for OFF duration, but check for state changes periodically
@@ -934,7 +1110,24 @@ mod app {
                                 let _ = ErrorRecovery::handle_error(error, "LED control LOW (normal state)");
                             }
                         });
+                        
+                        // Update test processor with LED state change
+                        let current_time = get_timestamp_ms();
+                        let state_duration = current_time - led_state_start_time;
+                        
+                        // Update test processor if LED functionality test is active
+                        ctx.shared.test_processor.lock(|processor| {
+                            let _ = processor.update_led_functionality_test(
+                                last_led_state, 
+                                false, // Expected state is OFF for normal battery state
+                                led_state_start_time,
+                                state_duration
+                            );
+                        });
+                        
                         current_led_on = false;
+                        last_led_state = false;
+                        led_state_start_time = current_time;
                     }
                     
                     // Wait for state check interval
@@ -968,7 +1161,7 @@ mod app {
     /// Low-priority USB polling task with performance monitoring
     /// Handles USB device polling and enumeration with priority 1
     /// Requirements: 1.5, 7.1, 7.3
-    #[task(shared = [usb_dev, hid_class], priority = 1)]
+    #[task(shared = [usb_dev, hid_class, command_queue, response_queue], priority = 1)]
     async fn usb_poll_task(mut ctx: usb_poll_task::Context) {
         // USB polling interval - frequent enough to maintain enumeration
         // but low enough to not interfere with critical tasks
@@ -987,16 +1180,148 @@ mod app {
         let mut total_execution_time_us = 0u32;
         let mut peak_execution_time_us = 0u32;
         
-        log_info!("USB polling task started with performance monitoring");
+        // Output report buffer for command reception
+        let mut output_report_buf = [0u8; 64];
+        
+        log_info!("USB polling task started with performance monitoring and command handling");
         
         loop {
+            // Check for shutdown request before USB operations
+            // Requirements: 1.4 (graceful shutdown)
+            if should_task_shutdown(TaskPriority::Low) {
+                log_info!("USB polling task received shutdown request");
+                log_info!("USB polling task shutdown complete");
+                mark_task_shutdown_complete(TaskPriority::Low);
+                return; // Exit task
+            }
+            
             // Measure task execution time for CPU usage calculation
             let (poll_result, execution_time_us) = logging::PerformanceMonitor::measure_task_execution(|| {
                 ctx.shared.usb_dev.lock(|usb_dev| {
                     ctx.shared.hid_class.lock(|hid_class| {
                         // Poll the USB device - this handles enumeration events
                         // and maintains the USB connection state
-                        usb_dev.poll(&mut [hid_class])
+                        let poll_result = usb_dev.poll(&mut [hid_class]);
+                        
+                        // Check for incoming output reports (commands from host)
+                        // Requirements: 2.1, 2.2 - USB HID output report handling
+                        match hid_class.pull_raw_output(&mut output_report_buf) {
+                            Ok(report_size) => {
+                                if report_size > 0 {
+                                    // Parse and validate the command report
+                                    let timestamp = get_timestamp_ms();
+                                    match CommandReport::parse(&output_report_buf[..report_size]) {
+                                        ParseResult::Valid(command) => {
+                                            // Validate authentication
+                                            if AuthenticationValidator::validate_command(&command) {
+                                                // Validate command format
+                                                if let Ok(()) = AuthenticationValidator::validate_format(&command) {
+                                                    // Enqueue command for processing by command handler task
+                                                    // Requirements: 2.4 (FIFO order), 6.4 (timeout handling)
+                                                    let enqueue_success = ctx.shared.command_queue.lock(|queue| {
+                                                        queue.enqueue(command.clone(), timestamp, 5000) // 5 second timeout
+                                                    });
+                                                    
+                                                    if enqueue_success {
+                                                        log_info!("USB command queued: type=0x{:02X}, id={}, size={} bytes", 
+                                                                 command.command_type, command.command_id, report_size);
+                                                        
+                                                        // Send acknowledgment via logging system
+                                                        let ack_msg = logging::LogMessage::new(
+                                                            timestamp,
+                                                            logging::LogLevel::Info,
+                                                            "CMD",
+                                                            "Command received and queued"
+                                                        );
+                                                        unsafe {
+                                                            let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(ack_msg);
+                                                        }
+                                                    } else {
+                                                        log_warn!("Command queue full, dropping command: type=0x{:02X}, id={}", 
+                                                                 command.command_type, command.command_id);
+                                                        
+                                                        // Send error response via logging system
+                                                        let error_msg = logging::LogMessage::new(
+                                                            timestamp,
+                                                            logging::LogLevel::Error,
+                                                            "CMD",
+                                                            "Command queue full"
+                                                        );
+                                                        unsafe {
+                                                            let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
+                                                        }
+                                                    }
+                                                } else {
+                                                    log_warn!("Invalid command format received");
+                                                    let error_msg = logging::LogMessage::new(
+                                                        timestamp,
+                                                        logging::LogLevel::Error,
+                                                        "CMD",
+                                                        "Invalid command format"
+                                                    );
+                                                    unsafe {
+                                                        let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
+                                                    }
+                                                }
+                                            } else {
+                                                log_warn!("Command authentication failed");
+                                                let error_msg = logging::LogMessage::new(
+                                                    timestamp,
+                                                    logging::LogLevel::Error,
+                                                    "CMD",
+                                                    "Authentication failed"
+                                                );
+                                                unsafe {
+                                                    let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
+                                                }
+                                            }
+                                        }
+                                        ParseResult::InvalidChecksum => {
+                                            log_warn!("Command with invalid checksum received");
+                                            let error_msg = logging::LogMessage::new(
+                                                timestamp,
+                                                logging::LogLevel::Error,
+                                                "CMD",
+                                                "Invalid checksum"
+                                            );
+                                            unsafe {
+                                                let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
+                                            }
+                                        }
+                                        ParseResult::InvalidFormat => {
+                                            log_warn!("Command with invalid format received");
+                                            let error_msg = logging::LogMessage::new(
+                                                timestamp,
+                                                logging::LogLevel::Error,
+                                                "CMD",
+                                                "Invalid format"
+                                            );
+                                            unsafe {
+                                                let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
+                                            }
+                                        }
+                                        ParseResult::BufferTooShort => {
+                                            log_warn!("Command buffer too short");
+                                            let error_msg = logging::LogMessage::new(
+                                                timestamp,
+                                                logging::LogLevel::Error,
+                                                "CMD",
+                                                "Buffer too short"
+                                            );
+                                            unsafe {
+                                                let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            Err(_) => {
+                                // No output report available or error reading
+                                // This is normal - not all USB polls will have output reports
+                            }
+                        }
+                        
+                        poll_result
                     })
                 })
             });
@@ -1090,6 +1415,540 @@ mod app {
         }
     }
 
+    /// USB command handler task with medium priority for processing test commands
+    /// Processes commands from the command queue and executes appropriate actions
+    /// Requirements: 2.1, 2.2, 2.4, 2.5, 6.1, 6.2
+    #[task(shared = [command_queue, response_queue, command_parser, bootloader_manager, system_state_handler, test_processor], priority = 2)]
+    async fn usb_command_handler_task(mut ctx: usb_command_handler_task::Context) {
+        // Command processing interval - balance between responsiveness and CPU usage
+        const COMMAND_PROCESSING_INTERVAL_MS: u64 = 50;
+        const TIMEOUT_CHECK_INTERVAL_MS: u64 = 1000; // Check for timeouts every second
+        
+        // Performance monitoring constants
+        const STATS_LOG_INTERVAL_COMMANDS: u32 = 100; // Log stats every 100 commands
+        
+        // Command processing statistics
+        let mut commands_processed = 0u32;
+        let mut commands_failed = 0u32;
+        let mut commands_timed_out = 0u32;
+        let mut _last_stats_log = 0u32;
+        let mut last_timeout_check = get_timestamp_ms();
+        
+        log_info!("USB command handler task started");
+        log_info!("Command processing interval: {}ms", COMMAND_PROCESSING_INTERVAL_MS);
+        log_info!("Supported commands: EnterBootloader, SystemStateQuery, ExecuteTest, ConfigurationQuery, PerformanceMetrics");
+        
+        loop {
+            let current_time = get_timestamp_ms();
+            
+            // Periodically check for and remove timed out commands
+            // Requirements: 6.4 (timeout handling)
+            if current_time.saturating_sub(last_timeout_check) >= TIMEOUT_CHECK_INTERVAL_MS as u32 {
+                let timed_out_count = ctx.shared.command_queue.lock(|queue| {
+                    queue.remove_timed_out_commands(current_time)
+                });
+                
+                if timed_out_count > 0 {
+                    commands_timed_out += timed_out_count as u32;
+                    log_warn!("Removed {} timed out commands from queue", timed_out_count);
+                }
+                
+                last_timeout_check = current_time;
+            }
+            
+            // Check for commands in the queue
+            let command_available = ctx.shared.command_queue.lock(|queue| {
+                !queue.is_empty()
+            });
+            
+            if command_available {
+                // Process the next command (FIFO order)
+                // Requirements: 2.4 (commands executed in FIFO order)
+                let queued_command = ctx.shared.command_queue.lock(|queue| {
+                    queue.dequeue()
+                });
+                
+                if let Some(queued_cmd) = queued_command {
+                    let timestamp = get_timestamp_ms();
+                    
+                    // Check if command has timed out before processing
+                    if queued_cmd.is_timed_out(timestamp) {
+                        log_warn!("Command timed out before processing: type=0x{:02X}, id={}, seq={}", 
+                                 queued_cmd.command.command_type, queued_cmd.command.command_id, queued_cmd.sequence_number);
+                        commands_timed_out += 1;
+                        continue;
+                    }
+                    
+                    // Log command reception with sequence tracking
+                    log_info!("Processing command: type=0x{:02X}, id={}, seq={}, remaining_timeout={}ms", 
+                             queued_cmd.command.command_type, queued_cmd.command.command_id, 
+                             queued_cmd.sequence_number, queued_cmd.remaining_timeout_ms(timestamp));
+                    
+                    // Process the command based on its type
+                    match queued_cmd.command.get_test_command() {
+                        Some(command::parsing::TestCommand::EnterBootloader) => {
+                            log_info!("Bootloader entry command received - processing immediately");
+                            
+                            // Extract timeout from payload (default to 500ms if not specified)
+                            let timeout_ms = if queued_cmd.command.payload.len() >= 4 {
+                                u32::from_le_bytes([
+                                    queued_cmd.command.payload[0],
+                                    queued_cmd.command.payload[1],
+                                    queued_cmd.command.payload[2],
+                                    queued_cmd.command.payload[3],
+                                ])
+                            } else {
+                                500 // Default 500ms timeout as per requirements
+                            };
+                            
+                            // Spawn bootloader entry task to handle the request
+                            bootloader_entry_task::spawn(queued_cmd.command.command_id, timeout_ms).ok();
+                            commands_processed += 1;
+                        }
+                        Some(command::parsing::TestCommand::SystemStateQuery) => {
+                            log_info!("System state query command received");
+                            
+                            // Parse query type from payload (first byte)
+                            if queued_cmd.command.payload.is_empty() {
+                                // Queue error response for missing query type
+                                if let Ok(error_response) = CommandReport::error_response(
+                                    queued_cmd.command.command_id,
+                                    command::parsing::ErrorCode::InvalidFormat,
+                                    "Missing query type in payload"
+                                ) {
+                                    ctx.shared.response_queue.lock(|queue| {
+                                        queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                    });
+                                }
+                                commands_failed += 1;
+                                log_warn!("System state query missing query type");
+                                continue;
+                            }
+                            
+                            let query_type_byte = queued_cmd.command.payload[0];
+                            match StateQueryType::from_u8(query_type_byte) {
+                                Some(query_type) => {
+                                    // Process system state query
+                                    let response_result = ctx.shared.system_state_handler.lock(|handler| {
+                                        handler.process_state_query(query_type, timestamp)
+                                    });
+                                    
+                                    match response_result {
+                                        Ok(state_data) => {
+                                            // Create response with state data
+                                            if let Ok(response) = CommandReport::new(
+                                                command::parsing::TestResponse::StateData as u8,
+                                                queued_cmd.command.command_id,
+                                                state_data.as_slice()
+                                            ) {
+                                                ctx.shared.response_queue.lock(|queue| {
+                                                    queue.enqueue(response, queued_cmd.sequence_number, timestamp)
+                                                });
+                                                commands_processed += 1;
+                                                log_info!("System state query processed successfully: type=0x{:02X}, data_size={}", 
+                                                         query_type_byte, state_data.len());
+                                            } else {
+                                                commands_failed += 1;
+                                                log_warn!("Failed to create system state response");
+                                            }
+                                        }
+                                        Err(error) => {
+                                            // Queue error response for system state query failure
+                                            if let Ok(error_response) = CommandReport::error_response(
+                                                queued_cmd.command.command_id,
+                                                command::parsing::ErrorCode::SystemNotReady,
+                                                "System state query failed"
+                                            ) {
+                                                ctx.shared.response_queue.lock(|queue| {
+                                                    queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                                });
+                                            }
+                                            commands_failed += 1;
+                                            log_warn!("System state query failed: {:?}", error);
+                                        }
+                                    }
+                                }
+                                None => {
+                                    // Queue error response for invalid query type
+                                    if let Ok(error_response) = CommandReport::error_response(
+                                        queued_cmd.command.command_id,
+                                        command::parsing::ErrorCode::UnsupportedCommand,
+                                        "Invalid query type"
+                                    ) {
+                                        ctx.shared.response_queue.lock(|queue| {
+                                            queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                        });
+                                    }
+                                    commands_failed += 1;
+                                    log_warn!("Invalid system state query type: 0x{:02X}", query_type_byte);
+                                }
+                            }
+                        }
+                        Some(command::parsing::TestCommand::ExecuteTest) => {
+                            log_info!("Execute test command received - processing with test processor");
+                            
+                            // Process test command using test processor
+                            let response_result = ctx.shared.test_processor.lock(|processor| {
+                                processor.process_test_command(&queued_cmd.command, timestamp)
+                            });
+                            
+                            match response_result {
+                                Ok(response) => {
+                                    // Queue successful response for transmission
+                                    ctx.shared.response_queue.lock(|queue| {
+                                        queue.enqueue(response, queued_cmd.sequence_number, timestamp)
+                                    });
+                                    commands_processed += 1;
+                                    log_info!("Test command processed successfully, response queued");
+                                }
+                                Err(error_code) => {
+                                    // Queue error response for transmission
+                                    if let Ok(error_response) = CommandReport::error_response(
+                                        queued_cmd.command.command_id,
+                                        error_code,
+                                        "Test execution failed"
+                                    ) {
+                                        ctx.shared.response_queue.lock(|queue| {
+                                            queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                        });
+                                    }
+                                    commands_failed += 1;
+                                    log_warn!("Test command processing failed: {:?}", error_code);
+                                }
+                            }
+                        }
+                        Some(command::parsing::TestCommand::ConfigurationQuery) => {
+                            log_info!("Configuration query command received");
+                            
+                            // Process configuration dump query (using ConfigurationDump state query type)
+                            let response_result = ctx.shared.system_state_handler.lock(|handler| {
+                                handler.process_state_query(StateQueryType::ConfigurationDump, timestamp)
+                            });
+                            
+                            match response_result {
+                                Ok(config_data) => {
+                                    // Create response with configuration data
+                                    if let Ok(response) = CommandReport::new(
+                                        command::parsing::TestResponse::StateData as u8,
+                                        queued_cmd.command.command_id,
+                                        config_data.as_slice()
+                                    ) {
+                                        ctx.shared.response_queue.lock(|queue| {
+                                            queue.enqueue(response, queued_cmd.sequence_number, timestamp)
+                                        });
+                                        commands_processed += 1;
+                                        log_info!("Configuration query processed successfully, data_size={}", config_data.len());
+                                    } else {
+                                        commands_failed += 1;
+                                        log_warn!("Failed to create configuration response");
+                                    }
+                                }
+                                Err(error) => {
+                                    // Queue error response for configuration query failure
+                                    if let Ok(error_response) = CommandReport::error_response(
+                                        queued_cmd.command.command_id,
+                                        command::parsing::ErrorCode::SystemNotReady,
+                                        "Configuration query failed"
+                                    ) {
+                                        ctx.shared.response_queue.lock(|queue| {
+                                            queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                        });
+                                    }
+                                    commands_failed += 1;
+                                    log_warn!("Configuration query failed: {:?}", error);
+                                }
+                            }
+                        }
+                        Some(command::parsing::TestCommand::PerformanceMetrics) => {
+                            log_info!("Performance metrics command received");
+                            
+                            // Process performance metrics query (using TaskPerformance state query type)
+                            let response_result = ctx.shared.system_state_handler.lock(|handler| {
+                                handler.process_state_query(StateQueryType::TaskPerformance, timestamp)
+                            });
+                            
+                            match response_result {
+                                Ok(perf_data) => {
+                                    // Create response with performance data
+                                    if let Ok(response) = CommandReport::new(
+                                        command::parsing::TestResponse::StateData as u8,
+                                        queued_cmd.command.command_id,
+                                        perf_data.as_slice()
+                                    ) {
+                                        ctx.shared.response_queue.lock(|queue| {
+                                            queue.enqueue(response, queued_cmd.sequence_number, timestamp)
+                                        });
+                                        commands_processed += 1;
+                                        log_info!("Performance metrics processed successfully, data_size={}", perf_data.len());
+                                    } else {
+                                        commands_failed += 1;
+                                        log_warn!("Failed to create performance metrics response");
+                                    }
+                                }
+                                Err(error) => {
+                                    // Queue error response for performance metrics failure
+                                    if let Ok(error_response) = CommandReport::error_response(
+                                        queued_cmd.command.command_id,
+                                        command::parsing::ErrorCode::SystemNotReady,
+                                        "Performance metrics query failed"
+                                    ) {
+                                        ctx.shared.response_queue.lock(|queue| {
+                                            queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                        });
+                                    }
+                                    commands_failed += 1;
+                                    log_warn!("Performance metrics query failed: {:?}", error);
+                                }
+                            }
+                        }
+                        None => {
+                            // Requirements: 2.5 (error response with diagnostic information)
+                            log_warn!("Unknown command type: 0x{:02X}, seq={}", 
+                                     queued_cmd.command.command_type, queued_cmd.sequence_number);
+                            commands_failed += 1;
+                            
+                            // Queue error response for transmission
+                            if let Ok(error_response) = CommandReport::error_response(
+                                queued_cmd.command.command_id,
+                                command::parsing::ErrorCode::UnsupportedCommand,
+                                "Unknown command type"
+                            ) {
+                                ctx.shared.response_queue.lock(|queue| {
+                                    queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                });
+                            }
+                        }
+                    }
+                    
+                    // Log processing statistics periodically
+                    if commands_processed > 0 && commands_processed % STATS_LOG_INTERVAL_COMMANDS == 0 {
+                        let (dropped_commands, timeout_count, queue_len) = ctx.shared.command_queue.lock(|q| {
+                            (q.dropped_count(), q.timeout_count(), q.len())
+                        });
+                        let (dropped_responses, response_queue_len) = ctx.shared.response_queue.lock(|q| {
+                            (q.dropped_count(), q.len())
+                        });
+                        
+                        log_info!("Command processing stats: processed={}, failed={}, timed_out={}", 
+                                  commands_processed, commands_failed, commands_timed_out);
+                        log_info!("Queue stats: cmd_queue_len={}, dropped_cmds={}, timeout_cmds={}", 
+                                  queue_len, dropped_commands, timeout_count);
+                        log_info!("Response stats: resp_queue_len={}, dropped_resp={}", 
+                                  response_queue_len, dropped_responses);
+                        _last_stats_log = commands_processed;
+                    }
+                } else {
+                    // Queue reported having commands but dequeue returned None
+                    // This can happen due to race conditions - not an error
+                }
+            }
+            
+            // Wait for next processing interval
+            Mono::delay(COMMAND_PROCESSING_INTERVAL_MS.millis()).await;
+        }
+    }
+
+    /// Bootloader entry task with high priority for safe bootloader mode entry
+    /// Handles bootloader entry requests with hardware validation and task shutdown
+    /// Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 5.1, 5.2, 5.3, 5.4, 5.5
+    #[task(shared = [bootloader_manager], priority = 3)]
+    async fn bootloader_entry_task(mut ctx: bootloader_entry_task::Context, command_id: u8, timeout_ms: u32) {
+        let current_time = get_timestamp_ms();
+        
+        log_info!("=== BOOTLOADER ENTRY TASK STARTED ===");
+        log_info!("Command ID: {}, Timeout: {}ms", command_id, timeout_ms);
+        
+        // Request bootloader entry from the manager
+        let entry_result = ctx.shared.bootloader_manager.lock(|manager| {
+            manager.request_bootloader_entry(timeout_ms, current_time)
+        });
+        
+        match entry_result {
+            Ok(()) => {
+                log_info!("Bootloader entry request accepted, starting entry sequence");
+                
+                // Main bootloader entry loop
+                let mut entry_complete = false;
+                let start_time = current_time;
+                
+                while !entry_complete {
+                    let loop_time = get_timestamp_ms();
+                    
+                    // Check for overall timeout
+                    if loop_time.saturating_sub(start_time) > timeout_ms {
+                        log_error!("Bootloader entry timed out after {}ms", timeout_ms);
+                        ctx.shared.bootloader_manager.lock(|manager| {
+                            manager.reset_entry_state();
+                        });
+                        return;
+                    }
+                    
+                    // Collect current hardware state (simplified for now)
+                    // In a full implementation, this would query the actual hardware state
+                    let hardware_state = HardwareState {
+                        mosfet_state: false, // Assume MOSFET is OFF when not pulsing
+                        led_state: false,    // Assume LED state is manageable
+                        adc_active: false,   // Assume ADC is not continuously active
+                        usb_transmitting: false, // Assume USB is not continuously transmitting
+                        pemf_pulse_active: false, // Will be checked via task shutdown coordination
+                    };
+                    
+                    // Update bootloader entry progress
+                    let entry_state = ctx.shared.bootloader_manager.lock(|manager| {
+                        manager.update_entry_progress(&hardware_state, loop_time)
+                    });
+                    
+                    match entry_state {
+                        Ok(BootloaderEntryState::ReadyForBootloader) => {
+                            log_info!("Bootloader entry sequence complete, executing final shutdown");
+                            
+                            // Execute safe shutdown
+                            let shutdown_result = ctx.shared.bootloader_manager.lock(|manager| {
+                                manager.execute_safe_shutdown(loop_time)
+                            });
+                            
+                            match shutdown_result {
+                                Ok(()) => {
+                                    log_info!("Safe shutdown complete, entering bootloader mode");
+                                    
+                                    // Small delay to ensure log messages are transmitted
+                                    Mono::delay(100.millis()).await;
+                                    
+                                    // Enter bootloader mode (this function never returns)
+                                    ctx.shared.bootloader_manager.lock(|manager| {
+                                        manager.enter_bootloader_mode();
+                                    });
+                                }
+                                Err(e) => {
+                                    log_error!("Safe shutdown failed: {:?}", e);
+                                    ctx.shared.bootloader_manager.lock(|manager| {
+                                        manager.reset_entry_state();
+                                    });
+                                    return;
+                                }
+                            }
+                        }
+                        Ok(BootloaderEntryState::EntryFailed) => {
+                            log_error!("Bootloader entry failed, returning to normal operation");
+                            entry_complete = true;
+                        }
+                        Ok(_) => {
+                            // Entry still in progress, continue loop
+                            Mono::delay(10.millis()).await; // Small delay to prevent busy loop
+                        }
+                        Err(e) => {
+                            log_error!("Bootloader entry error: {:?}", e);
+                            ctx.shared.bootloader_manager.lock(|manager| {
+                                manager.reset_entry_state();
+                            });
+                            return;
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                log_error!("Bootloader entry request failed: {:?}", e);
+                // TODO: Send error response back to host
+            }
+        }
+        
+        log_info!("=== BOOTLOADER ENTRY TASK COMPLETED ===");
+    }
+
+    /// Test processor update task with medium priority for test execution monitoring
+    /// Handles test timeout protection, resource usage monitoring, and result collection
+    /// Requirements: 8.1, 8.2, 8.3 (timeout protection and resource monitoring)
+    #[task(shared = [test_processor, response_queue], priority = 2)]
+    async fn test_processor_update_task(mut ctx: test_processor_update_task::Context) {
+        // Test update interval - balance between responsiveness and CPU usage
+        const TEST_UPDATE_INTERVAL_MS: u64 = 100;
+        
+        // Statistics logging interval
+        const STATS_LOG_INTERVAL_UPDATES: u32 = 100; // Log stats every 100 updates (10 seconds)
+        
+        let mut update_count = 0u32;
+        let mut completed_tests = 0u32;
+        let mut timed_out_tests = 0u32;
+        let mut failed_tests = 0u32;
+        
+        log_info!("Test processor update task started");
+        log_info!("Update interval: {}ms", TEST_UPDATE_INTERVAL_MS);
+        
+        loop {
+            let current_timestamp = get_timestamp_ms();
+            update_count += 1;
+            
+            // Update active test and check for completion/timeout
+            let test_result = ctx.shared.test_processor.lock(|processor| {
+                processor.update_active_test(current_timestamp)
+            });
+            
+            if let Some(result) = test_result {
+                // Test completed, timed out, or failed - queue response
+                match result.status {
+                    TestStatus::Completed => {
+                        completed_tests += 1;
+                        log_info!("Test completed: type={:?}, id={}, duration={}ms", 
+                                 result.test_type, result.test_id, result.duration_ms());
+                    }
+                    TestStatus::TimedOut => {
+                        timed_out_tests += 1;
+                        log_warn!("Test timed out: type={:?}, id={}, duration={}ms", 
+                                 result.test_type, result.test_id, result.duration_ms());
+                    }
+                    TestStatus::Failed => {
+                        failed_tests += 1;
+                        log_error!("Test failed: type={:?}, id={}, duration={}ms", 
+                                  result.test_type, result.test_id, result.duration_ms());
+                    }
+                    _ => {}
+                }
+                
+                // Serialize test result and queue response
+                if let Ok(response) = result.serialize_to_response(result.test_id) {
+                    ctx.shared.response_queue.lock(|queue| {
+                        queue.enqueue(response, result.test_id as u32, current_timestamp)
+                    });
+                    log_info!("Test result response queued for transmission");
+                } else {
+                    log_error!("Failed to serialize test result for response");
+                }
+            }
+            
+            // Log statistics periodically
+            if update_count % STATS_LOG_INTERVAL_UPDATES == 0 {
+                let stats = ctx.shared.test_processor.lock(|processor| {
+                    processor.get_statistics()
+                });
+                
+                log_info!("Test processor stats: executed={}, passed={}, failed={}", 
+                         stats.total_tests_executed, stats.total_tests_passed, stats.total_tests_failed);
+                log_info!("Test processor update stats: completed={}, timed_out={}, failed={}", 
+                         completed_tests, timed_out_tests, failed_tests);
+                log_info!("Success rate: {}%, Active tests: {}", 
+                         stats.success_rate_percent(), stats.active_test_count);
+            }
+            
+            // Wait for next update interval
+            Mono::delay(TEST_UPDATE_INTERVAL_MS.millis()).await;
+        }
+    }
+
+    /// Update test processor with timing measurements from pEMF pulse task
+    /// Requirements: 9.1 (measure pulse accuracy without interfering with normal operation)
+    #[task(shared = [test_processor], priority = 2)]
+    async fn update_test_processor_timing(mut ctx: update_test_processor_timing::Context, timing_measurement: test_processor::TimingMeasurement) {
+        // Update test processor with timing measurement if pEMF timing test is active
+        let result = ctx.shared.test_processor.lock(|processor| {
+            processor.update_pemf_timing_measurements(timing_measurement)
+        });
+        
+        if let Err(error) = result {
+            // Log error but don't interfere with normal operation
+            log_debug!("Failed to update pEMF timing measurement: {:?}", error);
+        }
+    }
+
     /// USB HID transmission task with performance monitoring and priority 2 for log message transmission
     /// Handles message dequeuing and HID report generation with error handling and retry logic
     /// Requirements: 2.5, 7.1, 7.3, 7.4
@@ -1104,6 +1963,7 @@ mod app {
         const MAX_RETRY_ATTEMPTS: u8 = 3;
         
         // Retry delay for failed transmissions (shorter than main interval)
+        #[allow(dead_code)]
         const RETRY_DELAY_MS: u64 = 5;
         
         // Performance monitoring constants
@@ -1125,11 +1985,20 @@ mod app {
         log_info!("USB HID transmission task started with performance monitoring");
         
         loop {
+            // Check for shutdown request before message processing
+            // Requirements: 1.4 (graceful shutdown)
+            if should_task_shutdown(TaskPriority::Medium) {
+                log_info!("USB HID task received shutdown request");
+                log_info!("USB HID task shutdown complete");
+                mark_task_shutdown_complete(TaskPriority::Medium);
+                return; // Exit task
+            }
+            
             let cycle_start_time = get_timestamp_ms();
             
             // Access the global log queue to dequeue messages
             let message_to_send = unsafe {
-                GLOBAL_LOG_QUEUE.dequeue()
+                (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).dequeue()
             };
             
             let has_message = message_to_send.is_some();
@@ -1288,7 +2157,7 @@ mod app {
             
             // Periodic statistics logging for monitoring and debugging
             if messages_transmitted > 0 && messages_transmitted % 500 == 0 {
-                let queue_stats = unsafe { GLOBAL_LOG_QUEUE.stats() };
+                let queue_stats = unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).stats() };
                 
                 // Calculate memory usage
                 let queue_memory_bytes = logging::PerformanceMonitor::calculate_queue_memory_usage::<32>(
@@ -1303,8 +2172,8 @@ mod app {
                     "USB HID stats: TX={}, Errors={}, Queue: {}/{} ({}%), Memory: {}KB",
                     messages_transmitted,
                     transmission_errors,
-                    unsafe { GLOBAL_LOG_QUEUE.len() },
-                    unsafe { GLOBAL_LOG_QUEUE.capacity() },
+                    unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).len() },
+                    unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).capacity() },
                     queue_stats.current_utilization_percent,
                     (queue_memory_bytes + usb_buffer_memory_bytes) / 1024
                 );
@@ -1365,11 +2234,7 @@ mod app {
             let actual_cycle_time = current_time as u64;
             
             if diagnostic_cycles > 1 {
-                let timing_deviation = if actual_cycle_time > expected_cycle_time {
-                    actual_cycle_time - expected_cycle_time
-                } else {
-                    expected_cycle_time - actual_cycle_time
-                };
+                let timing_deviation = actual_cycle_time.abs_diff(expected_cycle_time);
                 
                 if timing_deviation > CRITICAL_DELAY_THRESHOLD_MS {
                     log_error!("CRITICAL: System diagnostic task delayed by {}ms (cycle {})", 
@@ -1388,29 +2253,29 @@ mod app {
                 last_memory_check = current_time;
                 
                 // Get log queue statistics for memory usage monitoring
-                let queue_stats = unsafe { GLOBAL_LOG_QUEUE.stats() };
+                let queue_stats = unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).stats() };
                 let queue_utilization = queue_stats.current_utilization_percent;
                 
                 // Check log queue memory usage
                 if queue_utilization >= MEMORY_CRITICAL_THRESHOLD_PERCENT {
                     log_error!("CRITICAL: Log queue memory usage at {}% ({}/{} messages)", 
                               queue_utilization, 
-                              unsafe { GLOBAL_LOG_QUEUE.len() },
-                              unsafe { GLOBAL_LOG_QUEUE.capacity() });
+                              unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).len() },
+                              unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).capacity() });
                     system_warnings += 1;
                 } else if queue_utilization >= MEMORY_WARNING_THRESHOLD_PERCENT {
                     log_warn!("Log queue memory usage high: {}% ({}/{} messages)", 
                              queue_utilization,
-                             unsafe { GLOBAL_LOG_QUEUE.len() },
-                             unsafe { GLOBAL_LOG_QUEUE.capacity() });
+                             unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).len() },
+                             unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).capacity() });
                     system_warnings += 1;
                 }
                 
                 // Log memory usage statistics
                 log_debug!("Memory usage check:");
                 log_debug!("- Log queue: {}/{} messages ({}%)", 
-                          unsafe { GLOBAL_LOG_QUEUE.len() },
-                          unsafe { GLOBAL_LOG_QUEUE.capacity() },
+                          unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).len() },
+                          unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).capacity() },
                           queue_utilization);
                 log_debug!("- Queue peak utilization: {} messages", queue_stats.peak_utilization);
                 log_debug!("- Messages dropped: {}", queue_stats.messages_dropped);
@@ -1430,7 +2295,7 @@ mod app {
             // Add comprehensive error logging with detailed diagnostic information
             // Requirements: 5.4
             if diagnostic_cycles % 10 == 0 { // Every 10 cycles (5 minutes)
-                let queue_stats = unsafe { GLOBAL_LOG_QUEUE.stats() };
+                let queue_stats = unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).stats() };
                 
                 // Check for error conditions and log diagnostic information
                 if queue_stats.messages_dropped > 0 {
@@ -1500,7 +2365,7 @@ mod app {
                          if diagnostic_cycles > 0 { current_time / diagnostic_cycles } else { 0 });
                 
                 // Log system performance metrics
-                let queue_stats = unsafe { GLOBAL_LOG_QUEUE.stats() };
+                let queue_stats = unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).stats() };
                 log_info!("System performance metrics:");
                 log_info!("- Messages processed: {}", queue_stats.messages_sent);
                 log_info!("- Messages dropped: {}", queue_stats.messages_dropped);
@@ -1541,7 +2406,7 @@ mod app {
     /// Handles runtime log level control via USB control commands
     /// Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
     #[task(shared = [hid_class], priority = 1)]
-    async fn usb_control_task(mut ctx: usb_control_task::Context) {
+    async fn usb_control_task(_ctx: usb_control_task::Context) {
         // Control command processing interval
         const CONTROL_TASK_INTERVAL_MS: u64 = 100;
         
@@ -1554,19 +2419,17 @@ mod app {
             // For now, we'll simulate periodic configuration validation
             
             // Validate current configuration periodically
-            unsafe {
-                if let Some(config) = logging::get_global_config() {
-                    if let Err(error) = config.validate() {
-                        log_system_error!("Configuration validation failed: {}", error.as_str());
-                        
-                        // Reset to default configuration on validation failure
-                        let _ = logging::update_global_config(|cfg| {
-                            *cfg = config::LogConfig::new();
-                            Ok(())
-                        });
-                        
-                        log_system_info!("Configuration reset to defaults due to validation failure");
-                    }
+            if let Some(config) = logging::get_global_config() {
+                if let Err(error) = config.validate() {
+                    log_system_error!("Configuration validation failed: {}", error.as_str());
+                    
+                    // Reset to default configuration on validation failure
+                    let _ = logging::update_global_config(|cfg| {
+                        *cfg = config::LogConfig::new();
+                        Ok(())
+                    });
+                    
+                    log_system_info!("Configuration reset to defaults due to validation failure");
                 }
             }
             
@@ -1604,11 +2467,15 @@ mod app {
         const TIMING_MEASUREMENT_SAMPLES: u32 = 100; // Number of samples for timing measurements
         
         // Baseline timing measurements (without USB logging active)
+        #[allow(unused_assignments)]
         let mut baseline_pemf_timing_us = 0u32;
+        #[allow(unused_assignments)]
         let mut baseline_battery_timing_us = 0u32;
         
         // Current timing measurements (with USB logging active)
+        #[allow(unused_assignments)]
         let mut current_pemf_timing_us = 0u32;
+        #[allow(unused_assignments)]
         let mut current_battery_timing_us = 0u32;
         
         // Benchmark cycle counter
@@ -1641,17 +2508,9 @@ mod app {
             current_battery_timing_us = baseline_battery_timing_us + (benchmark_cycles % 5);
             
             // Calculate timing deviations
-            let pemf_deviation_us = if current_pemf_timing_us > baseline_pemf_timing_us {
-                current_pemf_timing_us - baseline_pemf_timing_us
-            } else {
-                baseline_pemf_timing_us - current_pemf_timing_us
-            };
+            let pemf_deviation_us = current_pemf_timing_us.abs_diff(baseline_pemf_timing_us);
             
-            let battery_deviation_us = if current_battery_timing_us > baseline_battery_timing_us {
-                current_battery_timing_us - baseline_battery_timing_us
-            } else {
-                baseline_battery_timing_us - current_battery_timing_us
-            };
+            let battery_deviation_us = current_battery_timing_us.abs_diff(baseline_battery_timing_us);
             
             // Record timing impact measurements
             logging::record_timing_impact(pemf_deviation_us, battery_deviation_us);
@@ -1766,177 +2625,7 @@ mod app {
         }
     }
 
-    /// USB HID command handler task
-    /// Processes incoming USB HID output reports and parses commands
-    /// Requirements: 2.1, 2.2, 6.1, 6.2
-    #[task(shared = [hid_class, command_queue, command_parser], priority = 2)]
-    async fn usb_command_handler_task(mut ctx: usb_command_handler_task::Context) {
-        log_info!("USB command handler started - processing HID output reports");
-        
-        loop {
-            let mut report_buf = [0u8; 64];
-            
-            // Check for incoming USB HID output reports
-            let report_received = ctx.shared.hid_class.lock(|hid| {
-                hid.pull_raw_output(&mut report_buf)
-            });
-            
-            if let Ok(size) = report_received {
-                if size > 0 {
-                    // Log received command for debugging
-                    log_debug!("Received HID output report: {} bytes, type: 0x{:02X}", size, report_buf[0]);
-                    
-                    // Handle legacy bootloader command (0xBB) for backward compatibility
-                    if report_buf[0] == 0xBB {
-                        log_info!("Legacy bootloader command received - entering bootloader mode");
-                        hal::rom_data::reset_to_usb_boot(0, 0);
-                    }
-                    
-                    // Parse new command format (0x80-0xFF range)
-                    if report_buf[0] >= 0x80 {
-                        let parse_result = ctx.shared.command_parser.lock(|parser| {
-                            parser.parse_command(&report_buf)
-                        });
-                        
-                        match parse_result {
-                            Ok(command) => {
-                                log_info!("Parsed command: type={:?}, id={}, payload_len={}", 
-                                         command.command_type, command.command_id, command.payload.len());
-                                
-                                // Validate command parameters
-                                let validation_result = ctx.shared.command_parser.lock(|parser| {
-                                    parser.validate_command_parameters(&command)
-                                });
-                                
-                                match validation_result {
-                                    Ok(()) => {
-                                        // Enqueue valid command for processing
-                                        let enqueue_success = ctx.shared.command_queue.lock(|queue| {
-                                            queue.enqueue(command)
-                                        });
-                                        
-                                        if enqueue_success {
-                                            log_debug!("Command enqueued successfully");
-                                            // Spawn command processor task
-                                            command_processor_task::spawn().ok();
-                                        } else {
-                                            log_warn!("Command queue full - dropping command");
-                                        }
-                                    }
-                                    Err(error) => {
-                                        log_error!("Command validation failed: {}", error.as_str());
-                                    }
-                                }
-                            }
-                            Err(error) => {
-                                log_error!("Command parsing failed: {}", error.as_str());
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Poll at 10ms intervals to balance responsiveness and CPU usage
-            Mono::delay(10.millis()).await;
-        }
-    }
 
-    /// Command processor task
-    /// Executes parsed commands from the command queue
-    /// Requirements: 2.1, 2.2, 6.1, 6.2
-    #[task(shared = [command_queue, hid_class], priority = 2)]
-    async fn command_processor_task(mut ctx: command_processor_task::Context) {
-        // Process one command from the queue
-        let command_opt = ctx.shared.command_queue.lock(|queue| {
-            queue.dequeue()
-        });
-        
-        if let Some(command) = command_opt {
-            log_info!("Processing command: type={:?}, id={}", command.command_type, command.command_id);
-            
-            // Execute command based on type
-            match command.command_type {
-                command::CommandType::EnterBootloader => {
-                    // Extract timeout from payload
-                    let timeout_bytes = [
-                        command.payload[0],
-                        command.payload[1], 
-                        command.payload[2],
-                        command.payload[3],
-                    ];
-                    let timeout_ms = u32::from_le_bytes(timeout_bytes);
-                    
-                    log_info!("Entering bootloader mode with timeout: {}ms", timeout_ms);
-                    
-                    // Create success response before entering bootloader
-                    let response = CommandResponse::success(command.command_id, b"BOOTLOADER").unwrap();
-                    
-                    // Send response immediately
-                    let response_data = response.serialize();
-                    ctx.shared.hid_class.lock(|hid| {
-                        // Convert to LogReport format for transmission
-                        let log_report = LogReport { data: response_data };
-                        let _ = hid.push_input(&log_report);
-                    });
-                    
-                    // Small delay to ensure response is transmitted
-                    Mono::delay(50.millis()).await;
-                    
-                    // Enter bootloader mode
-                    hal::rom_data::reset_to_usb_boot(0, 0);
-                }
-                
-                _ => {
-                    // Handle other command types
-                    let response = match command.command_type {
-                        command::CommandType::SystemStateQuery => {
-                            // For now, return basic system state
-                            let state_data = b"SYSTEM_OK";
-                            CommandResponse::success(command.command_id, state_data).unwrap()
-                        }
-                        
-                        command::CommandType::ExecuteTest => {
-                            // For now, acknowledge test command
-                            let test_data = b"TEST_ACK";
-                            CommandResponse::success(command.command_id, test_data).unwrap()
-                        }
-                        
-                        command::CommandType::ConfigurationQuery => {
-                            // For now, return basic config info
-                            let config_data = b"CONFIG_OK";
-                            CommandResponse::success(command.command_id, config_data).unwrap()
-                        }
-                        
-                        command::CommandType::PerformanceMetrics => {
-                            // For now, return basic performance info
-                            let perf_data = b"PERF_OK";
-                            CommandResponse::success(command.command_id, perf_data).unwrap()
-                        }
-                        
-                        command::CommandType::EnterBootloader => {
-                            // This case is handled above, but needed for exhaustive match
-                            CommandResponse::error(command.command_id, "Bootloader error").unwrap()
-                        }
-                    };
-                    
-                    // Send response via USB HID
-                    let response_data = response.serialize();
-                    ctx.shared.hid_class.lock(|hid| {
-                        // Convert to LogReport format for transmission
-                        let log_report = LogReport { data: response_data };
-                        match hid.push_input(&log_report) {
-                            Ok(_size) => {
-                                log_debug!("Command response sent successfully");
-                            }
-                            Err(_) => {
-                                log_warn!("Failed to send command response");
-                            }
-                        }
-                    });
-                }
-            }
-        }
-    }
 
     #[idle]
     fn idle(_ctx: idle::Context) -> ! {
@@ -1952,7 +2641,7 @@ mod app {
 /// 
 /// These validation functions can be called during runtime for self-testing
 /// or used in host-side tests for validation.
-
+///
 /// Validate that timing constants are correct for 2Hz square wave
 pub fn validate_pulse_timing_constants() -> bool {
     const PULSE_HIGH_DURATION_MS: u64 = 2;

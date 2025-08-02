@@ -117,7 +117,7 @@
     - Test timing calculations and pulse generation logic
     - _Requirements: 2.3, 3.2, 3.3, 3.4_
 
-go watch -x run  - [ ] 9.2 Create integration tests for hardware interaction
+  - [ ] 9.2 Create integration tests for hardware interaction
     - Test GPIO pin control and ADC reading functionality
     - Validate task scheduling and priority behavior
     - Test resource sharing and concurrent access patterns

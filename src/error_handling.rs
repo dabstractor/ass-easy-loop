@@ -1,9 +1,11 @@
-/// Error handling utilities for the pEMF/Battery Monitor system
-/// Requirements: 7.1, 7.5 - Graceful error handling and error logging for debugging
+//! Error handling utilities for the pEMF/Battery Monitor system
+//! Requirements: 7.1, 7.5 - Graceful error handling and error logging for debugging
 
 use crate::logging::{LogLevel, log_message};
 use heapless::String;
 use core::fmt::Write;
+use core::result::Result::{self, Ok, Err};
+use core::ops::FnMut;
 
 /// System error types for graceful error handling
 /// Requirements: 7.1 (graceful error handling for non-critical operations)
@@ -13,6 +15,16 @@ pub enum SystemError {
     AdcReadFailed,
     /// GPIO operation failed (non-critical)
     GpioOperationFailed,
+    /// Hardware error (general hardware failure)
+    HardwareError,
+    /// Task error (task operation failed)
+    TaskError,
+    /// System is busy and cannot process request
+    SystemBusy,
+    /// Operation was interrupted
+    OperationInterrupted,
+    /// Invalid parameter provided
+    InvalidParameter,
 }
 
 impl SystemError {
@@ -21,6 +33,11 @@ impl SystemError {
         match self {
             SystemError::AdcReadFailed => "ADC read operation failed",
             SystemError::GpioOperationFailed => "GPIO operation failed",
+            SystemError::HardwareError => "Hardware error occurred",
+            SystemError::TaskError => "Task operation failed",
+            SystemError::SystemBusy => "System is busy",
+            SystemError::OperationInterrupted => "Operation was interrupted",
+            SystemError::InvalidParameter => "Invalid parameter provided",
         }
     }
 
@@ -29,6 +46,11 @@ impl SystemError {
         match self {
             SystemError::AdcReadFailed => LogLevel::Error,
             SystemError::GpioOperationFailed => LogLevel::Warn,
+            SystemError::HardwareError => LogLevel::Error,
+            SystemError::TaskError => LogLevel::Error,
+            SystemError::SystemBusy => LogLevel::Warn,
+            SystemError::OperationInterrupted => LogLevel::Warn,
+            SystemError::InvalidParameter => LogLevel::Error,
         }
     }
 
@@ -38,6 +60,11 @@ impl SystemError {
         match self {
             SystemError::AdcReadFailed => false,        // Continue with last known value
             SystemError::GpioOperationFailed => false, // Log and continue
+            SystemError::HardwareError => false,       // Log and continue
+            SystemError::TaskError => false,           // Log and continue
+            SystemError::SystemBusy => false,          // Log and continue
+            SystemError::OperationInterrupted => false, // Log and continue
+            SystemError::InvalidParameter => false,    // Log and continue
         }
     }
 }
@@ -83,6 +110,36 @@ impl ErrorRecovery {
                 // This is handled by the calling task's loop structure
                 Ok(())
             }
+            
+            SystemError::HardwareError => {
+                log_message(LogLevel::Error, "ERROR_HANDLER", "Hardware error recovery: logging and continuing");
+                // Recovery: Log the error and continue operation
+                Ok(())
+            }
+            
+            SystemError::TaskError => {
+                log_message(LogLevel::Error, "ERROR_HANDLER", "Task error recovery: logging and continuing");
+                // Recovery: Log the error and continue operation
+                Ok(())
+            }
+            
+            SystemError::SystemBusy => {
+                log_message(LogLevel::Warn, "ERROR_HANDLER", "System busy: operation will be retried");
+                // Recovery: Operation will be retried later
+                Ok(())
+            }
+            
+            SystemError::OperationInterrupted => {
+                log_message(LogLevel::Warn, "ERROR_HANDLER", "Operation interrupted: will attempt recovery");
+                // Recovery: Operation can be retried or resumed
+                Ok(())
+            }
+            
+            SystemError::InvalidParameter => {
+                log_message(LogLevel::Error, "ERROR_HANDLER", "Invalid parameter: operation aborted");
+                // Recovery: Log the error and abort the operation
+                Err(error)
+            }
         }
     }
 
@@ -104,7 +161,7 @@ impl ErrorRecovery {
                 Ok(result) => {
                     if attempts > 0 {
                         let mut success_msg: String<64> = String::new();
-                        let _ = write!(&mut success_msg, "Operation succeeded after {} retries in {}", attempts, context);
+                        let _ = write!(&mut success_msg, "Operation succeeded after {attempts} retries in {context}");
                         log_message(
                             LogLevel::Info,
                             "ERROR_HANDLER",

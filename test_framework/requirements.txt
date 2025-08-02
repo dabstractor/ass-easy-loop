@@ -1,0 +1,11 @@
+# USB HID communication
+hidapi>=0.12.0
+
+# Testing framework
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Development dependencies
+black>=22.0.0
+flake8>=5.0.0
+mypy>=1.0.0
