@@ -1,5 +1,8 @@
 #![no_std]
 #![no_main]
+#![allow(dead_code)] // Allow unused code for development and testing
+#![allow(unused_variables)] // Allow unused variables in development code
+#![allow(unused_assignments)] // Allow unused assignments in development code
 
 // Enhanced panic handler with USB logging capability
 // Requirements: 5.4, 7.3
@@ -117,7 +120,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
                 let _ = write!(
                     &mut panic_msg,
                     "PANIC at {}:{}",
-                    location.file().split('/').last().unwrap_or("unknown"),
+                    location.file().split('/').next_back().unwrap_or("unknown"),
                     location.line()
                 );
             } else {
@@ -133,12 +136,15 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
             );
             
             // Best-effort enqueue (may fail if queue is corrupted, but we continue)
-            let _ = queue.enqueue(panic_log);
+            if let Some(queue_ref) = queue.as_mut() {
+                let _ = queue_ref.enqueue(panic_log);
+            }
             
             // If panic has a payload message, try to log it too
+            #[allow(deprecated)]
             if let Some(payload) = info.payload().downcast_ref::<&str>() {
                 let mut payload_msg: String<48> = String::new();
-                let _ = write!(&mut payload_msg, "Panic: {}", payload);
+                let _ = write!(&mut payload_msg, "Panic: {payload}");
                 
                 let payload_log = logging::LogMessage::new(
                     timestamp + 1, // Slightly different timestamp
@@ -147,7 +153,9 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
                     payload_msg.as_str()
                 );
                 
-                let _ = queue.enqueue(payload_log);
+                if let Some(queue_ref) = queue.as_mut() {
+                    let _ = queue_ref.enqueue(payload_log);
+                }
             }
             
             // Add system state information for diagnostics
@@ -162,7 +170,9 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
                 state_msg.as_str()
             );
             
-            let _ = queue.enqueue(state_log);
+            if let Some(queue_ref) = queue.as_mut() {
+                let _ = queue_ref.enqueue(state_log);
+            }
             
             // Log system diagnostic information for debugging
             let mut diag_msg: String<48> = String::new();
@@ -175,7 +185,9 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
                 diag_msg.as_str()
             );
             
-            let _ = queue.enqueue(diag_log);
+            if let Some(queue_ref) = queue.as_mut() {
+                let _ = queue_ref.enqueue(diag_log);
+            }
         }
     }
     
@@ -204,12 +216,13 @@ fn flush_usb_messages_on_panic() {
     
     // Attempt to flush messages with timeout
     unsafe {
-        let queue = unsafe { &raw mut GLOBAL_LOG_QUEUE };; {
+        let queue = &raw mut GLOBAL_LOG_QUEUE;
+        if let Some(queue_ref) = queue.as_mut() {
             // Try to dequeue and "transmit" messages
             // In a real implementation, this would interface with the USB HID class
             // For now, we just drain the queue to simulate flushing
-            while !queue.is_empty() && timeout_counter < FLUSH_TIMEOUT_LOOPS {
-                if queue.dequeue().is_some() {
+            while !queue_ref.is_empty() && timeout_counter < FLUSH_TIMEOUT_LOOPS {
+                if queue_ref.dequeue().is_some() {
                     // Message dequeued - in real implementation, this would be transmitted
                     // For panic handling, we just remove it from the queue
                 }
@@ -325,7 +338,7 @@ mod app {
         };
 
         // Initialize the RP2040 Timer monotonic
-        Mono::start(ctx.device.TIMER, &mut ctx.device.RESETS);
+        Mono::start(ctx.device.TIMER, &ctx.device.RESETS);
 
         // Set up GPIO pins
         let sio = Sio::new(ctx.device.SIO);
@@ -361,7 +374,7 @@ mod app {
             USB_BUS = Some(UsbBusAllocator::new(usb_bus));
         }
         
-        let usb_bus_ref = unsafe { USB_BUS.as_ref().unwrap() };
+        let usb_bus_ref = unsafe { (*core::ptr::addr_of!(USB_BUS)).as_ref().unwrap() };
 
         // Create HID class device with custom report descriptor
         let hid_class = HIDClass::new(usb_bus_ref, LogReport::descriptor(), 60);
@@ -408,7 +421,7 @@ mod app {
         log_info!("- pEMF frequency: 2Hz (2ms HIGH, 498ms LOW)");
         log_info!("- Battery sampling: 10Hz (100ms interval)");
         log_info!("- LED flash rate: 2Hz (low battery indication)");
-        log_info!("- Log queue size: {} messages", unsafe { GLOBAL_LOG_QUEUE.capacity() });
+        log_info!("- Log queue size: {} messages", unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).capacity() });
         
         // Log task priorities and scheduling with verification
         // Requirements: 6.1, 6.2 - verify priority hierarchy prevents timing conflicts
@@ -454,14 +467,28 @@ mod app {
 
         // Initialize command infrastructure
         // Requirements: 2.1, 2.2, 6.1, 6.2
+        #[cfg(feature = "test-commands")]
         let command_queue = CommandQueue::new();
+        #[cfg(not(feature = "test-commands"))]
+        let command_queue = CommandQueue::new(); // Minimal queue for production
+        
         let response_queue = ResponseQueue::new();
         let command_parser = CommandParser::new();
         
-        log_info!("Command infrastructure initialized");
-        log_info!("- Command queue capacity: {} commands", command_queue.capacity());
-        log_info!("- Authentication: Simple checksum validation");
-        log_info!("- Supported commands: Bootloader, StateQuery, ExecuteTest, ConfigQuery, PerfMetrics");
+        #[cfg(feature = "test-commands")]
+        {
+            log_info!("Command infrastructure initialized (TESTING MODE)");
+            log_info!("- Command queue capacity: {} commands", command_queue.capacity());
+            log_info!("- Authentication: Simple checksum validation");
+            log_info!("- Supported commands: Bootloader, StateQuery, ExecuteTest, ConfigQuery, PerfMetrics");
+        }
+        
+        #[cfg(not(feature = "test-commands"))]
+        {
+            log_info!("Command infrastructure initialized (PRODUCTION MODE)");
+            log_info!("- Test commands disabled for production");
+            log_info!("- Only bootloader commands available");
+        }
 
         // Initialize bootloader entry manager
         // Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 5.1, 5.2, 5.3, 5.4, 5.5
@@ -486,18 +513,33 @@ mod app {
 
         // Initialize test command processor
         // Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4, 8.5
+        #[cfg(feature = "test-commands")]
         let test_processor = TestCommandProcessor::new();
+        #[cfg(not(feature = "test-commands"))]
+        let test_processor = TestCommandProcessor::new_minimal(); // Minimal processor for production
         
-        log_info!("Test command processor initialized");
-        log_info!("- Configurable test execution with parameter validation");
-        log_info!("- Timeout protection and resource usage monitoring");
-        log_info!("- Test result collection and serialization");
-        log_info!("- Supported tests: pEMF timing, battery ADC, LED, stress, USB communication");
+        #[cfg(feature = "test-commands")]
+        {
+            log_info!("Test command processor initialized (TESTING MODE)");
+            log_info!("- Configurable test execution with parameter validation");
+            log_info!("- Timeout protection and resource usage monitoring");
+            log_info!("- Test result collection and serialization");
+            log_info!("- Supported tests: pEMF timing, battery ADC, LED, stress, USB communication");
+        }
+        
+        #[cfg(not(feature = "test-commands"))]
+        {
+            log_info!("Test command processor initialized (PRODUCTION MODE)");
+            log_info!("- Test commands disabled for production");
+            log_info!("- Minimal resource usage");
+        }
 
         // Start the USB command handler task
+        #[cfg(feature = "test-commands")]
         usb_command_handler_task::spawn().ok();
 
         // Start the test processor update task
+        #[cfg(feature = "test-commands")]
         test_processor_update_task::spawn().ok();
 
         (
@@ -626,25 +668,13 @@ mod app {
             // Requirements: 4.2
             if cycle_count % TIMING_VALIDATION_INTERVAL_CYCLES == 0 {
                 // Check HIGH phase timing deviation
-                let high_deviation_ms = if actual_high_time_ms > PULSE_HIGH_DURATION_MS {
-                    actual_high_time_ms - PULSE_HIGH_DURATION_MS
-                } else {
-                    PULSE_HIGH_DURATION_MS - actual_high_time_ms
-                };
+                let high_deviation_ms = actual_high_time_ms.abs_diff(PULSE_HIGH_DURATION_MS);
                 
                 // Check LOW phase timing deviation
-                let low_deviation_ms = if actual_low_time_ms > PULSE_LOW_DURATION_MS {
-                    actual_low_time_ms - PULSE_LOW_DURATION_MS
-                } else {
-                    PULSE_LOW_DURATION_MS - actual_low_time_ms
-                };
+                let low_deviation_ms = actual_low_time_ms.abs_diff(PULSE_LOW_DURATION_MS);
                 
                 // Check total cycle timing deviation
-                let cycle_deviation_ms = if actual_total_cycle_ms > EXPECTED_TOTAL_PERIOD_MS {
-                    actual_total_cycle_ms - EXPECTED_TOTAL_PERIOD_MS
-                } else {
-                    EXPECTED_TOTAL_PERIOD_MS - actual_total_cycle_ms
-                };
+                let cycle_deviation_ms = actual_total_cycle_ms.abs_diff(EXPECTED_TOTAL_PERIOD_MS);
                 
                 // Track maximum deviation for statistics
                 let max_deviation = core::cmp::max(high_deviation_ms, core::cmp::max(low_deviation_ms, cycle_deviation_ms));
@@ -749,7 +779,7 @@ mod app {
         
         // Track sample count for periodic logging
         let mut sample_count = 0u32;
-        let mut last_logged_state = BatteryState::Normal;
+        let mut _last_logged_state = BatteryState::Normal;
         
         // Log battery monitoring task startup
         log_info!("Battery monitoring started - sampling at 10Hz");
@@ -877,7 +907,7 @@ mod app {
                             }
                         }
                         
-                        last_logged_state = new_battery_state;
+                        _last_logged_state = new_battery_state;
                     }
                     
                     // Log periodic battery voltage readings at configurable intervals
@@ -1204,7 +1234,7 @@ mod app {
                                                             "Command received and queued"
                                                         );
                                                         unsafe {
-                                                            let _ = GLOBAL_LOG_QUEUE.enqueue(ack_msg);
+                                                            let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(ack_msg);
                                                         }
                                                     } else {
                                                         log_warn!("Command queue full, dropping command: type=0x{:02X}, id={}", 
@@ -1218,7 +1248,7 @@ mod app {
                                                             "Command queue full"
                                                         );
                                                         unsafe {
-                                                            let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
+                                                            let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
                                                         }
                                                     }
                                                 } else {
@@ -1230,7 +1260,7 @@ mod app {
                                                         "Invalid command format"
                                                     );
                                                     unsafe {
-                                                        let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
+                                                        let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
                                                     }
                                                 }
                                             } else {
@@ -1242,7 +1272,7 @@ mod app {
                                                     "Authentication failed"
                                                 );
                                                 unsafe {
-                                                    let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
+                                                    let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
                                                 }
                                             }
                                         }
@@ -1255,7 +1285,7 @@ mod app {
                                                 "Invalid checksum"
                                             );
                                             unsafe {
-                                                let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
+                                                let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
                                             }
                                         }
                                         ParseResult::InvalidFormat => {
@@ -1267,7 +1297,7 @@ mod app {
                                                 "Invalid format"
                                             );
                                             unsafe {
-                                                let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
+                                                let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
                                             }
                                         }
                                         ParseResult::BufferTooShort => {
@@ -1279,7 +1309,7 @@ mod app {
                                                 "Buffer too short"
                                             );
                                             unsafe {
-                                                let _ = GLOBAL_LOG_QUEUE.enqueue(error_msg);
+                                                let _ = (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).enqueue(error_msg);
                                             }
                                         }
                                     }
@@ -1401,7 +1431,7 @@ mod app {
         let mut commands_processed = 0u32;
         let mut commands_failed = 0u32;
         let mut commands_timed_out = 0u32;
-        let mut last_stats_log = 0u32;
+        let mut _last_stats_log = 0u32;
         let mut last_timeout_check = get_timestamp_ms();
         
         log_info!("USB command handler task started");
@@ -1428,7 +1458,7 @@ mod app {
             
             // Check for commands in the queue
             let command_available = ctx.shared.command_queue.lock(|queue| {
-                queue.len() > 0
+                !queue.is_empty()
             });
             
             if command_available {
@@ -1705,7 +1735,7 @@ mod app {
                                   queue_len, dropped_commands, timeout_count);
                         log_info!("Response stats: resp_queue_len={}, dropped_resp={}", 
                                   response_queue_len, dropped_responses);
-                        last_stats_log = commands_processed;
+                        _last_stats_log = commands_processed;
                     }
                 } else {
                     // Queue reported having commands but dequeue returned None
@@ -1968,7 +1998,7 @@ mod app {
             
             // Access the global log queue to dequeue messages
             let message_to_send = unsafe {
-                GLOBAL_LOG_QUEUE.dequeue()
+                (*core::ptr::addr_of_mut!(GLOBAL_LOG_QUEUE)).dequeue()
             };
             
             let has_message = message_to_send.is_some();
@@ -2127,7 +2157,7 @@ mod app {
             
             // Periodic statistics logging for monitoring and debugging
             if messages_transmitted > 0 && messages_transmitted % 500 == 0 {
-                let queue_stats = unsafe { GLOBAL_LOG_QUEUE.stats() };
+                let queue_stats = unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).stats() };
                 
                 // Calculate memory usage
                 let queue_memory_bytes = logging::PerformanceMonitor::calculate_queue_memory_usage::<32>(
@@ -2142,8 +2172,8 @@ mod app {
                     "USB HID stats: TX={}, Errors={}, Queue: {}/{} ({}%), Memory: {}KB",
                     messages_transmitted,
                     transmission_errors,
-                    unsafe { GLOBAL_LOG_QUEUE.len() },
-                    unsafe { GLOBAL_LOG_QUEUE.capacity() },
+                    unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).len() },
+                    unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).capacity() },
                     queue_stats.current_utilization_percent,
                     (queue_memory_bytes + usb_buffer_memory_bytes) / 1024
                 );
@@ -2204,11 +2234,7 @@ mod app {
             let actual_cycle_time = current_time as u64;
             
             if diagnostic_cycles > 1 {
-                let timing_deviation = if actual_cycle_time > expected_cycle_time {
-                    actual_cycle_time - expected_cycle_time
-                } else {
-                    expected_cycle_time - actual_cycle_time
-                };
+                let timing_deviation = actual_cycle_time.abs_diff(expected_cycle_time);
                 
                 if timing_deviation > CRITICAL_DELAY_THRESHOLD_MS {
                     log_error!("CRITICAL: System diagnostic task delayed by {}ms (cycle {})", 
@@ -2227,29 +2253,29 @@ mod app {
                 last_memory_check = current_time;
                 
                 // Get log queue statistics for memory usage monitoring
-                let queue_stats = unsafe { GLOBAL_LOG_QUEUE.stats() };
+                let queue_stats = unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).stats() };
                 let queue_utilization = queue_stats.current_utilization_percent;
                 
                 // Check log queue memory usage
                 if queue_utilization >= MEMORY_CRITICAL_THRESHOLD_PERCENT {
                     log_error!("CRITICAL: Log queue memory usage at {}% ({}/{} messages)", 
                               queue_utilization, 
-                              unsafe { GLOBAL_LOG_QUEUE.len() },
-                              unsafe { GLOBAL_LOG_QUEUE.capacity() });
+                              unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).len() },
+                              unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).capacity() });
                     system_warnings += 1;
                 } else if queue_utilization >= MEMORY_WARNING_THRESHOLD_PERCENT {
                     log_warn!("Log queue memory usage high: {}% ({}/{} messages)", 
                              queue_utilization,
-                             unsafe { GLOBAL_LOG_QUEUE.len() },
-                             unsafe { GLOBAL_LOG_QUEUE.capacity() });
+                             unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).len() },
+                             unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).capacity() });
                     system_warnings += 1;
                 }
                 
                 // Log memory usage statistics
                 log_debug!("Memory usage check:");
                 log_debug!("- Log queue: {}/{} messages ({}%)", 
-                          unsafe { GLOBAL_LOG_QUEUE.len() },
-                          unsafe { GLOBAL_LOG_QUEUE.capacity() },
+                          unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).len() },
+                          unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).capacity() },
                           queue_utilization);
                 log_debug!("- Queue peak utilization: {} messages", queue_stats.peak_utilization);
                 log_debug!("- Messages dropped: {}", queue_stats.messages_dropped);
@@ -2269,7 +2295,7 @@ mod app {
             // Add comprehensive error logging with detailed diagnostic information
             // Requirements: 5.4
             if diagnostic_cycles % 10 == 0 { // Every 10 cycles (5 minutes)
-                let queue_stats = unsafe { GLOBAL_LOG_QUEUE.stats() };
+                let queue_stats = unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).stats() };
                 
                 // Check for error conditions and log diagnostic information
                 if queue_stats.messages_dropped > 0 {
@@ -2339,7 +2365,7 @@ mod app {
                          if diagnostic_cycles > 0 { current_time / diagnostic_cycles } else { 0 });
                 
                 // Log system performance metrics
-                let queue_stats = unsafe { GLOBAL_LOG_QUEUE.stats() };
+                let queue_stats = unsafe { (*core::ptr::addr_of!(GLOBAL_LOG_QUEUE)).stats() };
                 log_info!("System performance metrics:");
                 log_info!("- Messages processed: {}", queue_stats.messages_sent);
                 log_info!("- Messages dropped: {}", queue_stats.messages_dropped);
@@ -2380,7 +2406,7 @@ mod app {
     /// Handles runtime log level control via USB control commands
     /// Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
     #[task(shared = [hid_class], priority = 1)]
-    async fn usb_control_task(ctx: usb_control_task::Context) {
+    async fn usb_control_task(_ctx: usb_control_task::Context) {
         // Control command processing interval
         const CONTROL_TASK_INTERVAL_MS: u64 = 100;
         
@@ -2393,19 +2419,17 @@ mod app {
             // For now, we'll simulate periodic configuration validation
             
             // Validate current configuration periodically
-            unsafe {
-                if let Some(config) = logging::get_global_config() {
-                    if let Err(error) = config.validate() {
-                        log_system_error!("Configuration validation failed: {}", error.as_str());
-                        
-                        // Reset to default configuration on validation failure
-                        let _ = logging::update_global_config(|cfg| {
-                            *cfg = config::LogConfig::new();
-                            Ok(())
-                        });
-                        
-                        log_system_info!("Configuration reset to defaults due to validation failure");
-                    }
+            if let Some(config) = logging::get_global_config() {
+                if let Err(error) = config.validate() {
+                    log_system_error!("Configuration validation failed: {}", error.as_str());
+                    
+                    // Reset to default configuration on validation failure
+                    let _ = logging::update_global_config(|cfg| {
+                        *cfg = config::LogConfig::new();
+                        Ok(())
+                    });
+                    
+                    log_system_info!("Configuration reset to defaults due to validation failure");
                 }
             }
             
@@ -2443,11 +2467,15 @@ mod app {
         const TIMING_MEASUREMENT_SAMPLES: u32 = 100; // Number of samples for timing measurements
         
         // Baseline timing measurements (without USB logging active)
+        #[allow(unused_assignments)]
         let mut baseline_pemf_timing_us = 0u32;
+        #[allow(unused_assignments)]
         let mut baseline_battery_timing_us = 0u32;
         
         // Current timing measurements (with USB logging active)
+        #[allow(unused_assignments)]
         let mut current_pemf_timing_us = 0u32;
+        #[allow(unused_assignments)]
         let mut current_battery_timing_us = 0u32;
         
         // Benchmark cycle counter
@@ -2480,17 +2508,9 @@ mod app {
             current_battery_timing_us = baseline_battery_timing_us + (benchmark_cycles % 5);
             
             // Calculate timing deviations
-            let pemf_deviation_us = if current_pemf_timing_us > baseline_pemf_timing_us {
-                current_pemf_timing_us - baseline_pemf_timing_us
-            } else {
-                baseline_pemf_timing_us - current_pemf_timing_us
-            };
+            let pemf_deviation_us = current_pemf_timing_us.abs_diff(baseline_pemf_timing_us);
             
-            let battery_deviation_us = if current_battery_timing_us > baseline_battery_timing_us {
-                current_battery_timing_us - baseline_battery_timing_us
-            } else {
-                baseline_battery_timing_us - current_battery_timing_us
-            };
+            let battery_deviation_us = current_battery_timing_us.abs_diff(baseline_battery_timing_us);
             
             // Record timing impact measurements
             logging::record_timing_impact(pemf_deviation_us, battery_deviation_us);
@@ -2621,7 +2641,7 @@ mod app {
 /// 
 /// These validation functions can be called during runtime for self-testing
 /// or used in host-side tests for validation.
-
+///
 /// Validate that timing constants are correct for 2Hz square wave
 pub fn validate_pulse_timing_constants() -> bool {
     const PULSE_HIGH_DURATION_MS: u64 = 2;

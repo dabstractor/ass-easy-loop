@@ -81,6 +81,12 @@ pub struct TestParameters {
     pub custom_parameters: Vec<u8, 32>, // Additional test-specific parameters
 }
 
+impl Default for TestParameters {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TestParameters {
     /// Create new test parameters with default values
     pub fn new() -> Self {
@@ -132,8 +138,10 @@ impl TestParameters {
         let tolerance_percent = f32::from_le_bytes([payload[4], payload[5], payload[6], payload[7]]);
         let sample_rate_hz = u32::from_le_bytes([payload[8], payload[9], payload[10], payload[11]]);
 
-        let mut validation_criteria = ValidationCriteria::default();
-        validation_criteria.max_error_count = u32::from_le_bytes([payload[12], payload[13], payload[14], payload[15]]);
+        let validation_criteria = ValidationCriteria {
+            max_error_count: u32::from_le_bytes([payload[12], payload[13], payload[14], payload[15]]),
+            ..Default::default()
+        };
 
         let mut resource_limits = ResourceLimits::default();
         if payload.len() >= 20 {
@@ -214,9 +222,8 @@ pub struct ValidationCriteria {
     pub require_stable_operation: bool,
 }
 
-impl ValidationCriteria {
-    /// Create default validation criteria
-    pub fn default() -> Self {
+impl Default for ValidationCriteria {
+    fn default() -> Self {
         Self {
             max_error_count: 10,
             min_success_rate_percent: 95,
@@ -224,6 +231,9 @@ impl ValidationCriteria {
             require_stable_operation: true,
         }
     }
+}
+
+impl ValidationCriteria {
 
     /// Validate validation criteria parameters
     pub fn validate(&self) -> Result<(), TestParameterError> {
@@ -249,9 +259,8 @@ pub struct ResourceLimits {
     pub allow_preemption: bool,
 }
 
-impl ResourceLimits {
-    /// Create default resource limits
-    pub fn default() -> Self {
+impl Default for ResourceLimits {
+    fn default() -> Self {
         Self {
             max_cpu_usage_percent: 50, // Maximum 50% CPU usage
             max_memory_usage_bytes: 4096, // Maximum 4KB memory usage
@@ -259,6 +268,9 @@ impl ResourceLimits {
             allow_preemption: true, // Allow higher priority tasks to preempt
         }
     }
+}
+
+impl ResourceLimits {
 
     /// Validate resource limits
     pub fn validate(&self) -> Result<(), TestParameterError> {
@@ -303,6 +315,12 @@ pub struct TestMeasurements {
     pub custom_measurements: Vec<u8, 64>,
 }
 
+impl Default for TestMeasurements {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TestMeasurements {
     /// Create new empty test measurements
     pub fn new() -> Self {
@@ -335,11 +353,7 @@ impl TestMeasurements {
 
         let mut total_deviation = 0.0;
         for measurement in &self.timing_measurements {
-            let deviation = if measurement.execution_time_us > expected_timing_us {
-                measurement.execution_time_us - expected_timing_us
-            } else {
-                expected_timing_us - measurement.execution_time_us
-            };
+            let deviation = measurement.execution_time_us.abs_diff(expected_timing_us);
             total_deviation += deviation as f32;
         }
 
@@ -425,6 +439,12 @@ pub struct ResourceUsageStats {
     pub preemption_count: u32,
 }
 
+impl Default for ResourceUsageStats {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ResourceUsageStats {
     /// Create new empty resource usage stats
     pub fn new() -> Self {
@@ -445,6 +465,12 @@ pub struct PerformanceMetrics {
     pub average_latency_us: u32,
     pub success_rate_percent: u32,
     pub error_rate_percent: u32,
+}
+
+impl Default for PerformanceMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl PerformanceMetrics {
@@ -500,8 +526,8 @@ impl TestResult {
         let mut error_details = Vec::new();
         let error_bytes = error_message.as_bytes();
         let max_len = core::cmp::min(error_bytes.len(), 32);
-        for i in 0..max_len {
-            if error_details.push(error_bytes[i]).is_err() {
+        for &byte in error_bytes.iter().take(max_len) {
+            if error_details.push(byte).is_err() {
                 break;
             }
         }
@@ -516,11 +542,7 @@ impl TestResult {
 
     /// Get test duration in milliseconds
     pub fn duration_ms(&self) -> u32 {
-        if self.end_timestamp_ms > self.start_timestamp_ms {
-            self.end_timestamp_ms - self.start_timestamp_ms
-        } else {
-            0
-        }
+        self.end_timestamp_ms.saturating_sub(self.start_timestamp_ms)
     }
 
     /// Serialize test result to command response
@@ -626,6 +648,12 @@ pub struct ResourceMonitor {
     sample_index: usize,
     peak_memory_usage: u32,
     current_memory_usage: u32,
+}
+
+impl Default for ResourceMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ResourceMonitor {
@@ -786,9 +814,8 @@ pub struct StressTestParameters {
     pub performance_threshold_percent: u8,
 }
 
-impl StressTestParameters {
-    /// Create default stress test parameters
-    pub fn default() -> Self {
+impl Default for StressTestParameters {
+    fn default() -> Self {
         Self {
             duration_ms: 10000, // 10 seconds
             load_level: 50, // 50% load
@@ -800,6 +827,9 @@ impl StressTestParameters {
             performance_threshold_percent: 80, // Alert if performance drops below 80%
         }
     }
+}
+
+impl StressTestParameters {
 
     /// Create stress test parameters from payload
     pub fn from_payload(payload: &[u8]) -> Result<Self, TestParameterError> {
@@ -924,9 +954,8 @@ pub struct BatteryAdcParameters {
     pub validation_mode: AdcValidationMode,
 }
 
-impl BatteryAdcParameters {
-    /// Create default battery ADC test parameters
-    pub fn default() -> Self {
+impl Default for BatteryAdcParameters {
+    fn default() -> Self {
         Self {
             test_duration_ms: 5000, // 5 seconds
             reference_voltage_mv: 3300, // 3.3V reference
@@ -938,6 +967,9 @@ impl BatteryAdcParameters {
             validation_mode: AdcValidationMode::Accuracy,
         }
     }
+}
+
+impl BatteryAdcParameters {
 
     /// Create battery ADC parameters from payload
     pub fn from_payload(payload: &[u8]) -> Result<Self, TestParameterError> {
@@ -1108,9 +1140,8 @@ pub struct LedFunctionalityParameters {
     pub validate_pattern: bool,
 }
 
-impl LedFunctionalityParameters {
-    /// Create default LED functionality test parameters
-    pub fn default() -> Self {
+impl Default for LedFunctionalityParameters {
+    fn default() -> Self {
         Self {
             test_duration_ms: 5000,        // 5 seconds
             pattern: LedTestPattern::Flashing,
@@ -1122,6 +1153,9 @@ impl LedFunctionalityParameters {
             validate_pattern: true,
         }
     }
+}
+
+impl LedFunctionalityParameters {
 
     /// Create LED parameters from payload
     pub fn from_payload(payload: &[u8]) -> Result<Self, TestParameterError> {
@@ -1247,6 +1281,12 @@ pub struct BatteryAdcMeasurements {
     pub measured_voltage_mv: u32,
 }
 
+impl Default for BatteryAdcMeasurements {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BatteryAdcMeasurements {
     /// Create new empty battery ADC measurements
     pub fn new() -> Self {
@@ -1275,11 +1315,7 @@ impl BatteryAdcMeasurements {
         // Simplified: voltage_mv = ADC * 2386 / 1000
         self.measured_voltage_mv = (self.average_adc_value as u32 * 2386) / 1000;
         
-        let voltage_error = if self.measured_voltage_mv > reference_voltage_mv {
-            self.measured_voltage_mv - reference_voltage_mv
-        } else {
-            reference_voltage_mv - self.measured_voltage_mv
-        };
+        let voltage_error = self.measured_voltage_mv.abs_diff(reference_voltage_mv);
 
         self.voltage_accuracy_percent = 100.0 - (voltage_error as f32 / reference_voltage_mv as f32 * 100.0);
         self.voltage_accuracy_percent = self.voltage_accuracy_percent.max(0.0);
@@ -1292,11 +1328,7 @@ impl BatteryAdcMeasurements {
             return 0.0;
         }
 
-        let adc_error = if self.average_adc_value > expected_adc {
-            self.average_adc_value - expected_adc
-        } else {
-            expected_adc - self.average_adc_value
-        };
+        let adc_error = self.average_adc_value.abs_diff(expected_adc);
 
         self.calibration_error_percent = (adc_error as f32 / expected_adc as f32) * 100.0;
         self.calibration_error_percent
@@ -1398,6 +1430,12 @@ pub struct LedFunctionalityMeasurements {
     pub test_duration_ms: u32,
 }
 
+impl Default for LedFunctionalityMeasurements {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LedFunctionalityMeasurements {
     /// Create new empty LED functionality measurements
     pub fn new() -> Self {
@@ -1433,7 +1471,7 @@ impl LedFunctionalityMeasurements {
         };
 
         let tolerance_ms = (expected_duration as f32 * tolerance_percent / 100.0) as u32;
-        let timing_error_abs = measurement.timing_error_ms.abs() as u32;
+        let timing_error_abs = measurement.timing_error_ms.unsigned_abs();
 
         if timing_error_abs > tolerance_ms {
             self.timing_violations_count += 1;
@@ -1466,7 +1504,7 @@ impl LedFunctionalityMeasurements {
 
         // Analyze timing measurements
         for measurement in &self.timing_measurements {
-            let timing_error_abs = measurement.timing_error_ms.abs() as u32;
+            let timing_error_abs = measurement.timing_error_ms.unsigned_abs();
             total_timing_error += timing_error_abs;
 
             if measurement.expected_state {
@@ -1685,11 +1723,10 @@ impl LedFunctionalityTestResult {
         }
 
         // Check pattern accuracy if enabled
-        if self.test_parameters.validate_pattern {
-            if self.measurements.pattern_accuracy_percent < 95.0 { // 95% pattern accuracy required
+        if self.test_parameters.validate_pattern
+            && self.measurements.pattern_accuracy_percent < 95.0 { // 95% pattern accuracy required
                 return false;
             }
-        }
 
         // Check for excessive timing violations
         let violation_rate = self.measurements.timing_violations_count as f32 / self.measurements.total_measurements as f32;
@@ -1708,11 +1745,7 @@ impl LedFunctionalityTestResult {
 
     /// Get test duration in milliseconds
     pub fn duration_ms(&self) -> u32 {
-        if self.end_timestamp_ms > self.start_timestamp_ms {
-            self.end_timestamp_ms - self.start_timestamp_ms
-        } else {
-            0
-        }
+        self.end_timestamp_ms.saturating_sub(self.start_timestamp_ms)
     }
 
     /// Serialize LED functionality test result for transmission
@@ -1887,11 +1920,7 @@ impl BatteryAdcTestResult {
         self.measurements.average_adc_value = new_average as u16;
 
         // Update variance (simplified calculation)
-        let deviation = if adc_value > new_average as u16 {
-            adc_value - new_average as u16
-        } else {
-            new_average as u16 - adc_value
-        };
+        let deviation = adc_value.abs_diff(new_average as u16);
         self.measurements.adc_variance = ((self.measurements.adc_variance * (new_total - 1)) + deviation as u32) / new_total;
 
         // Check for invalid readings (outside ADC range)
@@ -1978,11 +2007,7 @@ impl BatteryAdcTestResult {
 
     /// Get test duration in milliseconds
     pub fn duration_ms(&self) -> u32 {
-        if self.end_timestamp_ms > self.start_timestamp_ms {
-            self.end_timestamp_ms - self.start_timestamp_ms
-        } else {
-            0
-        }
+        self.end_timestamp_ms.saturating_sub(self.start_timestamp_ms)
     }
 
     /// Serialize battery ADC test result to command response
@@ -2051,6 +2076,12 @@ pub struct StressTestStatistics {
     pub system_stability_score: u8, // 0-100
 }
 
+impl Default for StressTestStatistics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StressTestStatistics {
     /// Create new empty stress test statistics
     pub fn new() -> Self {
@@ -2087,9 +2118,8 @@ pub struct UsbCommunicationTestParameters {
     pub concurrent_messages: u8,
 }
 
-impl UsbCommunicationTestParameters {
-    /// Create default USB communication test parameters
-    pub fn default() -> Self {
+impl Default for UsbCommunicationTestParameters {
+    fn default() -> Self {
         Self {
             message_count: 100,
             message_interval_ms: 10,
@@ -2102,6 +2132,9 @@ impl UsbCommunicationTestParameters {
             concurrent_messages: 1,
         }
     }
+}
+
+impl UsbCommunicationTestParameters {
 
     /// Create USB communication test parameters from payload
     pub fn from_payload(payload: &[u8]) -> Result<Self, TestParameterError> {
@@ -2226,6 +2259,12 @@ pub struct UsbCommunicationStatistics {
     pub error_rate_percent: f32,
     pub success_rate_percent: f32,
     pub bidirectional_success: bool,
+}
+
+impl Default for UsbCommunicationStatistics {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl UsbCommunicationStatistics {
@@ -2377,6 +2416,12 @@ pub struct MemoryUsageMonitor {
     last_update_ms: u32,
 }
 
+impl Default for MemoryUsageMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryUsageMonitor {
     /// Create new memory usage monitor
     pub fn new() -> Self {
@@ -2454,12 +2499,12 @@ impl MemoryUsageMonitor {
     fn calculate_fragmentation(&self) -> u8 {
         // Simulate fragmentation based on allocation/deallocation patterns
         let net_allocations = self.allocation_count.saturating_sub(self.deallocation_count);
-        let fragmentation = if net_allocations > 100 {
+        
+        if net_allocations > 100 {
             core::cmp::min(net_allocations / 10, 50) as u8
         } else {
             0
-        };
-        fragmentation
+        }
     }
 
     /// Get current statistics
@@ -2471,6 +2516,12 @@ impl MemoryUsageMonitor {
             execution_time_ms: 0, // Would be calculated separately
             preemption_count: 0, // Would be calculated separately
         }
+    }
+}
+
+impl Default for PemfTimingStatistics {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -2563,12 +2614,33 @@ pub struct TestCommandProcessor {
     last_test_timestamp: u32,
 }
 
+impl Default for TestCommandProcessor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TestCommandProcessor {
     /// Create a new test command processor
     pub const fn new() -> Self {
         Self {
             active_test: None,
             test_results: Vec::new(),
+            test_id_counter: 0,
+            total_tests_executed: 0,
+            total_tests_passed: 0,
+            total_tests_failed: 0,
+            last_test_timestamp: 0,
+        }
+    }
+
+    /// Create a minimal test command processor for production builds
+    /// Requirements: 8.4 (conditional compilation for production)
+    #[cfg(not(feature = "test-commands"))]
+    pub const fn new_minimal() -> Self {
+        Self {
+            active_test: None,
+            test_results: Vec::new(), // Minimal capacity
             test_id_counter: 0,
             total_tests_executed: 0,
             total_tests_passed: 0,
@@ -2832,11 +2904,7 @@ impl TestCommandProcessor {
             
             // Update average latency (deviation from expected timing)
             let expected_timing_us = pemf_params.expected_total_period_us;
-            let deviation_us = if timing.execution_time_us > expected_timing_us {
-                timing.execution_time_us - expected_timing_us
-            } else {
-                expected_timing_us - timing.execution_time_us
-            };
+            let deviation_us = timing.execution_time_us.abs_diff(expected_timing_us);
             
             // Running average of timing deviations
             let current_avg = measurements.performance_metrics.average_latency_us;
@@ -2929,11 +2997,7 @@ impl TestCommandProcessor {
     /// Update jitter measurements for pEMF timing test
     fn update_jitter_measurements_static(measurements: &mut TestMeasurements, timing: TimingMeasurement, expected_timing_us: u32) {
         // Calculate jitter based on deviation from expected timing
-        let deviation_us = if timing.execution_time_us > expected_timing_us {
-            timing.execution_time_us - expected_timing_us
-        } else {
-            expected_timing_us - timing.execution_time_us
-        };
+        let deviation_us = timing.execution_time_us.abs_diff(expected_timing_us);
         
         // Update pEMF jitter (maximum deviation seen so far)
         if deviation_us > measurements.jitter_measurements.pemf_jitter_us {
@@ -2995,11 +3059,7 @@ impl TestCommandProcessor {
                             timestamp_ms: measurement.timestamp_ms,
                             expected_timing_us,
                             actual_timing_us: measurement.execution_time_us,
-                            deviation_us: if measurement.execution_time_us > expected_timing_us {
-                                measurement.execution_time_us - expected_timing_us
-                            } else {
-                                expected_timing_us - measurement.execution_time_us
-                            },
+                            deviation_us: measurement.execution_time_us.abs_diff(expected_timing_us),
                             deviation_percent: timing_error_percent,
                             deviation_type: if measurement.execution_time_us > expected_timing_us {
                                 TimingDeviationType::TooSlow
@@ -3051,7 +3111,7 @@ impl TestCommandProcessor {
                 return Some(TimingDeviationReport {
                     total_measurements: measurements.timing_measurements.len() as u32,
                     total_deviations,
-                    deviation_rate_percent: if measurements.timing_measurements.len() > 0 {
+                    deviation_rate_percent: if !measurements.timing_measurements.is_empty() {
                         (total_deviations * 100) / measurements.timing_measurements.len() as u32
                     } else {
                         0
@@ -3133,11 +3193,7 @@ impl TestCommandProcessor {
                     let timing_error_percent = ((measurement.execution_time_us as f32 - expected_timing_us as f32) / expected_timing_us as f32 * 100.0).abs();
                     
                     if timing_error_percent > tolerance_percent {
-                        let deviation_us = if measurement.execution_time_us > expected_timing_us {
-                            measurement.execution_time_us - expected_timing_us
-                        } else {
-                            expected_timing_us - measurement.execution_time_us
-                        };
+                        let deviation_us = measurement.execution_time_us.abs_diff(expected_timing_us);
                         
                         let deviation = TimingDeviation {
                             measurement_index: index as u16,
@@ -3358,9 +3414,8 @@ pub struct PemfTimingParameters {
     pub expected_total_period_us: u32,
 }
 
-impl PemfTimingParameters {
-    /// Create default pEMF timing parameters for 2Hz operation
-    pub fn default() -> Self {
+impl Default for PemfTimingParameters {
+    fn default() -> Self {
         Self {
             expected_frequency_mhz: 2000, // 2Hz = 2000 mHz
             expected_high_duration_us: 2000, // 2ms HIGH
@@ -3368,6 +3423,9 @@ impl PemfTimingParameters {
             expected_total_period_us: 500000, // 500ms total period
         }
     }
+}
+
+impl PemfTimingParameters {
 
     /// Create pEMF timing parameters from frequency
     pub fn from_frequency_hz(frequency_hz: f32) -> Self {
@@ -3567,10 +3625,7 @@ impl TestCommandProcessor {
             return None;
         }
         
-        match BatteryAdcParameters::from_payload(custom_params) {
-            Ok(params) => Some(params),
-            Err(_) => None,
-        }
+        BatteryAdcParameters::from_payload(custom_params).ok()
     }
 
     /// Add ADC sample to active battery ADC test
@@ -3607,7 +3662,7 @@ impl TestCommandProcessor {
     /// Add battery state transition to active battery ADC test
     /// Requirements: 9.1, 9.5 (battery state transition testing)
     pub fn add_battery_state_transition(&mut self, from_state: BatteryState, to_state: BatteryState, 
-                                       adc_value: u16, timestamp_ms: u32) -> Result<(), TestExecutionError> {
+                                       adc_value: u16, _timestamp_ms: u32) -> Result<(), TestExecutionError> {
         if let Some(ref mut active_test) = self.active_test {
             if active_test.test_type == TestType::BatteryAdcCalibration {
                 // Validate state transition
@@ -3865,7 +3920,7 @@ impl TestCommandProcessor {
                         };
 
                         // Create timing measurement
-                        let measurement = LedTimingMeasurement {
+                        let _measurement = LedTimingMeasurement {
                             timestamp_ms,
                             led_state,
                             expected_state,
@@ -3884,7 +3939,7 @@ impl TestCommandProcessor {
                         
                         // Check for timing violations
                         let tolerance_ms = (expected_duration as f32 * led_params.timing_tolerance_percent / 100.0) as u32;
-                        let timing_error_abs = timing_error_ms.abs() as u32;
+                        let timing_error_abs = timing_error_ms.unsigned_abs();
 
                         if timing_error_abs > tolerance_ms {
                             active_test.result.measurements.error_count += 1;
@@ -4085,7 +4140,7 @@ impl TestCommandProcessor {
                     task_name: "stress_operation",
                     execution_time_us: response_time_us,
                     expected_time_us: 1000, // Expected 1ms response time
-                    timestamp_ms: timestamp_ms,
+                    timestamp_ms,
                 };
                 
                 active_test.result.measurements.add_timing_measurement(timing_measurement)?;
@@ -4212,12 +4267,13 @@ impl TestCommandProcessor {
         pattern: StressPattern,
         performance_threshold: u8,
     ) -> Result<StressTestParameters, TestParameterError> {
-        let mut params = StressTestParameters::default();
-        
-        params.duration_ms = duration_ms;
-        params.load_level = load_level;
-        params.stress_pattern = pattern;
-        params.performance_threshold_percent = performance_threshold;
+        let mut params = StressTestParameters {
+            duration_ms,
+            load_level,
+            stress_pattern: pattern,
+            performance_threshold_percent: performance_threshold,
+            ..Default::default()
+        };
         
         // Configure stress types based on pattern
         match params.stress_pattern {
@@ -4360,14 +4416,13 @@ impl TestCommandProcessor {
         };
 
         // Validate message integrity if enabled
-        if usb_params.enable_integrity_checking {
-            if let Err(_) = self.validate_message_integrity(message_data, message_id) {
+        if usb_params.enable_integrity_checking
+            && self.validate_message_integrity(message_data, message_id).is_err() {
                 if let Some(ref mut active_test) = self.active_test {
                     active_test.result.measurements.error_count += 1;
                 }
                 return Err(TestExecutionError::ValidationFailed);
             }
-        }
 
         // Now update the test with the mutable borrow
         if let Some(ref mut active_test) = self.active_test {
@@ -4450,6 +4505,7 @@ impl TestCommandProcessor {
 
     /// Calculate round-trip time for a message
     /// Requirements: 9.5 (communication statistics)
+    #[allow(dead_code)]
     fn calculate_round_trip_time(&self, message_id: u32, current_timestamp_ms: u32) -> u32 {
         // Simulate round-trip time calculation
         // In a real implementation, this would track sent message timestamps

@@ -594,4 +594,306 @@ class TestMonitoringIntegration(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    unittest.main()  
+  
+    def test_enhanced_failure_analysis(self):
+        """Test enhanced failure analysis capabilities"""
+        self.monitor.start_monitoring()
+        
+        # Create multiple failure scenarios
+        devices = ["device_001", "device_002"]
+        test_scenarios = [
+            ("timeout_test", "Test timeout occurred"),
+            ("communication_test", "USB communication failed"),
+            ("hardware_test", "ADC reading invalid"),
+            ("timeout_test", "Another timeout occurred")  # Repeat for pattern analysis
+        ]
+        
+        for i, (test_name, error_msg) in enumerate(test_scenarios):
+            device = devices[i % len(devices)]
+            
+            test_step = TestStep(test_name, TestType.USB_COMMUNICATION_TEST, {})
+            execution = TestExecution(
+                step=test_step,
+                device_serial=device,
+                status=TestStatus.FAILED,
+                error_message=error_msg
+            )
+            
+            self.monitor.log_test_failed(device, test_name, execution)
+            time.sleep(0.01)  # Small delay between failures
+        
+        # Wait for processing
+        time.sleep(0.2)
+        
+        # Get enhanced analysis
+        analysis = self.monitor.get_enhanced_failure_analysis()
+        
+        # Verify enhanced analysis structure
+        self.assertIn('failure_timeline', analysis)
+        self.assertIn('failure_patterns', analysis)
+        self.assertIn('communication_issues', analysis)
+        self.assertIn('error_categories', analysis)
+        self.assertIn('recovery_suggestions', analysis)
+        
+        # Check failure patterns
+        self.assertEqual(analysis['failure_patterns']['timeout_test']['count'], 2)
+        self.assertEqual(analysis['failure_patterns']['communication_test']['count'], 1)
+        
+        # Check error categorization
+        timeout_pattern = analysis['failure_patterns']['timeout_test']
+        self.assertIn('timeout', timeout_pattern['error_types'])
+        
+        # Check recovery suggestions
+        self.assertIsInstance(analysis['recovery_suggestions'], list)
+        self.assertGreater(len(analysis['recovery_suggestions']), 0)
+    
+    def test_real_time_debug_info(self):
+        """Test real-time debugging information collection"""
+        self.monitor.start_monitoring()
+        
+        # Setup test scenario
+        self.monitor.log_test_started(self.test_device_serial, "debug_test", total_tests=2)
+        
+        # Add some communication
+        command = TestCommand(CommandType.SYSTEM_STATE_QUERY, 1, {"query": "health"})
+        correlation_id = self.monitor.log_command_sent(self.test_device_serial, command)
+        
+        response = TestResponse(1, ResponseStatus.SUCCESS, "health_data", {"status": "ok"}, time.time())
+        self.monitor.log_response_received(self.test_device_serial, response, correlation_id)
+        
+        # Wait for processing
+        time.sleep(0.1)
+        
+        # Get debug info
+        debug_info = self.monitor.get_real_time_debug_info(self.test_device_serial)
+        
+        # Verify structure
+        self.assertIn('monitoring_status', debug_info)
+        self.assertIn('system_health', debug_info)
+        self.assertIn('communication_stats', debug_info)
+        self.assertIn('recent_activity', debug_info)
+        
+        # Check monitoring status
+        self.assertTrue(debug_info['monitoring_status']['active'])
+        self.assertEqual(debug_info['monitoring_status']['log_level'], LogLevel.DEBUG.value)
+        
+        # Check system health
+        self.assertIn(self.test_device_serial, debug_info['system_health'])
+        device_health = debug_info['system_health'][self.test_device_serial]
+        self.assertEqual(device_health['current_test'], 'debug_test')
+        self.assertIn('health_status', device_health)
+        
+        # Check communication stats
+        self.assertIn(self.test_device_serial, debug_info['communication_stats'])
+        comm_stats = debug_info['communication_stats'][self.test_device_serial]
+        self.assertEqual(comm_stats['sent_commands'], 1)
+        self.assertEqual(comm_stats['received_responses'], 1)
+    
+    def test_protocol_debugging_features(self):
+        """Test enhanced protocol debugging features"""
+        # Create monitor with debug level for protocol debugging
+        debug_monitor = RealTimeMonitor(log_level=LogLevel.DEBUG)
+        debug_monitor.start_monitoring()
+        
+        try:
+            # Create command with protocol details
+            command = TestCommand(CommandType.EXECUTE_TEST, 1, {"test_type": "protocol_test"})
+            correlation_id = debug_monitor.log_command_sent(self.test_device_serial, command)
+            
+            # Verify protocol details were captured
+            comm_logs = debug_monitor.get_communication_logs(self.test_device_serial)
+            sent_log = next(log for log in comm_logs if log.direction == 'sent')
+            
+            self.assertIsNotNone(sent_log.protocol_details)
+            self.assertIn('command_type_value', sent_log.protocol_details)
+            self.assertIn('payload_json', sent_log.protocol_details)
+            self.assertIn('checksum', sent_log.protocol_details)
+            
+            # Test response with latency calculation
+            time.sleep(0.1)  # Simulate processing delay
+            response = TestResponse(1, ResponseStatus.SUCCESS, "test_result", {"result": "passed"}, time.time())
+            debug_monitor.log_response_received(self.test_device_serial, response, correlation_id)
+            
+            # Verify latency was calculated
+            comm_logs = debug_monitor.get_communication_logs(self.test_device_serial)
+            received_log = next(log for log in comm_logs if log.direction == 'received')
+            
+            self.assertIsNotNone(received_log.latency_ms)
+            self.assertGreater(received_log.latency_ms, 50)  # Should be > 50ms due to sleep
+            self.assertIn('latency_ms', received_log.protocol_details)
+            
+        finally:
+            debug_monitor.stop_monitoring()
+    
+    def test_health_checks_and_periodic_reports(self):
+        """Test health checking and periodic status reporting"""
+        # Create monitor with short intervals for testing
+        monitor = RealTimeMonitor(log_level=LogLevel.VERBOSE)
+        monitor.health_check_interval = 0.5  # 500ms for testing
+        monitor.periodic_status_interval = 0.3  # 300ms for testing
+        monitor.start_monitoring()
+        
+        try:
+            # Setup test scenario
+            monitor.log_test_started(self.test_device_serial, "health_test", total_tests=5)
+            
+            # Wait for health checks and status reports
+            time.sleep(1.0)
+            
+            # Verify health status was updated
+            progress = monitor.get_device_progress(self.test_device_serial)
+            self.assertIsNotNone(progress.health_status)
+            self.assertIn(progress.health_status, ['healthy', 'warning', 'error'])
+            
+            # Simulate stalled test (no activity)
+            progress.last_activity_time = time.time() - 70.0  # 70 seconds ago
+            
+            # Wait for health check
+            time.sleep(0.6)
+            
+            # Health status should be warning or error
+            updated_progress = monitor.get_device_progress(self.test_device_serial)
+            self.assertIn(updated_progress.health_status, ['warning', 'error'])
+            
+        finally:
+            monitor.stop_monitoring()
+    
+    def test_enhanced_device_communication_logging(self):
+        """Test enhanced device communication logging with protocol analysis"""
+        debug_monitor = RealTimeMonitor(log_level=LogLevel.DEBUG)
+        debug_monitor.start_monitoring()
+        
+        try:
+            # Test different message types
+            test_messages = [
+                ("LOG: System initialized", b"LOG: System initialized\x00"),
+                ("ERROR: Test failed", b"ERROR: Test failed\x00"),
+                ("TEST_RESPONSE:{\"status\":\"ok\"}", b"TEST_RESPONSE:{\"status\":\"ok\"}\x00"),
+                ("DEBUG: Verbose info", b"DEBUG: Verbose info\x00")
+            ]
+            
+            for message, raw_bytes in test_messages:
+                debug_monitor.log_device_communication(
+                    self.test_device_serial, message, 'received', raw_bytes
+                )
+            
+            # Wait for processing
+            time.sleep(0.1)
+            
+            # Verify enhanced logging
+            events = debug_monitor.get_event_history(
+                device_serial=self.test_device_serial,
+                event_types=[MonitoringEvent.DEVICE_COMMUNICATION]
+            )
+            
+            self.assertEqual(len(events), 4)
+            
+            # Check protocol analysis
+            for event in events:
+                self.assertIn('message_type_detected', event.data)
+                self.assertIn('contains_json', event.data)
+                self.assertIn('log_level_detected', event.data)
+                self.assertIn('raw_bytes_hex', event.data)
+            
+            # Verify specific message type detection
+            log_event = next(e for e in events if e.data['message'].startswith('LOG:'))
+            self.assertEqual(log_event.data['message_type_detected'], 'log_message')
+            self.assertEqual(log_event.data['log_level_detected'], 'info')
+            
+            error_event = next(e for e in events if e.data['message'].startswith('ERROR:'))
+            self.assertEqual(error_event.data['message_type_detected'], 'error_message')
+            self.assertEqual(error_event.data['log_level_detected'], 'error')
+            
+            json_event = next(e for e in events if e.data['message'].startswith('TEST_RESPONSE:'))
+            self.assertEqual(json_event.data['message_type_detected'], 'test_response')
+            self.assertTrue(json_event.data['contains_json'])
+            
+        finally:
+            debug_monitor.stop_monitoring()
+
+
+class TestEnhancedMonitoringIntegration(unittest.TestCase):
+    """Integration tests for enhanced monitoring features"""
+    
+    def setUp(self):
+        """Set up enhanced integration test fixtures"""
+        self.monitor = RealTimeMonitor(log_level=LogLevel.DEBUG, enable_snapshots=True)
+        
+    def tearDown(self):
+        """Clean up after enhanced integration tests"""
+        if self.monitor.monitoring_active:
+            self.monitor.stop_monitoring()
+    
+    def test_comprehensive_monitoring_workflow(self):
+        """Test complete monitoring workflow with all enhanced features"""
+        self.monitor.start_monitoring()
+        
+        # Simulate comprehensive test workflow
+        device_serial = "COMPREHENSIVE_DEVICE"
+        
+        # Start test suite
+        self.monitor.log_test_started(device_serial, "comprehensive_test_1", total_tests=3)
+        
+        # Simulate command/response cycle
+        command = TestCommand(CommandType.EXECUTE_TEST, 1, {"test_type": "comprehensive"})
+        correlation_id = self.monitor.log_command_sent(device_serial, command)
+        
+        # Add some device communication
+        self.monitor.log_device_communication(device_serial, "LOG: Test started", 'received')
+        
+        # Simulate response
+        time.sleep(0.05)  # Small delay for latency calculation
+        response = TestResponse(1, ResponseStatus.SUCCESS, "test_result", {"result": "passed"}, time.time())
+        self.monitor.log_response_received(device_serial, response, correlation_id)
+        
+        # Complete first test
+        test_step = TestStep("comprehensive_test_1", TestType.USB_COMMUNICATION_TEST, {})
+        execution = TestExecution(
+            step=test_step,
+            device_serial=device_serial,
+            status=TestStatus.COMPLETED
+        )
+        self.monitor.log_test_completed(device_serial, "comprehensive_test_1", execution)
+        
+        # Start and fail second test
+        self.monitor.log_test_started(device_serial, "comprehensive_test_2")
+        
+        failed_execution = TestExecution(
+            step=TestStep("comprehensive_test_2", TestType.PEMF_TIMING_VALIDATION, {}),
+            device_serial=device_serial,
+            status=TestStatus.FAILED,
+            error_message="Timing validation failed"
+        )
+        self.monitor.log_test_failed(device_serial, "comprehensive_test_2", failed_execution)
+        
+        # Wait for processing
+        time.sleep(0.2)
+        
+        # Verify comprehensive monitoring data
+        progress = self.monitor.get_device_progress(device_serial)
+        self.assertEqual(progress.completed_tests, 2)
+        self.assertEqual(progress.success_count, 1)
+        self.assertEqual(progress.failure_count, 1)
+        
+        # Verify communication logs
+        comm_logs = self.monitor.get_communication_logs(device_serial)
+        self.assertGreater(len(comm_logs), 0)
+        
+        # Verify system snapshots
+        snapshots = self.monitor.get_system_snapshots(device_serial)
+        self.assertEqual(len(snapshots), 1)  # One failure snapshot
+        
+        # Verify enhanced analysis
+        analysis = self.monitor.get_enhanced_failure_analysis(device_serial)
+        self.assertEqual(analysis['total_failures'], 1)
+        self.assertIn('comprehensive_test_2', analysis['failure_patterns'])
+        
+        # Verify debug info
+        debug_info = self.monitor.get_real_time_debug_info(device_serial)
+        self.assertIn(device_serial, debug_info['system_health'])
+        self.assertIn(device_serial, debug_info['communication_stats'])
+
+
+if __name__ == '__main__':
     unittest.main()

@@ -1,5 +1,5 @@
-/// Error handling utilities for the pEMF/Battery Monitor system
-/// Requirements: 7.1, 7.5 - Graceful error handling and error logging for debugging
+//! Error handling utilities for the pEMF/Battery Monitor system
+//! Requirements: 7.1, 7.5 - Graceful error handling and error logging for debugging
 
 use crate::logging::{LogLevel, log_message};
 use heapless::String;
@@ -161,7 +161,7 @@ impl ErrorRecovery {
                 Ok(result) => {
                     if attempts > 0 {
                         let mut success_msg: String<64> = String::new();
-                        let _ = write!(&mut success_msg, "Operation succeeded after {} retries in {}", attempts, context);
+                        let _ = write!(&mut success_msg, "Operation succeeded after {attempts} retries in {context}");
                         log_message(
                             LogLevel::Info,
                             "ERROR_HANDLER",

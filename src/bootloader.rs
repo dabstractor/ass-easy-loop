@@ -135,6 +135,12 @@ pub struct TaskShutdownSequence {
     shutdown_timeout_ms: u32,
 }
 
+impl Default for TaskShutdownSequence {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TaskShutdownSequence {
     /// Create a new task shutdown sequence manager
     pub const fn new() -> Self {
@@ -264,7 +270,14 @@ impl TaskShutdownSequence {
 /// Hardware safety manager for validating system state before bootloader entry
 /// Requirements: 5.1, 5.2 (hardware state validation)
 pub struct HardwareSafetyManager {
+    #[allow(dead_code)]
     validation_timeout_ms: u32,
+}
+
+impl Default for HardwareSafetyManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl HardwareSafetyManager {
@@ -368,6 +381,12 @@ pub enum BootloaderEntryState {
     ReadyForBootloader,
     /// Bootloader entry failed, returning to normal operation
     EntryFailed,
+}
+
+impl Default for BootloaderEntryManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl BootloaderEntryManager {
@@ -645,6 +664,7 @@ pub fn init_bootloader_manager() {
 }
 
 /// Get a reference to the global bootloader entry manager
+#[allow(static_mut_refs)]
 pub fn get_bootloader_manager() -> Option<&'static mut BootloaderEntryManager> {
     unsafe { GLOBAL_BOOTLOADER_MANAGER.as_mut() }
 }
@@ -666,6 +686,7 @@ pub fn mark_task_shutdown_complete(priority: TaskPriority) {
 }
 
 /// Mark task shutdown failed (called by RTIC tasks)
+#[allow(dead_code)]
 pub fn mark_task_shutdown_failed(priority: TaskPriority) {
     if let Some(manager) = get_bootloader_manager() {
         manager.mark_task_shutdown_failed(priority);

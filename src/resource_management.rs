@@ -1,5 +1,5 @@
-/// Resource management utilities for RTIC-based system
-/// Requirements: 7.2, 7.3, 7.4 - Memory safety and resource protection
+//! Resource management utilities for RTIC-based system
+//! Requirements: 7.2, 7.3, 7.4 - Memory safety and resource protection
 
 use crate::logging::{LogQueue, LogMessage, log_message, LogLevel};
 use crate::config::LogConfig;
@@ -16,6 +16,12 @@ use core::ops::FnOnce;
 /// Requirements: 7.2 (memory-safe operations), 7.3 (RTIC resource sharing)
 pub struct SafeGlobalResource<T> {
     _phantom: core::marker::PhantomData<T>,
+}
+
+impl<T> Default for SafeGlobalResource<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T> SafeGlobalResource<T> {
@@ -257,7 +263,7 @@ pub enum LeakDetectionResult {
 
 /// Compile-time resource validation macros
 /// Requirements: 7.2 (ensure all hardware resources are properly moved into RTIC structures)
-
+///
 /// Macro to validate that a resource is properly managed by RTIC
 #[macro_export]
 macro_rules! validate_rtic_resource {

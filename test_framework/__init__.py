@@ -17,6 +17,7 @@ from .firmware_flasher import FirmwareFlasher, FlashResult, FlashOperation
 from .test_scenarios import TestScenarios, TestScenarioType, ScenarioParameters
 from .comprehensive_test_runner import ComprehensiveTestRunner
 from .config_loader import ConfigurationLoader
+from .ci_integration import CIIntegration, CIEnvironmentInfo, CITestConfiguration, CITestResult, create_ci_integration
 
 __all__ = [
     # Core Framework Components
@@ -40,4 +41,11 @@ __all__ = [
     'ScenarioParameters',
     'ComprehensiveTestRunner',
     'ConfigurationLoader',
+    
+    # CI/CD Integration Components
+    'CIIntegration',
+    'CIEnvironmentInfo',
+    'CITestConfiguration',
+    'CITestResult',
+    'create_ci_integration',
 ]

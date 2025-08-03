@@ -4,6 +4,7 @@
 //! including battery state management, USB HID logging, and configuration.
 
 #![cfg_attr(not(test), no_std)]
+#![allow(dead_code)] // Allow unused code for development and testing
 
 pub mod battery;
 pub mod logging;

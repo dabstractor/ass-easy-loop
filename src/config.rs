@@ -49,6 +49,7 @@ pub mod logging {
     pub const MAX_LOG_LEVEL: LogLevel = LogLevel::Info;
 
     /// Default log message queue size
+    #[allow(dead_code)]
     pub const DEFAULT_QUEUE_SIZE: usize = 32;
 
     /// Maximum log message queue size

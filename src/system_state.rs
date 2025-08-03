@@ -295,6 +295,12 @@ pub struct SystemStateHandler {
     query_count: u32,
 }
 
+impl Default for SystemStateHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SystemStateHandler {
     /// Create a new system state handler
     pub const fn new() -> Self {
@@ -840,6 +846,12 @@ pub struct PerformanceMonitor {
     query_count: u32,
 }
 
+impl Default for PerformanceMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PerformanceMonitor {
     pub const fn new() -> Self {
         Self { query_count: 0 }
@@ -906,6 +918,12 @@ impl PerformanceMonitor {
 /// Diagnostic collector for hardware status information
 pub struct DiagnosticCollector {
     query_count: u32,
+}
+
+impl Default for DiagnosticCollector {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DiagnosticCollector {
@@ -980,6 +998,12 @@ pub struct ConfigurationManager {
     query_count: u32,
 }
 
+impl Default for ConfigurationManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ConfigurationManager {
     pub const fn new() -> Self {
         Self { query_count: 0 }
@@ -1046,6 +1070,12 @@ impl ConfigurationManager {
 pub struct ErrorHistory {
     errors: Vec<ErrorRecord, 16>,
     query_count: u32,
+}
+
+impl Default for ErrorHistory {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ErrorHistory {

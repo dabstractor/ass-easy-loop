@@ -206,22 +206,14 @@ impl PerformanceProfiler {
 
         for sample in &self.timing_samples {
             // Check pEMF HIGH duration accuracy
-            let high_deviation = if sample.pemf_high_duration_ms > PEMF_HIGH_DURATION_MS {
-                sample.pemf_high_duration_ms - PEMF_HIGH_DURATION_MS
-            } else {
-                PEMF_HIGH_DURATION_MS - sample.pemf_high_duration_ms
-            };
+            let high_deviation = sample.pemf_high_duration_ms.abs_diff(PEMF_HIGH_DURATION_MS);
             
             if high_deviation <= tolerance_ms {
                 pemf_high_deviations += 1;
             }
 
             // Check pEMF LOW duration accuracy
-            let low_deviation = if sample.pemf_low_duration_ms > PEMF_LOW_DURATION_MS {
-                sample.pemf_low_duration_ms - PEMF_LOW_DURATION_MS
-            } else {
-                PEMF_LOW_DURATION_MS - sample.pemf_low_duration_ms
-            };
+            let low_deviation = sample.pemf_low_duration_ms.abs_diff(PEMF_LOW_DURATION_MS);
             
             if low_deviation <= tolerance_ms {
                 pemf_low_deviations += 1;
@@ -229,22 +221,14 @@ impl PerformanceProfiler {
 
             // Check pEMF frequency accuracy
             let expected_cycle_ms = PEMF_HIGH_DURATION_MS + PEMF_LOW_DURATION_MS;
-            let cycle_deviation = if sample.pemf_cycle_duration_ms > expected_cycle_ms {
-                sample.pemf_cycle_duration_ms - expected_cycle_ms
-            } else {
-                expected_cycle_ms - sample.pemf_cycle_duration_ms
-            };
+            let cycle_deviation = sample.pemf_cycle_duration_ms.abs_diff(expected_cycle_ms);
             
             if cycle_deviation <= tolerance_ms {
                 pemf_frequency_deviations += 1;
             }
 
             // Check battery sampling accuracy
-            let battery_deviation = if sample.battery_sample_interval_ms > BATTERY_MONITOR_INTERVAL_MS {
-                sample.battery_sample_interval_ms - BATTERY_MONITOR_INTERVAL_MS
-            } else {
-                BATTERY_MONITOR_INTERVAL_MS - sample.battery_sample_interval_ms
-            };
+            let battery_deviation = sample.battery_sample_interval_ms.abs_diff(BATTERY_MONITOR_INTERVAL_MS);
             
             if battery_deviation <= tolerance_ms {
                 battery_sampling_deviations += 1;
@@ -512,7 +496,7 @@ pub fn init_global_profiler() {
 
 /// Get mutable reference to global profiler
 pub fn get_global_profiler() -> Option<&'static mut PerformanceProfiler> {
-    unsafe { GLOBAL_PROFILER.as_mut() }
+    unsafe { (*core::ptr::addr_of_mut!(GLOBAL_PROFILER)).as_mut() }
 }
 
 /// Convenience macros for performance measurement

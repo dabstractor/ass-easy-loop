@@ -325,39 +325,70 @@ class MonitoredTestRunner:
     
     def get_failure_analysis(self) -> Dict[str, Any]:
         """Get detailed failure analysis from system snapshots"""
-        snapshots = self.monitor.get_system_snapshots()
+        return self.monitor.get_enhanced_failure_analysis()
+    
+    def get_enhanced_debug_info(self, device_serial: str = None) -> Dict[str, Any]:
+        """Get comprehensive debugging information for troubleshooting"""
+        return self.monitor.get_real_time_debug_info(device_serial)
+    
+    def get_protocol_debug_logs(self, device_serial: str = None, max_entries: int = 50) -> List[Dict[str, Any]]:
+        """Get detailed protocol debugging logs"""
+        comm_logs = self.monitor.get_communication_logs(device_serial, max_entries)
         
-        analysis = {
-            'total_failures': len(snapshots),
-            'failure_patterns': {},
-            'device_failure_counts': {},
-            'recent_failures': []
+        protocol_logs = []
+        for log in comm_logs:
+            if self.monitor.protocol_debug_enabled and log.protocol_details:
+                protocol_logs.append({
+                    'timestamp': log.timestamp,
+                    'device': log.device_serial,
+                    'direction': log.direction,
+                    'message_type': log.message_type,
+                    'correlation_id': log.correlation_id,
+                    'sequence_number': log.sequence_number,
+                    'latency_ms': log.latency_ms,
+                    'protocol_details': log.protocol_details
+                })
+            else:
+                # Basic log entry without protocol details
+                protocol_logs.append({
+                    'timestamp': log.timestamp,
+                    'device': log.device_serial,
+                    'direction': log.direction,
+                    'message_type': log.message_type,
+                    'correlation_id': log.correlation_id,
+                    'latency_ms': log.latency_ms
+                })
+        
+        return protocol_logs
+    
+    def generate_debug_report(self, output_file: str = None) -> str:
+        """Generate a comprehensive debugging report"""
+        if output_file is None:
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            output_file = str(self.output_dir / f"debug_report_{timestamp}.json")
+        
+        debug_report = {
+            'report_metadata': {
+                'timestamp': time.time(),
+                'log_level': self.log_level.value,
+                'snapshots_enabled': self.enable_snapshots,
+                'monitoring_active': self.monitor.monitoring_active
+            },
+            'real_time_status': self.get_real_time_status(),
+            'enhanced_debug_info': self.get_enhanced_debug_info(),
+            'failure_analysis': self.get_failure_analysis(),
+            'protocol_debug_logs': self.get_protocol_debug_logs(max_entries=100),
+            'system_snapshots': [
+                self._snapshot_to_dict(snapshot) 
+                for snapshot in self.monitor.get_system_snapshots()
+            ]
         }
         
-        for snapshot in snapshots:
-            # Count failures by test name
-            test_name = snapshot.test_name
-            if test_name not in analysis['failure_patterns']:
-                analysis['failure_patterns'][test_name] = 0
-            analysis['failure_patterns'][test_name] += 1
-            
-            # Count failures by device
-            device = snapshot.device_serial
-            if device not in analysis['device_failure_counts']:
-                analysis['device_failure_counts'][device] = 0
-            analysis['device_failure_counts'][device] += 1
+        with open(output_file, 'w') as f:
+            json.dump(debug_report, f, indent=2, default=str)
         
-        # Get recent failures
-        for snapshot in snapshots[-10:]:  # Last 10 failures
-            analysis['recent_failures'].append({
-                'timestamp': snapshot.timestamp,
-                'device': snapshot.device_serial,
-                'test': snapshot.test_name,
-                'error': snapshot.error_context,
-                'performance_metrics': snapshot.performance_metrics
-            })
-        
-        return analysis
+        self.logger.info(f"Debug report generated: {output_file}")
+        return output_file
     
     def create_debug_test_config(self) -> TestConfiguration:
         """Create a test configuration optimized for debugging"""

@@ -57,6 +57,7 @@ pub enum TestResponse {
 /// Response status codes
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[repr(u8)]
+#[allow(dead_code)]
 pub enum ResponseStatus {
     Success = 0x00,
     InvalidCommand = 0x01,
@@ -252,6 +253,12 @@ pub struct CommandQueue<const N: usize> {
     timeout_count: AtomicUsize,
 }
 
+impl<const N: usize> Default for CommandQueue<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const N: usize> CommandQueue<N> {
     /// Create a new command queue
     pub const fn new() -> Self {
@@ -366,6 +373,12 @@ impl<const N: usize> CommandQueue<N> {
 pub struct CommandParser {
     processed_commands: AtomicUsize,
     validation_failures: AtomicUsize,
+}
+
+impl Default for CommandParser {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CommandParser {
@@ -485,6 +498,12 @@ pub struct ResponseQueue<const N: usize> {
     transmission_failures: AtomicUsize,
 }
 
+impl<const N: usize> Default for ResponseQueue<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const N: usize> ResponseQueue<N> {
     /// Create a new response queue
     pub const fn new() -> Self {
@@ -574,6 +593,7 @@ impl<const N: usize> ResponseQueue<N> {
 }
 
 /// Initialize command handler (placeholder for future initialization)
+#[allow(dead_code)]
 pub fn init_command_handler(_queue: &mut CommandQueue<8>) {
     // Command handler initialization
     // Currently no additional setup required

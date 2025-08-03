@@ -158,6 +158,13 @@ class CommandHandler:
             
             if bytes_sent == len(command_bytes):
                 self.logger.debug(f"Sent command {command.command_type.name} to {serial_number}")
+                
+                # Log command to monitor if available
+                if self.monitor:
+                    correlation_id = self.monitor.log_command_sent(serial_number, command)
+                    # Store correlation ID for response matching
+                    command._correlation_id = correlation_id
+                
                 return True
             else:
                 self.logger.error(f"Failed to send complete command to {serial_number}")
@@ -199,9 +206,9 @@ class CommandHandler:
                     if log_message:
                         self.response_buffer.append(log_message)
                         
-                        # Log raw device communication to monitor
+                        # Log raw device communication to monitor with raw bytes
                         if self.monitor:
-                            self.monitor.log_device_communication(serial_number, log_message, 'received')
+                            self.monitor.log_device_communication(serial_number, log_message, 'received', bytes(data))
                 except UnicodeDecodeError:
                     continue
             
@@ -248,6 +255,16 @@ class CommandHandler:
             
             for response in responses:
                 if response.command_id == command_id:
+                    # Log response to monitor if available
+                    if self.monitor:
+                        # Try to find correlation ID from pending command
+                        correlation_id = None
+                        for cmd in self.pending_commands.values():
+                            if cmd.command_id == command_id:
+                                correlation_id = getattr(cmd, '_correlation_id', None)
+                                break
+                        self.monitor.log_response_received(serial_number, response, correlation_id)
+                    
                     return response
                     
             time.sleep(0.1)  # Small delay to avoid busy waiting
