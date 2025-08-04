@@ -8,7 +8,6 @@ use portable_atomic::{AtomicUsize, Ordering};
 use core::iter::Iterator;
 use core::option::Option::{self, Some, None};
 use core::result::Result::{self, Ok, Err};
-use core::fmt::Write;
 use core::ops::FnOnce;
 
 
@@ -20,6 +19,7 @@ pub const MAX_MESSAGE_LENGTH: usize = 48;
 pub const MAX_MODULE_NAME_LENGTH: usize = 8;
 
 /// Default log message queue size
+#[allow(dead_code)]
 pub const DEFAULT_QUEUE_SIZE: usize = 32;
 
 
@@ -161,20 +161,42 @@ pub struct LogReport {
     pub data: [u8; 64],
 }
 
+#[cfg(not(test))]
+impl core::convert::TryFrom<[u8; 64]> for LogReport {
+    type Error = &'static str;
+
+    fn try_from(bytes: [u8; 64]) -> Result<Self, Self::Error> {
+        Ok(Self { data: bytes })
+    }
+}
+
 impl LogReport {
     /// Get the HID report descriptor for this report type
+    /// Updated to support both input reports (device to host) and output reports (host to device)
+    /// Requirements: 2.1, 2.2 - USB HID bidirectional communication
     pub fn descriptor() -> &'static [u8] {
-        // Simple vendor-defined HID descriptor for 64-byte input reports
+        // Vendor-defined HID descriptor for 64-byte bidirectional reports
         &[
             0x06, 0x00, 0xFF,  // Usage Page (Vendor Defined 0xFF00)
             0x09, 0x01,        // Usage (0x01)
             0xA1, 0x01,        // Collection (Application)
-            0x09, 0x02,        //   Usage (0x02)
+            
+            // Input Report (Device to Host) - for log messages
+            0x09, 0x02,        //   Usage (0x02) - Log Data
             0x15, 0x00,        //   Logical Minimum (0)
             0x26, 0xFF, 0x00,  //   Logical Maximum (255)
-            0x75, 0x08,        //   Report Size (8)
-            0x95, 0x40,        //   Report Count (64)
+            0x75, 0x08,        //   Report Size (8 bits)
+            0x95, 0x40,        //   Report Count (64 bytes)
             0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+            
+            // Output Report (Host to Device) - for commands
+            0x09, 0x03,        //   Usage (0x03) - Command Data
+            0x15, 0x00,        //   Logical Minimum (0)
+            0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+            0x75, 0x08,        //   Report Size (8 bits)
+            0x95, 0x40,        //   Report Count (64 bytes)
+            0x91, 0x02,        //   Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+            
             0xC0,              // End Collection
         ]
     }
@@ -218,7 +240,7 @@ impl LogReport {
     }
 
     /// Convert LogReport back to LogMessage
-    pub fn to_log_message(&self) -> Result<LogMessage, &'static str> {
+    pub fn to_log_message(self) -> Result<LogMessage, &'static str> {
         LogMessage::deserialize(&self.data)
     }
 
@@ -638,6 +660,12 @@ pub struct LogQueue<const N: usize> {
     peak_utilization: AtomicUsize,
 }
 
+impl<const N: usize> Default for LogQueue<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const N: usize> LogQueue<N> {
     /// Create a new empty log queue
     pub const fn new() -> Self {
@@ -659,12 +687,11 @@ impl<const N: usize> LogQueue<N> {
         let mut dropped = false;
         
         // If queue is full, evict oldest message (FIFO eviction)
-        if current_count >= N {
-            if self.dequeue_internal().is_some() {
+        if current_count >= N
+            && self.dequeue_internal().is_some() {
                 self.messages_dropped.fetch_add(1, Ordering::Relaxed);
                 dropped = true;
             }
-        }
 
         // Get current head position and store message
         let head = self.head.load(Ordering::Acquire);
@@ -835,8 +862,8 @@ static mut TIMESTAMP_FUNCTION: Option<fn() -> u32> = None;
 /// # Safety
 /// This function is unsafe because it modifies global state.
 /// It should only be called once during system initialization.
-pub unsafe fn init_global_logging(queue: &'static mut LogQueue<32>, get_timestamp: fn() -> u32) {
-    GLOBAL_QUEUE = Some(queue);
+pub unsafe fn init_global_logging(queue: *mut LogQueue<32>, get_timestamp: fn() -> u32) {
+    GLOBAL_QUEUE = Some(&mut *queue);
     TIMESTAMP_FUNCTION = Some(get_timestamp);
 }
 
@@ -853,18 +880,20 @@ static mut GLOBAL_PERFORMANCE_STATS: Option<&'static mut PerformanceStats> = Non
 /// # Safety
 /// This function is unsafe because it modifies global state.
 /// It should only be called once during system initialization.
-pub unsafe fn init_global_performance_monitoring(stats: &'static mut PerformanceStats) {
-    GLOBAL_PERFORMANCE_STATS = Some(stats);
+pub unsafe fn init_global_performance_monitoring(stats: *mut PerformanceStats) {
+    GLOBAL_PERFORMANCE_STATS = Some(&mut *stats);
 }
 
 /// Get the current performance statistics
 /// Returns None if performance monitoring hasn't been initialized
+#[allow(static_mut_refs)]
 pub fn get_global_performance_stats() -> Option<&'static PerformanceStats> {
-    unsafe { GLOBAL_PERFORMANCE_STATS.as_ref().map(|s| &**s) }
+    unsafe { GLOBAL_PERFORMANCE_STATS.as_deref() }
 }
 
 /// Update global performance statistics
 /// Returns true if update was successful, false if performance monitoring is not initialized
+#[allow(static_mut_refs)]
 pub fn update_global_performance_stats<F>(update_fn: F) -> bool 
 where
     F: FnOnce(&mut PerformanceStats)
@@ -920,18 +949,20 @@ pub fn record_timing_impact(pemf_deviation_us: u32, battery_deviation_us: u32) {
 /// # Safety
 /// This function is unsafe because it modifies global state.
 /// It should only be called once during system initialization.
-pub unsafe fn init_global_config(config: &'static mut crate::config::LogConfig) {
-    GLOBAL_CONFIG = Some(config);
+pub unsafe fn init_global_config(config: *mut crate::config::LogConfig) {
+    GLOBAL_CONFIG = Some(&mut *config);
 }
 
 /// Get the current runtime logging configuration
 /// Returns None if configuration hasn't been initialized
+#[allow(static_mut_refs)]
 pub fn get_global_config() -> Option<&'static crate::config::LogConfig> {
-    unsafe { GLOBAL_CONFIG.as_ref().map(|c| &**c) }
+    unsafe { GLOBAL_CONFIG.as_deref() }
 }
 
 /// Update the global logging configuration
 /// Returns true if update was successful, false if config is not initialized
+#[allow(static_mut_refs)]
 pub fn update_global_config<F>(update_fn: F) -> bool 
 where
     F: FnOnce(&mut crate::config::LogConfig) -> Result<(), crate::config::ConfigError>
@@ -957,6 +988,7 @@ pub fn log_message(level: LogLevel, module: &str, message: &str) {
 
 /// Core log message function with category support for runtime filtering
 /// This function provides category-specific logging control
+#[allow(static_mut_refs)]
 pub fn log_message_with_category(level: LogLevel, module: &str, message: &str, category: crate::config::LogCategory) {
     unsafe {
         // Check if logging system is initialized
@@ -977,7 +1009,7 @@ pub fn log_message_with_category(level: LogLevel, module: &str, message: &str, c
 
 /// Logging macros for convenient usage throughout the codebase
 /// These macros automatically capture the module name and format messages
-
+///
 /// Log a debug message
 /// Usage: log_debug!("MESSAGE") or log_debug!("FORMAT", args...)
 #[macro_export]
@@ -1056,7 +1088,7 @@ macro_rules! log_error {
 
 /// Category-specific logging macros with conditional compilation support
 /// These macros provide compile-time and runtime filtering for different log categories
-
+///
 /// Log a battery-related debug message
 /// Usage: log_battery_debug!("MESSAGE") or log_battery_debug!("FORMAT", args...)
 #[macro_export]

@@ -1,0 +1,61 @@
+{
+  "scenario_parameters": {
+    "hardware_validation": {
+      "pemf_test_duration_ms": 5000,
+      "pemf_tolerance_percent": 1.0,
+      "battery_reference_voltage": 3.3,
+      "led_test_duration_ms": 2000,
+      "usb_message_count": 50,
+      "usb_timeout_ms": 1000
+    },
+    "stress_testing": {
+      "stress_test_duration_ms": 30000,
+      "stress_load_level": 80,
+      "memory_stress_iterations": 1000,
+      "long_term_duration_multiplier": 3
+    },
+    "regression_testing": {
+      "baseline_comparison": true,
+      "performance_tolerance_percent": 5.0,
+      "config_validation": true
+    },
+    "performance_benchmarking": {
+      "benchmark_iterations": 100,
+      "timing_precision_us": 10,
+      "throughput_measurement": true,
+      "profiling_enabled": true
+    },
+    "integration_testing": {
+      "end_to_end_validation": true,
+      "multi_subsystem_coordination": true,
+      "realtime_constraint_validation": true
+    }
+  },
+  "timeout_configurations": {
+    "short_timeout": 10.0,
+    "medium_timeout": 30.0,
+    "long_timeout": 120.0,
+    "global_timeout_multiplier": 1.5
+  },
+  "test_execution_settings": {
+    "parallel_execution": false,
+    "max_parallel_devices": 4,
+    "retry_failed_tests": true,
+    "max_retry_attempts": 2,
+    "continue_on_failure": true
+  },
+  "reporting_settings": {
+    "generate_html_reports": true,
+    "generate_junit_xml": true,
+    "generate_json_reports": true,
+    "detailed_logging": true,
+    "performance_analysis": true,
+    "failure_analysis": true
+  },
+  "device_settings": {
+    "connection_timeout": 5.0,
+    "discovery_interval": 1.0,
+    "auto_reconnect": true,
+    "device_validation": true
+  }
+}

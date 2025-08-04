@@ -1,0 +1,3 @@
+device_serial,test_name,test_type,status,duration,start_time,end_time,retry_attempt,error_message,required,timeout,parameters
+TEST_DEVICE_001,test_pemf_timing,PEMF_TIMING_VALIDATION,completed,5.0000011920928955,1754145234.8332078,1754145239.833209,0,,True,30.0,"{""duration_ms"": 5000}"
+TEST_DEVICE_001,test_battery_adc,BATTERY_ADC_CALIBRATION,failed,5.000000476837158,1754145244.8332155,1754145249.833216,1,ADC calibration failed,True,15.0,"{""reference_voltage"": 3.3}"

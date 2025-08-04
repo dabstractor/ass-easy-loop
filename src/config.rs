@@ -7,7 +7,6 @@ use crate::logging::LogLevel;
 use core::result::Result::{self, Ok, Err};
 use core::option::Option::{self, Some, None};
 use core::default::Default;
-use core::ops::FnOnce;
 
 /// USB Device Configuration
 pub mod usb {
@@ -50,6 +49,7 @@ pub mod logging {
     pub const MAX_LOG_LEVEL: LogLevel = LogLevel::Info;
 
     /// Default log message queue size
+    #[allow(dead_code)]
     pub const DEFAULT_QUEUE_SIZE: usize = 32;
 
     /// Maximum log message queue size
@@ -180,26 +180,30 @@ pub mod features {
     pub const ENABLE_RUNTIME_LOG_CONTROL: bool = true;
 
     /// Enable log message timestamps
+    #[allow(dead_code)]
     pub const ENABLE_LOG_TIMESTAMPS: bool = true;
 
     /// Enable log message module names
+    #[allow(dead_code)]
     pub const ENABLE_LOG_MODULE_NAMES: bool = true;
 
     /// Enable panic handler USB logging
+    #[allow(dead_code)]
     pub const ENABLE_PANIC_USB_LOGGING: bool = true;
 
     /// Enable performance monitoring
+    #[allow(dead_code)]
     pub const ENABLE_PERFORMANCE_MONITORING: bool = true;
 
     /// Enable memory usage tracking
+    #[allow(dead_code)]
     pub const ENABLE_MEMORY_TRACKING: bool = true;
 }
 
 /// Runtime logging configuration structure
 /// This struct holds runtime-configurable logging parameters that can be modified via USB control commands
 /// Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
-#[derive(Clone, Copy, PartialEq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct LogConfig {
     /// Runtime maximum log level (can be more restrictive than compile-time MAX_LOG_LEVEL)
     pub max_level: LogLevel,

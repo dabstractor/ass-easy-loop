@@ -16,8 +16,7 @@ use hal::{
 use rp2040_hal as hal;
 
 #[derive(Clone, Copy, PartialEq)]
-#[cfg_attr(test, derive(Debug))]
-#[cfg_attr(not(test), derive(Debug))]
+#[cfg_attr(any(test, not(test)), derive(Debug))]
 pub enum BatteryState {
     Low,      // ADC ≤ 1425 (< 3.1V)
     Normal,   // 1425 < ADC < 1675 (3.1V - 3.6V)
@@ -208,25 +207,25 @@ pub fn validate_adc_conversion_logic() -> bool {
     // Test known ADC values to expected battery voltages
     // ADC 1425 should be approximately 3100mV (3.1V)
     let voltage_1425 = BatteryMonitor::adc_to_battery_voltage(1425);
-    if voltage_1425 < 3000 || voltage_1425 > 3200 { return false; }
+    if !(3000..=3200).contains(&voltage_1425) { return false; }
     
     // ADC 1675 should be approximately 3600mV (3.6V)  
     let voltage_1675 = BatteryMonitor::adc_to_battery_voltage(1675);
-    if voltage_1675 < 3500 || voltage_1675 > 3700 { return false; }
+    if !(3500..=3700).contains(&voltage_1675) { return false; }
     
     // Test reverse conversion
     let adc_from_3100mv = BatteryMonitor::battery_voltage_to_adc(3100);
-    if adc_from_3100mv < 1400 || adc_from_3100mv > 1450 { return false; }
+    if !(1400..=1450).contains(&adc_from_3100mv) { return false; }
     
     let adc_from_3600mv = BatteryMonitor::battery_voltage_to_adc(3600);
-    if adc_from_3600mv < 1650 || adc_from_3600mv > 1700 { return false; }
+    if !(1650..=1700).contains(&adc_from_3600mv) { return false; }
     
     // Test boundary conditions
     let voltage_0 = BatteryMonitor::adc_to_battery_voltage(0);
     if voltage_0 != 0 { return false; }
     
     let voltage_4095 = BatteryMonitor::adc_to_battery_voltage(4095);
-    if voltage_4095 < 9700 || voltage_4095 > 9800 { return false; } // Should be ~9.77V
+    if !(9700..=9800).contains(&voltage_4095) { return false; } // Should be ~9.77V
     
     true
 }
