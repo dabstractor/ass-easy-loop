@@ -1,0 +1,279 @@
+name: Hardware Testing Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run nightly tests at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  PYTHON_VERSION: '3.9'
+  TEST_TIMEOUT: 300
+  MAX_PARALLEL_DEVICES: 4
+
+jobs:
+  hardware-validation:
+    runs-on: self-hosted
+    # Use self-hosted runner with hardware access
+    labels: [hardware-testing, usb-devices]
+    
+    strategy:
+      matrix:
+        test-suite: [validation, regression, performance]
+        device-count: [1, 2]
+      fail-fast: false
+      max-parallel: 2
+    
+    timeout-minutes: 15
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Full history for performance trend analysis
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r test_framework/requirements.txt
+        pip install -r requirements.txt
+    
+    - name: Setup hardware permissions
+      run: |
+        # Add user to dialout group for USB access
+        sudo usermod -a -G dialout $USER
+        # Set up udev rules for test devices
+        sudo cp .github/workflows/99-test-devices.rules /etc/udev/rules.d/
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger
+    
+    - name: Verify hardware setup
+      run: |
+        python -m test_framework.device_manager --list-devices
+        python validation_scripts/setup_validation.py --hardware-check
+    
+    - name: Build firmware (if needed)
+      if: matrix.test-suite == 'validation'
+      run: |
+        cargo build --release
+        # Copy firmware to expected location
+        cp target/thumbv6m-none-eabi/release/firmware.elf test_artifacts/
+    
+    - name: Run hardware tests
+      id: hardware-tests
+      run: |
+        python -m test_framework.ci_integration \
+          --config test_framework/ci_configs/${{ matrix.test-suite }}_config.json \
+          --devices ${{ matrix.device-count }} \
+          --parallel ${{ env.MAX_PARALLEL_DEVICES }} \
+          --timeout ${{ env.TEST_TIMEOUT }} \
+          --output-dir test_results_${{ matrix.test-suite }}_${{ matrix.device-count }} \
+          --verbose \
+          --fail-fast
+      continue-on-error: true
+    
+    - name: Generate test summary
+      if: always()
+      run: |
+        python -c "
+        import json
+        import os
+        
+        # Read test results
+        results_dir = 'test_results_${{ matrix.test-suite }}_${{ matrix.device-count }}'
+        json_file = f'{results_dir}/CI_CD_Validation_Suite_report_*.json'
+        
+        import glob
+        json_files = glob.glob(json_file)
+        if json_files:
+            with open(json_files[0], 'r') as f:
+                results = json.load(f)
+            
+            summary = results['summary']
+            
+            # Create GitHub step summary
+            with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+                f.write(f'''
+        ## Test Results: ${{ matrix.test-suite }} (${{ matrix.device-count }} devices)
+        
+        | Metric | Value |
+        |--------|-------|
+        | Total Tests | {summary['total_tests']} |
+        | Passed | {summary['passed']} |
+        | Failed | {summary['failed']} |
+        | Success Rate | {summary['passed']/summary['total_tests']*100:.1f}% |
+        | Duration | {summary['duration']:.1f}s |
+        
+        ''')
+        "
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-${{ matrix.test-suite }}-${{ matrix.device-count }}-devices
+        path: |
+          test_results_${{ matrix.test-suite }}_${{ matrix.device-count }}/
+          test_logs/
+        retention-days: 30
+    
+    - name: Publish test results
+      if: always()
+      uses: dorny/test-reporter@v1
+      with:
+        name: Hardware Tests (${{ matrix.test-suite }}, ${{ matrix.device-count }} devices)
+        path: test_results_${{ matrix.test-suite }}_${{ matrix.device-count }}/*.xml
+        reporter: java-junit
+        fail-on-error: false
+    
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const glob = require('glob');
+          
+          // Find JSON result file
+          const jsonFiles = glob.sync('test_results_${{ matrix.test-suite }}_${{ matrix.device-count }}/*.json');
+          if (jsonFiles.length === 0) return;
+          
+          const results = JSON.parse(fs.readFileSync(jsonFiles[0], 'utf8'));
+          const summary = results.summary;
+          
+          const comment = `
+          ## 🔧 Hardware Test Results: ${{ matrix.test-suite }} (${{ matrix.device-count }} devices)
+          
+          | Metric | Value |
+          |--------|-------|
+          | ✅ Passed | ${summary.passed} |
+          | ❌ Failed | ${summary.failed} |
+          | ⏭️ Skipped | ${summary.skipped} |
+          | 📊 Success Rate | ${(summary.passed/summary.total_tests*100).toFixed(1)}% |
+          | ⏱️ Duration | ${summary.duration.toFixed(1)}s |
+          
+          ${summary.failed > 0 ? '⚠️ Some tests failed. Check the detailed results in the artifacts.' : '✅ All tests passed!'}
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+    
+    - name: Fail job if tests failed
+      if: steps.hardware-tests.outcome == 'failure'
+      run: exit 1
+
+  firmware-regression-test:
+    runs-on: self-hosted
+    labels: [hardware-testing, firmware-flash]
+    needs: hardware-validation
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r test_framework/requirements.txt
+    
+    - name: Build firmware
+      run: |
+        cargo build --release
+        cp target/thumbv6m-none-eabi/release/firmware.elf test_artifacts/firmware.elf
+    
+    - name: Flash and test firmware
+      run: |
+        python -m test_framework.ci_integration \
+          --config test_framework/ci_configs/regression_config.json \
+          --firmware test_artifacts/firmware.elf \
+          --devices 2 \
+          --parallel 2 \
+          --timeout 600 \
+          --output-dir firmware_test_results \
+          --verbose
+    
+    - name: Upload firmware test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: firmware-regression-results
+        path: firmware_test_results/
+        retention-days: 90
+
+  performance-benchmarking:
+    runs-on: self-hosted
+    labels: [hardware-testing, performance]
+    if: github.event_name == 'schedule' || contains(github.event.head_commit.message, '[benchmark]')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r test_framework/requirements.txt
+    
+    - name: Run performance benchmarks
+      run: |
+        python -m test_framework.ci_integration \
+          --config test_framework/ci_configs/performance_config.json \
+          --devices 4 \
+          --parallel 4 \
+          --timeout 1800 \
+          --output-dir performance_results \
+          --verbose
+    
+    - name: Analyze performance trends
+      run: |
+        python test_framework/performance_analyzer.py \
+          --results-dir performance_results \
+          --baseline-dir performance_baselines \
+          --output performance_analysis.json
+    
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-benchmarks
+        path: |
+          performance_results/
+          performance_analysis.json
+        retention-days: 365  # Keep performance data longer
+
+  cleanup:
+    runs-on: self-hosted
+    needs: [hardware-validation, firmware-regression-test, performance-benchmarking]
+    if: always()
+    
+    steps:
+    - name: Cleanup test artifacts
+      run: |
+        # Clean up old test results (keep last 10 runs)
+        find . -name "test_results_*" -type d -mtime +7 -exec rm -rf {} + || true
+        find . -name "*.log" -mtime +7 -delete || true
+        
+        # Reset hardware devices
+        python -m test_framework.device_manager --reset-all || true

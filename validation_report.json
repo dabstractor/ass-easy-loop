@@ -1,0 +1,164 @@
+{
+  "validation_summary": {
+    "total_tests": 25,
+    "passed": 22,
+    "failed": 3,
+    "success_rate": 88.0,
+    "total_duration": 0.8290441036224365
+  },
+  "detailed_results": [
+    {
+      "test": "Rust compiler",
+      "status": "PASS",
+      "message": "Found: rustc 1.87.0 (17067e9ac 2025-05-09)",
+      "duration": 0
+    },
+    {
+      "test": "Embedded target",
+      "status": "PASS",
+      "message": "thumbv6m-none-eabi installed",
+      "duration": 0
+    },
+    {
+      "test": "Project file: Cargo.toml",
+      "status": "PASS",
+      "message": "Found",
+      "duration": 0
+    },
+    {
+      "test": "Project file: src/main.rs",
+      "status": "PASS",
+      "message": "Found",
+      "duration": 0
+    },
+    {
+      "test": "Project file: src/test_framework.rs",
+      "status": "PASS",
+      "message": "Found",
+      "duration": 0
+    },
+    {
+      "test": "Project file: tests",
+      "status": "PASS",
+      "message": "Found",
+      "duration": 0
+    },
+    {
+      "test": "Project file: test_framework",
+      "status": "PASS",
+      "message": "Found",
+      "duration": 0
+    },
+    {
+      "test": "Regular build",
+      "status": "FAIL",
+      "message": "Compilation failed:    Compiling ass-easy-loop v0.1.0 (/home/dustin/projects/ass-easy-loop)\nerror[E0573]: expected type, found constant `crate::test_suite_registry::MAX_REGISTERED_SUITES`\n   --> src/comprehensive_test_validation.rs:513:61\n    |\n513 |     pub fn get_available_suites(&self) -> Vec<&'static str, crate::test_suite_registry::MAX_REGISTERED_SUITES> {\n    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not a type\n\nwarning: unexpected `cfg` condition value: `serde`\n   --> src/logging.rs:160:12\n    |\n160 | #[cfg_attr(feature = \"serde\", derive(serde::Serialize))]\n    |            ^^^^^^^^^^^^^^^^^\n    |\n    = note: expected values for `feature` are: `battery-logs`, `command-processor`, `debug-features`, `debug-logging`, `default`, `development`, `exclude-test-infrastructure`, `minimal-footprint`, `minimal-logging`, `pemf-logs`, `performance-optimized`, `production`, `std`, `system-logs`, `system-state-queries`, `test-commands`, `test-validation`, `testing`, and `usb-logs`\n    = help: consider adding `serde` as a feature in `Cargo.toml`\n    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration\n    = note: `#[warn(unexpected_cfgs)]` on by default\n\nwarning: unused imports: `Err` and `Ok`\n  --> src/test_framework.rs:14:34\n   |\n14 | use core::result::Result::{self, Ok, Err};\n   |                                  ^^  ^^^\n   |\nhelp: if this is a test module, consider adding a `#[cfg(test)]` to the containing module\n  --> src/lib.rs:18:1\n   |\n18 | pub mod test_framework;\n   | ^^^^^^^^^^^^^^^^^^^^^^^\n   = note: `#[warn(unused_imports)]` on by default\n\nwarning: unused import: `FnvIndexMap`\n  --> src/comprehensive_test_execution.rs:12:29\n   |\n12 | use heapless::{Vec, String, FnvIndexMap};\n   |                             ^^^^^^^^^^^\n\nwarning: unused imports: `TestExecutionResult`, `TestResult`, and `TestSuiteStats`\n  --> src/comprehensive_test_execution.rs:15:58\n   |\n15 | use crate::test_framework::{TestRunner, TestSuiteResult, TestExecutionResult, TestResult, TestSuiteStats};\n   |                                                          ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^^^^\n\nwarning: unused imports: `TestExecutionFlags` and `TestExecutionParams`\n  --> src/comprehensive_test_execution.rs:16:59\n   |\n16 | use crate::test_execution_handler::{TestExecutionHandler, TestExecutionParams, TestExecutionFlags, TestExecutionStatus};\n   |                                                           ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^\n\nwarning: unused import: `TestResultStatus`\n  --> src/comprehensive_test_execution.rs:17:58\n   |\n17 | use crate::test_result_serializer::{TestResultCollector, TestResultStatus};\n   |                                                          ^^^^^^^^^^^^^^^^\n\nwarning: unused imports: `Err` and `Ok`\n  --> src/comprehensive_test_validation.rs:10:34\n   |\n10 | use core::result::Result::{self, Ok, Err};\n   |                                  ^^  ^^^\n\nwarning: unused imports: `TestRunner` and `TestSuiteStats`\n  --> src/comprehensive_test_validation.rs:11:29\n   |\n11 | use crate::test_framework::{TestRunner, TestSuiteResult, TestResult, TestSuiteStats};\n   |                             ^^^^^^^^^^                               ^^^^^^^^^^^^^^\n\nwarning: unused import: `ComprehensiveTestResults`\n  --> src/comprehensive_test_validation.rs:13:43\n   |\n13 | use crate::comprehensive_test_execution::{ComprehensiveTestResults, ResourceUsageStats};\n   |                                           ^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: unused imports: `TestRunner` and `TestSuiteResult`\n  --> src/comprehensive_test_integration.rs:11:29\n   |\n11 | use crate::test_framework::{TestRunner, TestSuiteResult};\n   |                             ^^^^^^^^^^  ^^^^^^^^^^^^^^^\n\nwarning: unused import: `TestExecutionSession`\n  --> src/comprehensive_test_integration.rs:12:96\n   |\n12 | use crate::comprehensive_test_execution::{ComprehensiveTestExecutor, ComprehensiveTestResults, TestExecutionSession};\n   |                                                                                                ^^^^^^^^^^^^^^^^^^^^\n\nwarning: unused import: `ValidationResult`\n  --> src/comprehensive_test_integration.rs:13:90\n   |\n13 | use crate::comprehensive_test_validation::{ComprehensiveTestValidator, ValidationReport, ValidationResult};\n   |                                                                                          ^^^^^^^^^^^^^^^^\n\nwarning: unused imports: `None` and `self`\n  --> src/test_performance_optimizer.rs:11:28\n   |\n11 | use core::option::Option::{self, Some, None};\n   |                            ^^^^        ^^^^\n   |\nhelp: if this is a test module, consider adding a `#[cfg(test)]` to the containing module\n  --> src/lib.rs:29:1\n   |\n29 | pub mod test_performance_optimizer;\n   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: unused imports: `Err` and `Ok`\n  --> src/test_performance_optimizer.rs:12:34\n   |\n12 | use core::result::Result::{self, Ok, Err};\n   |                                  ^^  ^^^\n   |\nhelp: if this is a test module, consider adding a `#[cfg(test)]` to the containing module\n  --> src/lib.rs:29:1\n   |\n29 | pub mod test_performance_optimizer;\n   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nerror[E0747]: unresolved item provided when a constant was expected\n   --> src/comprehensive_test_validation.rs:513:61\n    |\n513 |     pub fn get_available_suites(&self) -> Vec<&'static str, crate::test_suite_registry::MAX_REGISTERED_SUITES> {\n    |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    |\nhelp: if this generic argument was intended as a const parameter, surround it with braces\n    |\n513 |     pub fn get_available_suites(&self) -> Vec<&'static str, { crate::test_suite_registry::MAX_REGISTERED_SUITES }> {\n    |                                                             +                                                   +\n\nerror[E0284]: type annotations needed for `String<_>`\n   --> src/test_result_serializer.rs:370:13\n    |\n370 |         let mut compressed = String::new();\n    |             ^^^^^^^^^^^^^^   ------ type must be known at this point\n    |\nnote: required by a const generic parameter in `String`\n   --> /home/dustin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/heapless-0.8.0/src/string.rs:12:19\n    |\n12  | pub struct String<const N: usize> {\n    |                   ^^^^^^^^^^^^^^ required by this const generic parameter in `String`\nhelp: consider giving `compressed` an explicit type, where the value of const parameter `N` is specified\n    |\n370 |         let mut compressed: String<N> = String::new();\n    |                           +++++++++++\n\nerror[E0284]: type annotations needed for `String<_>`\n   --> src/test_result_serializer.rs:370:13\n    |\n370 |         let mut compressed = String::new();\n    |             ^^^^^^^^^^^^^^   ------------- type must be known at this point\n    |\nnote: required by a const generic parameter in `String::<N>::new`\n   --> /home/dustin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/heapless-0.8.0/src/string.rs:16:6\n    |\n16  | impl<const N: usize> String<N> {\n    |      ^^^^^^^^^^^^^^ required by this const generic parameter in `String::<N>::new`\n...\n33  |     pub const fn new() -> Self {\n    |                  --- required by a bound in this associated function\nhelp: consider giving `compressed` an explicit type, where the value of const parameter `N` is specified\n    |\n370 |         let mut compressed: String<N> = String::new();\n    |                           +++++++++++\n\nerror[E0599]: no method named `sort_by` found for struct `Vec<TestSuiteEntry, _>` in the current scope\n   --> src/test_suite_registry.rs:103:24\n    |\n103 |         enabled_suites.sort_by(|a, b| b.priority.cmp(&a.priority));\n    |                        ^^^^^^^\n    |\nhelp: there is a method `is_sorted_by` with a similar name\n    |\n103 -         enabled_suites.sort_by(|a, b| b.priority.cmp(&a.priority));\n103 +         enabled_suites.is_sorted_by(|a, b| b.priority.cmp(&a.priority));\n    |\n\nerror[E0599]: no function or associated item named `from_str` found for struct `String<_>` in the current scope\n   --> src/comprehensive_test_validation.rs:348:41\n    |\n348 |                     suite_name: String::from_str(\"validation\").unwrap_or_default(),\n    |                                         ^^^^^^^^ function or associated item not found in `String<_>`\n    |\nnote: if you're trying to build a new `String<_>` consider using one of the following associated functions:\n      String::<N>::new\n      String::<N>::from_utf8\n      String::<N>::from_utf8_unchecked\n   --> /home/dustin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/heapless-0.8.0/src/string.rs:33:5\n    |\n33  |     pub const fn new() -> Self {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n68  |     pub fn from_utf8(vec: Vec<u8, N>) -> Result<Self, Utf8Error> {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n95  |     pub unsafe fn from_utf8_unchecked(vec: Vec<u8, N>) -> Self {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    = help: items from traits can only be used if the trait is in scope\nhelp: trait `FromStr` which provides `from_str` is implemented but not in scope; perhaps you want to import it\n    |\n8   + use core::str::FromStr;\n    |\nhelp: there is an associated function `from` with a similar name\n    |\n348 -                     suite_name: String::from_str(\"validation\").unwrap_or_default(),\n348 +                     suite_name: String::from(\"validation\").unwrap_or_default(),\n    |\n\nerror[E0599]: no function or associated item named `from_str` found for struct `String<_>` in the current scope\n   --> src/comprehensive_test_validation.rs:350:44\n    |\n350 |                     error_message: String::from_str(\"Validation timeout exceeded\").unwrap_or_default(),\n    |                                            ^^^^^^^^ function or associated item not found in `String<_>`\n    |\nnote: if you're trying to build a new `String<_>` consider using one of the following associated functions:\n      String::<N>::new\n      String::<N>::from_utf8\n      String::<N>::from_utf8_unchecked\n   --> /home/dustin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/heapless-0.8.0/src/string.rs:33:5\n    |\n33  |     pub const fn new() -> Self {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n68  |     pub fn from_utf8(vec: Vec<u8, N>) -> Result<Self, Utf8Error> {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n95  |     pub unsafe fn from_utf8_unchecked(vec: Vec<u8, N>) -> Self {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    = help: items from traits can only be used if the trait is in scope\nhelp: trait `FromStr` which provides `from_str` is implemented but not in scope; perhaps you want to import it\n    |\n8   + use core::str::FromStr;\n    |\nhelp: there is an associated function `from` with a similar name\n    |\n350 -                     error_message: String::from_str(\"Validation timeout exceeded\").unwrap_or_default(),\n350 +                     error_message: String::from(\"Validation timeout exceeded\").unwrap_or_default(),\n    |\n\nerror[E0599]: no function or associated item named `from_str` found for struct `String<_>` in the current scope\n   --> src/comprehensive_test_validation.rs:372:44\n    |\n372 |                     error_message: String::from_str(\"Stopping validation due to test failures\").unwrap_or_default(),\n    |                                            ^^^^^^^^ function or associated item not found in `String<_>`\n    |\nnote: if you're trying to build a new `String<_>` consider using one of the following associated functions:\n      String::<N>::new\n      String::<N>::from_utf8\n      String::<N>::from_utf8_unchecked\n   --> /home/dustin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/heapless-0.8.0/src/string.rs:33:5\n    |\n33  |     pub const fn new() -> Self {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n68  |     pub fn from_utf8(vec: Vec<u8, N>) -> Result<Self, Utf8Error> {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n95  |     pub unsafe fn from_utf8_unchecked(vec: Vec<u8, N>) -> Self {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    = help: items from traits can only be used if the trait is in scope\nhelp: trait `FromStr` which provides `from_str` is implemented but not in scope; perhaps you want to import it\n    |\n8   + use core::str::FromStr;\n    |\nhelp: there is an associated function `from` with a similar name\n    |\n372 -                     error_message: String::from_str(\"Stopping validation due to test failures\").unwrap_or_default(),\n372 +                     error_message: String::from(\"Stopping validation due to test failures\").unwrap_or_default(),\n    |\n\nerror[E0599]: no function or associated item named `from_str` found for struct `String<_>` in the current scope\n   --> src/comprehensive_test_validation.rs:443:40\n    |\n443 |                 error_message: String::from_str(\"Test suite has no tests\").unwrap_or_default(),\n    |                                        ^^^^^^^^ function or associated item not found in `String<_>`\n    |\nnote: if you're trying to build a new `String<_>` consider using one of the following associated functions:\n      String::<N>::new\n      String::<N>::from_utf8\n      String::<N>::from_utf8_unchecked\n   --> /home/dustin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/heapless-0.8.0/src/string.rs:33:5\n    |\n33  |     pub const fn new() -> Self {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n68  |     pub fn from_utf8(vec: Vec<u8, N>) -> Result<Self, Utf8Error> {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n95  |     pub unsafe fn from_utf8_unchecked(vec: Vec<u8, N>) -> Self {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    = help: items from traits can only be used if the trait is in scope\nhelp: trait `FromStr` which provides `from_str` is implemented but not in scope; perhaps you want to import it\n    |\n8   + use core::str::FromStr;\n    |\nhelp: there is an associated function `from` with a similar name\n    |\n443 -                 error_message: String::from_str(\"Test suite has no tests\").unwrap_or_default(),\n443 +                 error_message: String::from(\"Test suite has no tests\").unwrap_or_default(),\n    |\n\nerror[E0599]: no function or associated item named `from_str` found for struct `String<_>` in the current scope\n   --> src/comprehensive_test_validation.rs:456:48\n    |\n456 |                         error_message: String::from_str(\"Test suite execution time exceeded timeout\").unwrap_or_default(),\n    |                                                ^^^^^^^^ function or associated item not found in `String<_>`\n    |\nnote: if you're trying to build a new `String<_>` consider using one of the following associated functions:\n      String::<N>::new\n      String::<N>::from_utf8\n      String::<N>::from_utf8_unchecked\n   --> /home/dustin/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/heapless-0.8.0/src/string.rs:33:5\n    |\n33  |     pub const fn new() -> Self {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n68  |     pub fn from_utf8(vec: Vec<u8, N>) -> Result<Self, Utf8Error> {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n...\n95  |     pub unsafe fn from_utf8_unchecked(vec: Vec<u8, N>) -> Self {\n    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    = help: items from traits can only be used if the trait is in scope\nhelp: trait `FromStr` which provides `from_str` is implemented but not in scope; perhaps you want to import it\n    |\n8   + use core::str::FromStr;\n    |\nhelp: there is an associated function `from` with a similar name\n    |\n456 -                         error_message: String::from_str(\"Test suite execution time exceeded timeout\").unwrap_or_default(),\n456 +                         error_message: String::from(\"Test suite execution time exceeded timeout\").unwrap_or_default(),\n    |\n\nerror[E0015]: cannot call non-const associated function `ComprehensiveTestIntegration::new` in constant functions\n  --> src/command/handler.rs:55:45\n   |\n55 |             comprehensive_test_integration: ComprehensiveTestIntegration::new(),\n   |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n   = note: calls in constant functions are limited to constant functions, tuple structs and tuple variants\n\nwarning: unused variable: `execution_start`\n   --> src/comprehensive_test_execution.rs:628:13\n    |\n628 |         let execution_start = start_time_ms;\n    |             ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_execution_start`\n    |\n    = note: `#[warn(unused_variables)]` on by default\n\nwarning: unused variable: `session_id`\n   --> src/comprehensive_test_execution.rs:627:62\n    |\n627 |     fn execute_suites_with_performance_monitoring(&mut self, session_id: u8, start_time_ms: u32) -> Result<u32, &'static str> {\n    |                                                              ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_session_id`\n\nSome errors have detailed explanations: E0015, E0284, E0573, E0599, E0747.\nFor more information about an error, try `rustc --explain E0015`.\nwarning: `ass-easy-loop` (lib) generated 16 warnings\nerror: could not compile `ass-easy-loop` (lib) due to 11 previous errors; 16 warnings emitted\n",
+      "duration": 0
+    },
+    {
+      "test": "Test framework components",
+      "status": "PASS",
+      "message": "All components found",
+      "duration": 0
+    },
+    {
+      "test": "Mock components",
+      "status": "PASS",
+      "message": "test_mocks.rs found",
+      "duration": 0
+    },
+    {
+      "test": "Python integration",
+      "status": "PASS",
+      "message": "All integration files found",
+      "duration": 0
+    },
+    {
+      "test": "Documentation: docs/NO_STD_TEST_PATTERNS.md",
+      "status": "PASS",
+      "message": "Testing patterns and best practices - 7892 chars",
+      "duration": 0
+    },
+    {
+      "test": "Documentation: docs/NO_STD_TEST_INTEGRATION_GUIDE.md",
+      "status": "PASS",
+      "message": "Integration guide - 11581 chars",
+      "duration": 0
+    },
+    {
+      "test": "Documentation: docs/NO_STD_TEST_TROUBLESHOOTING.md",
+      "status": "PASS",
+      "message": "Troubleshooting guide - 13387 chars",
+      "duration": 0
+    },
+    {
+      "test": "Documentation: docs/NO_STD_MOCK_COMPONENTS.md",
+      "status": "PASS",
+      "message": "Mock components documentation - 8306 chars",
+      "duration": 0
+    },
+    {
+      "test": "Test pattern compliance",
+      "status": "PASS",
+      "message": "8/10 files compliant",
+      "duration": 0
+    },
+    {
+      "test": "USB HID dependencies",
+      "status": "PASS",
+      "message": "Found in Cargo.toml",
+      "duration": 0
+    },
+    {
+      "test": "Python HID library",
+      "status": "PASS",
+      "message": "hidapi available",
+      "duration": 0
+    },
+    {
+      "test": "Test result serializer",
+      "status": "PASS",
+      "message": "Found",
+      "duration": 0
+    },
+    {
+      "test": "CI file: .github/workflows/embedded_tests.yml",
+      "status": "FAIL",
+      "message": "Not found",
+      "duration": 0
+    },
+    {
+      "test": "CI file: .github/workflows/test.yml",
+      "status": "FAIL",
+      "message": "Not found",
+      "duration": 0
+    },
+    {
+      "test": "CI file: test_framework/ci_integration.py",
+      "status": "PASS",
+      "message": "Found",
+      "duration": 0
+    },
+    {
+      "test": "Test configuration",
+      "status": "PASS",
+      "message": "1 config files found",
+      "duration": 0
+    },
+    {
+      "test": "Firmware size",
+      "status": "PASS",
+      "message": "1.16 MB",
+      "duration": 0
+    },
+    {
+      "test": "Estimated test time",
+      "status": "PASS",
+      "message": "82 seconds",
+      "duration": 0
+    }
+  ],
+  "recommendations": [
+    "Review failed validation tests and address issues before proceeding"
+  ]
+}

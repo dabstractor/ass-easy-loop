@@ -1,0 +1,90 @@
+//! Unit tests module
+//! 
+//! This module contains host-side unit tests that test individual components
+//! and functions in isolation using std and mock implementations.
+
+// Import common test utilities
+use crate::tests::common;
+
+// Re-export common utilities for unit tests
+pub use super::common::*;
+
+#[cfg(test)]
+mod test_infrastructure {
+    use super::*;
+    
+    #[test]
+    fn test_common_module_available() {
+        // Test that we can access common test utilities
+        let _env = MockTestEnvironment::new();
+        assert!(true, "Common test infrastructure is available");
+    }
+    
+    #[test]
+    fn test_mock_battery_monitor() {
+        let battery = MockBatteryMonitor::new();
+        
+        // Test default values
+        assert_eq!(battery.get_voltage(), 3700);
+        
+        // Test setting voltage
+        battery.set_voltage(3500);
+        assert_eq!(battery.get_voltage(), 3500);
+        
+        // Test readings history
+        battery.set_voltage(3600);
+        let readings = battery.get_readings();
+        assert_eq!(readings.len(), 2);
+        assert_eq!(readings[0], 3500);
+        assert_eq!(readings[1], 3600);
+    }
+    
+    #[test]
+    fn test_mock_usb_hid_device() {
+        let usb = MockUsbHidDevice::new();
+        
+        // Test default state
+        assert!(usb.is_connected());
+        assert_eq!(usb.get_sent_messages().len(), 0);
+        
+        // Test sending messages
+        usb.send_message(vec![1, 2, 3]);
+        usb.send_message(vec![4, 5, 6]);
+        
+        let sent = usb.get_sent_messages();
+        assert_eq!(sent.len(), 2);
+        assert_eq!(sent[0], vec![1, 2, 3]);
+        assert_eq!(sent[1], vec![4, 5, 6]);
+    }
+    
+    #[test]
+    fn test_test_data_generators() {
+        // Test battery data generation
+        let discharge = test_data::battery::discharge_sequence(4000, 3000, 5);
+        assert_eq!(discharge.len(), 5);
+        assert_eq!(discharge[0], 4000);
+        assert_eq!(discharge[4], 3000);
+        
+        // Test USB HID message generation
+        let message = test_data::usb_hid::create_test_message(0x01, &[1, 2, 3]);
+        assert_eq!(message[0], 0x01);
+        assert_eq!(message[1], 1);
+        assert_eq!(message[2], 2);
+        assert_eq!(message[3], 3);
+        assert_eq!(message.len(), 64); // Padded to HID report size
+    }
+    
+    #[test]
+    fn test_timing_utilities() {
+        use std::time::Duration;
+        
+        let (result, duration) = timing::measure_time(|| {
+            std::thread::sleep(Duration::from_millis(10));
+            42
+        });
+        
+        assert_eq!(result, 42);
+        assert!(duration >= Duration::from_millis(10));
+        assert!(duration < Duration::from_millis(50)); // Allow some variance
+    }
+}
