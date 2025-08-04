@@ -596,11 +596,6 @@ impl BootloaderEntryManager {
                 cortex_m::asm::wfi();
             }
         }
-        
-        // This point should never be reached, but just in case
-        loop {
-            cortex_m::asm::wfi();
-        }
     }
 
     /// Reset bootloader entry state to normal operation

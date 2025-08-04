@@ -9,8 +9,7 @@
 - [x] 2. Get device into bootloader mode with user help - iterate until successful
   - EXPLICITLY ask user to disconnect device, hold BOOTSEL button, reconnect while holding, then release
   - Check if bootloader device appears using existing device detection code
-  - If bootloader not detected, ask user to try BOOTSEL process again with more detailed instructions
-  - Continue asking user to retry BOOTSEL button process as many times as needed until device appears in bootloader mode
+  - If bootloader not detected, ask user to try BOOTSEL process again with more detailed instructionsOTSEL button process as many times as needed until device appears in bootloader mode
   - Do not proceed to flashing until bootloader mode is confirmed working
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
@@ -21,7 +20,7 @@
   - Continue iterating with user on BOOTSEL button process until flashing succeeds
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 4. Debug and fix whatever breaks in the flash attempts
+- [x] 4. Debug and fix whatever breaks in the flash attempts
   - Identify specific failure points in the existing flashing code
   - Fix issues with device detection, tool paths, or communication
   - When testing fixes, explicitly ask user to put device in bootloader mode again
