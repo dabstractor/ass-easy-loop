@@ -18,10 +18,11 @@ const BOOTLOADER_MAGIC: u32 = 0xB007C0DE;
 
 /// Memory address for bootloader magic value (end of RAM)
 /// RP2040 has 264KB of SRAM, we use the last 4 bytes for the magic value
+/// This is the standard location used by the Pico SDK
 const BOOTLOADER_MAGIC_ADDR: *mut u32 = 0x20041FFC as *mut u32;
 
 /// Maximum time to wait for task shutdown in milliseconds
-const TASK_SHUTDOWN_TIMEOUT_MS: u32 = 1000;
+const TASK_SHUTDOWN_TIMEOUT_MS: u32 = 5000;
 
 /// Maximum time to wait for hardware state validation in milliseconds
 const HARDWARE_VALIDATION_TIMEOUT_MS: u32 = 500;
@@ -562,7 +563,7 @@ impl BootloaderEntryManager {
         log_info!("Performing software reset to enter bootloader");
         
         // Disable interrupts to prevent interference during reset
-        interrupt::disable();
+        cortex_m::interrupt::disable();
         
         // Write magic value to RAM to trigger bootloader mode
         // The RP2040 boot ROM checks this location after reset
@@ -570,23 +571,30 @@ impl BootloaderEntryManager {
             core::ptr::write_volatile(BOOTLOADER_MAGIC_ADDR, BOOTLOADER_MAGIC);
         }
         
-        // Perform software reset using RP2040 PSM (Power-on State Machine)
-        // This will cause the device to reset and enter bootloader mode
+        // Use the absolute simplest reset approach
         unsafe {
-            let psm = &(*pac::PSM::ptr());
+            // Write magic value and immediately reset
+            core::ptr::write_volatile(BOOTLOADER_MAGIC_ADDR, BOOTLOADER_MAGIC);
             
-            // Reset all peripherals except ROSC and XOSC
-            psm.wdsel().write(|w| w.bits(0x0001ffff));
-            psm.frce_off().write(|w| w.bits(0x0001ffff));
+            // Ensure the write completes
+            cortex_m::asm::dsb();
+            cortex_m::asm::isb();
             
-            // Wait a bit for peripherals to reset
-            for _ in 0..1000 {
-                cortex_m::asm::nop();
+            // Disable interrupts
+            cortex_m::interrupt::disable();
+            
+            // Direct system reset - no peripheral resets, just reset the CPU
+            let scb = &(*cortex_m::peripheral::SCB::PTR);
+            scb.aircr.write(0x05FA0004); // VECTKEY | SYSRESETREQ
+            
+            // Ensure the reset happens
+            cortex_m::asm::dsb();
+            cortex_m::asm::isb();
+            
+            // Wait for reset
+            loop {
+                cortex_m::asm::wfi();
             }
-            
-            // Trigger system reset
-            let scb = cortex_m::peripheral::SCB::PTR;
-            (*scb).aircr.write(0x05FA0004); // VECTKEY | SYSRESETREQ
         }
         
         // This point should never be reached, but just in case
