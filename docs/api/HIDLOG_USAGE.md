@@ -149,11 +149,11 @@ sudo python3 hidlog.py
 
 ### Running Tests
 ```bash
-python3 test_hidlog.py
+python3 scripts/testing/test_hidlog.py
 ```
 
 ### Testing Without Hardware
-The test script (`test_hidlog.py`) validates the log message parsing and formatting functionality without requiring actual hardware.
+The test script (`scripts/testing/test_hidlog.py`) validates the log message parsing and formatting functionality without requiring actual hardware.
 
 ### Integration with Device Development
 1. Flash the RP2040 with firmware that includes USB HID logging

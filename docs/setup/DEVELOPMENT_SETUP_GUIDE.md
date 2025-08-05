@@ -49,7 +49,7 @@ This comprehensive guide covers setting up the complete development environment 
 
 ### Step 1: Basic Wiring
 
-Follow the detailed wiring instructions in [WIRING_GUIDE.md](WIRING_GUIDE.md) to connect:
+Follow the detailed wiring instructions in [WIRING_GUIDE.md](../hardware/WIRING_GUIDE.md) to connect:
 
 1. **Power connections**: Battery to VSYS and GND
 2. **Voltage divider**: 10kΩ and 5.1kΩ resistors for battery monitoring
@@ -341,7 +341,7 @@ cargo build --release 2>&1 | grep -i warning
 python test_framework/device_manager.py --test-connection
 
 # Validate hardware setup
-python validation_scripts/hardware_validation.py
+python scripts/validation/hardware_validation.py
 ```
 
 #### Timing Accuracy Validation
@@ -536,10 +536,10 @@ python test_framework/device_manager.py --ping-test
 
 #### Documentation Resources
 
-- [WIRING_GUIDE.md](WIRING_GUIDE.md) - Detailed hardware setup
+- [WIRING_GUIDE.md](../hardware/WIRING_GUIDE.md) - Detailed hardware setup
 - [SOFTWARE_SETUP.md](SOFTWARE_SETUP.md) - Basic software installation
-- [test_framework/README.md](test_framework/README.md) - Test framework documentation
-- [USB_HID_TROUBLESHOOTING_GUIDE.md](USB_HID_TROUBLESHOOTING_GUIDE.md) - USB communication issues
+- [test_framework/README.md](../../test_framework/README.md) - Test framework documentation
+- [USB_HID_TROUBLESHOOTING_GUIDE.md](../troubleshooting/USB_HID_TROUBLESHOOTING_GUIDE.md) - USB communication issues
 
 #### Community Support
 

@@ -7,11 +7,11 @@ This document provides a comprehensive index of all documentation files for the 
 For new users, follow this recommended reading order:
 
 1. **[README.md](README.md)** - Project overview and basic information
-2. **[ARCH_LINUX_SETUP.md](ARCH_LINUX_SETUP.md)** - Development environment setup
-3. **[SOFTWARE_SETUP.md](SOFTWARE_SETUP.md)** - Rust toolchain and build setup
-4. **[BOOTLOADER_FLASHING_GUIDE.md](BOOTLOADER_FLASHING_GUIDE.md)** - Firmware flashing process
-5. **[USB_HID_LOGGING_SETUP_GUIDE.md](USB_HID_LOGGING_SETUP_GUIDE.md)** - Complete USB HID setup
-6. **[USB_HID_USAGE_EXAMPLES.md](USB_HID_USAGE_EXAMPLES.md)** - Usage examples and monitoring
+2. **[docs/setup/ARCH_LINUX_SETUP.md](docs/setup/ARCH_LINUX_SETUP.md)** - Development environment setup
+3. **[docs/setup/SOFTWARE_SETUP.md](docs/setup/SOFTWARE_SETUP.md)** - Rust toolchain and build setup
+4. **[docs/BOOTLOADER_FLASHING_GUIDE.md](docs/BOOTLOADER_FLASHING_GUIDE.md)** - Firmware flashing process
+5. **[docs/setup/USB_HID_LOGGING_SETUP_GUIDE.md](docs/setup/USB_HID_LOGGING_SETUP_GUIDE.md)** - Complete USB HID setup
+6. **[docs/api/USB_HID_USAGE_EXAMPLES.md](docs/api/USB_HID_USAGE_EXAMPLES.md)** - Usage examples and monitoring
 
 ## Complete Documentation Library
 
@@ -20,24 +20,24 @@ For new users, follow this recommended reading order:
 | Document | Description | Target Audience |
 |----------|-------------|-----------------|
 | **[README.md](README.md)** | Main project overview, specifications, and safety information | All users |
-| **[WIRING_GUIDE.md](WIRING_GUIDE.md)** | Hardware assembly and wiring instructions | Hardware builders |
-| **[SOFTWARE_SETUP.md](SOFTWARE_SETUP.md)** | Rust development environment and build setup | Developers |
+| **[WIRING_GUIDE.md](docs/hardware/WIRING_GUIDE.md)** | Hardware assembly and wiring instructions | Hardware builders |
+| **[SOFTWARE_SETUP.md](docs/setup/SOFTWARE_SETUP.md)** | Rust development environment and build setup | Developers |
 
 ### USB HID Logging Documentation
 
 | Document | Description | Target Audience |
 |----------|-------------|-----------------|
-| **[USB_HID_LOGGING_SETUP_GUIDE.md](USB_HID_LOGGING_SETUP_GUIDE.md)** | Comprehensive setup guide for USB HID logging system | All users |
-| **[USB_HID_USAGE_EXAMPLES.md](USB_HID_USAGE_EXAMPLES.md)** | Detailed usage examples and monitoring scenarios | Users, developers |
-| **[USB_HID_TROUBLESHOOTING_GUIDE.md](USB_HID_TROUBLESHOOTING_GUIDE.md)** | Troubleshooting common USB HID issues | All users |
-| **[HIDLOG_USAGE.md](HIDLOG_USAGE.md)** | Basic hidlog.py utility usage | Users |
+| **[USB_HID_LOGGING_SETUP_GUIDE.md](docs/setup/USB_HID_LOGGING_SETUP_GUIDE.md)** | Comprehensive setup guide for USB HID logging system | All users |
+| **[USB_HID_USAGE_EXAMPLES.md](docs/api/USB_HID_USAGE_EXAMPLES.md)** | Detailed usage examples and monitoring scenarios | Users, developers |
+| **[USB_HID_TROUBLESHOOTING_GUIDE.md](docs/troubleshooting/USB_HID_TROUBLESHOOTING_GUIDE.md)** | Troubleshooting common USB HID issues | All users |
+| **[HIDLOG_USAGE.md](docs/api/HIDLOG_USAGE.md)** | Basic hidlog.py utility usage | Users |
 
 ### Setup and Configuration Guides
 
 | Document | Description | Target Audience |
 |----------|-------------|-----------------|
-| **[ARCH_LINUX_SETUP.md](ARCH_LINUX_SETUP.md)** | Complete Arch Linux development environment setup | Arch Linux users |
-| **[BOOTLOADER_FLASHING_GUIDE.md](BOOTLOADER_FLASHING_GUIDE.md)** | Detailed firmware flashing instructions and troubleshooting | All users |
+| **[ARCH_LINUX_SETUP.md](docs/setup/ARCH_LINUX_SETUP.md)** | Complete Arch Linux development environment setup | Arch Linux users |
+| **[docs/BOOTLOADER_FLASHING_GUIDE.md](docs/BOOTLOADER_FLASHING_GUIDE.md)** | Detailed firmware flashing instructions and troubleshooting | All users |
 
 ### Implementation and Technical Documentation
 
@@ -51,9 +51,9 @@ For new users, follow this recommended reading order:
 
 | Document | Description | Target Audience |
 |----------|-------------|-----------------|
-| **[BATTERY_LOGGING_IMPLEMENTATION.md](BATTERY_LOGGING_IMPLEMENTATION.md)** | Battery monitoring logging implementation | Developers |
-| **[PANIC_HANDLER_IMPLEMENTATION.md](PANIC_HANDLER_IMPLEMENTATION.md)** | Panic handler with USB logging | Developers |
-| **[HARDWARE_VALIDATION_IMPLEMENTATION.md](HARDWARE_VALIDATION_IMPLEMENTATION.md)** | Hardware validation testing | Developers, testers |
+| **[BATTERY_LOGGING_IMPLEMENTATION.md](docs/development/BATTERY_LOGGING_IMPLEMENTATION.md)** | Battery monitoring logging implementation | Developers |
+| **[PANIC_HANDLER_IMPLEMENTATION.md](docs/development/PANIC_HANDLER_IMPLEMENTATION.md)** | Panic handler with USB logging | Developers |
+| **[HARDWARE_VALIDATION_IMPLEMENTATION.md](docs/hardware/HARDWARE_VALIDATION_IMPLEMENTATION.md)** | Hardware validation testing | Developers, testers |
 
 ## Documentation by Use Case
 
@@ -61,40 +61,40 @@ For new users, follow this recommended reading order:
 
 **Getting Started Sequence:**
 1. Read [README.md](README.md) for project overview
-2. Follow [ARCH_LINUX_SETUP.md](ARCH_LINUX_SETUP.md) for environment setup
-3. Use [BOOTLOADER_FLASHING_GUIDE.md](BOOTLOADER_FLASHING_GUIDE.md) to flash firmware
-4. Follow [USB_HID_LOGGING_SETUP_GUIDE.md](USB_HID_LOGGING_SETUP_GUIDE.md) for logging setup
-5. Try examples from [USB_HID_USAGE_EXAMPLES.md](USB_HID_USAGE_EXAMPLES.md)
+2. Follow [ARCH_LINUX_SETUP.md](docs/setup/ARCH_LINUX_SETUP.md) for environment setup
+3. Use [docs/BOOTLOADER_FLASHING_GUIDE.md](docs/BOOTLOADER_FLASHING_GUIDE.md) to flash firmware
+4. Follow [USB_HID_LOGGING_SETUP_GUIDE.md](docs/setup/USB_HID_LOGGING_SETUP_GUIDE.md) for logging setup
+5. Try examples from [USB_HID_USAGE_EXAMPLES.md](docs/api/USB_HID_USAGE_EXAMPLES.md)
 
 ### For Hardware Builders
 
 **Hardware Assembly:**
 1. [README.md](README.md) - Component specifications and pin assignments
-2. [WIRING_GUIDE.md](WIRING_GUIDE.md) - Detailed wiring instructions
-3. [HARDWARE_VALIDATION_IMPLEMENTATION.md](HARDWARE_VALIDATION_IMPLEMENTATION.md) - Testing procedures
+2. [WIRING_GUIDE.md](docs/hardware/WIRING_GUIDE.md) - Detailed wiring instructions
+3. [HARDWARE_VALIDATION_IMPLEMENTATION.md](docs/hardware/HARDWARE_VALIDATION_IMPLEMENTATION.md) - Testing procedures
 
 ### For Software Developers
 
 **Development Setup:**
-1. [SOFTWARE_SETUP.md](SOFTWARE_SETUP.md) - Rust toolchain setup
-2. [ARCH_LINUX_SETUP.md](ARCH_LINUX_SETUP.md) - Development environment
+1. [SOFTWARE_SETUP.md](docs/setup/SOFTWARE_SETUP.md) - Rust toolchain setup
+2. [ARCH_LINUX_SETUP.md](docs/setup/ARCH_LINUX_SETUP.md) - Development environment
 3. [.kiro/specs/usb-hid-logging/design.md](.kiro/specs/usb-hid-logging/design.md) - Architecture overview
 4. [.kiro/specs/usb-hid-logging/requirements.md](.kiro/specs/usb-hid-logging/requirements.md) - Requirements specification
 
 ### For Troubleshooting
 
 **Problem Resolution:**
-1. [USB_HID_TROUBLESHOOTING_GUIDE.md](USB_HID_TROUBLESHOOTING_GUIDE.md) - Comprehensive troubleshooting
-2. [BOOTLOADER_FLASHING_GUIDE.md](BOOTLOADER_FLASHING_GUIDE.md) - Flashing issues
-3. [ARCH_LINUX_SETUP.md](ARCH_LINUX_SETUP.md) - Environment issues
-4. [USB_HID_LOGGING_SETUP_GUIDE.md](USB_HID_LOGGING_SETUP_GUIDE.md) - Setup problems
+1. [USB_HID_TROUBLESHOOTING_GUIDE.md](docs/troubleshooting/USB_HID_TROUBLESHOOTING_GUIDE.md) - Comprehensive troubleshooting
+2. [docs/BOOTLOADER_FLASHING_GUIDE.md](docs/BOOTLOADER_FLASHING_GUIDE.md) - Flashing issues
+3. [ARCH_LINUX_SETUP.md](docs/setup/ARCH_LINUX_SETUP.md) - Environment issues
+4. [USB_HID_LOGGING_SETUP_GUIDE.md](docs/setup/USB_HID_LOGGING_SETUP_GUIDE.md) - Setup problems
 
 ### For System Monitoring
 
 **Monitoring and Analysis:**
-1. [USB_HID_USAGE_EXAMPLES.md](USB_HID_USAGE_EXAMPLES.md) - Comprehensive usage examples
-2. [HIDLOG_USAGE.md](HIDLOG_USAGE.md) - Basic utility usage
-3. [BATTERY_LOGGING_IMPLEMENTATION.md](BATTERY_LOGGING_IMPLEMENTATION.md) - Battery monitoring details
+1. [USB_HID_USAGE_EXAMPLES.md](docs/api/USB_HID_USAGE_EXAMPLES.md) - Comprehensive usage examples
+2. [HIDLOG_USAGE.md](docs/api/HIDLOG_USAGE.md) - Basic utility usage
+3. [BATTERY_LOGGING_IMPLEMENTATION.md](docs/development/BATTERY_LOGGING_IMPLEMENTATION.md) - Battery monitoring details
 
 ## Documentation Features by Category
 
@@ -146,16 +146,22 @@ For new users, follow this recommended reading order:
 ### Essential Commands
 ```bash
 # List available devices
-python3 hidlog.py --list
+python3 scripts/utilities/hidlog.py --list
 
 # Basic monitoring
-python3 hidlog.py
+python3 scripts/utilities/hidlog.py
 
 # Monitor specific module
-python3 hidlog.py --module BATTERY --level INFO
+python3 scripts/utilities/hidlog.py --module BATTERY --level INFO
 
 # Save logs to file
-python3 hidlog.py --log-file device.log
+python3 scripts/utilities/hidlog.py --log-file device.log
+
+# Run validation scripts
+python3 scripts/validation/run_hardware_validation.py
+
+# Test bootloader functionality
+python3 scripts/bootloader/simple_bootloader_entry_test.py
 
 # Enter bootloader mode
 # Hold BOOTSEL while connecting USB
@@ -167,18 +173,38 @@ cargo run --release
 ### Key File Locations
 ```
 Project Structure:
-├── README.md                           # Main project documentation
-├── USB_HID_LOGGING_SETUP_GUIDE.md     # Complete setup guide
-├── USB_HID_USAGE_EXAMPLES.md          # Usage examples
-├── USB_HID_TROUBLESHOOTING_GUIDE.md   # Troubleshooting guide
-├── BOOTLOADER_FLASHING_GUIDE.md       # Flashing instructions
-├── ARCH_LINUX_SETUP.md                # Environment setup
-├── SOFTWARE_SETUP.md                  # Development setup
-├── HIDLOG_USAGE.md                    # Basic utility usage
-├── hidlog.py                          # Log monitoring utility
-├── src/                               # Firmware source code
-├── tests/                             # Test files
-└── .kiro/specs/usb-hid-logging/       # Technical specifications
+├── README.md                                      # Main project documentation
+├── docs/                                          # All documentation
+│   ├── setup/                                     # Setup and installation guides
+│   │   ├── USB_HID_LOGGING_SETUP_GUIDE.md       # Complete setup guide
+│   │   ├── ARCH_LINUX_SETUP.md                  # Environment setup
+│   │   └── SOFTWARE_SETUP.md                    # Development setup
+│   ├── api/                                       # API documentation
+│   │   ├── USB_HID_USAGE_EXAMPLES.md            # Usage examples
+│   │   └── HIDLOG_USAGE.md                      # Basic utility usage
+│   ├── troubleshooting/                          # Troubleshooting guides
+│   │   └── USB_HID_TROUBLESHOOTING_GUIDE.md     # Troubleshooting guide
+│   ├── hardware/                                 # Hardware documentation
+│   │   └── WIRING_GUIDE.md                      # Hardware assembly
+│   ├── development/                              # Development documentation
+│   ├── BOOTLOADER_FLASHING_GUIDE.md             # Firmware flashing guide
+│   └── USB_HID_INTEGRATION_TESTS.md             # USB HID integration tests
+├── scripts/                                      # Executable scripts
+│   ├── utilities/                                # General utilities
+│   │   └── hidlog.py                            # Log monitoring utility
+│   ├── validation/                               # Validation scripts (includes validate_* executables)
+│   ├── bootloader/                               # Bootloader scripts
+│   └── testing/                                  # Test scripts
+├── artifacts/                                    # Generated files
+│   ├── test_results/                             # Test outputs
+│   ├── firmware/                                 # Generated firmware
+│   ├── logs/                                     # Log files
+│   ├── bootloader_debugging_summary.md          # Bootloader debugging info
+│   ├── bootloader_entry_fix.patch               # Bootloader patches
+│   └── bootloader_fix.rs                        # Bootloader fixes
+├── src/                                          # Firmware source code
+├── tests/                                        # Test files
+└── .kiro/specs/                                  # Technical specifications
 ```
 
 ### Support Resources

@@ -9,7 +9,7 @@ This document provides a quick reference summary of the complete development env
 Run the automated setup validation script:
 
 ```bash
-./validation_scripts/run_setup_validation.sh
+./scripts/validation/run_setup_validation.sh
 ```
 
 This script will:
@@ -46,19 +46,19 @@ cargo check
 
 | File | Purpose |
 |------|---------|
-| `DEVELOPMENT_SETUP_GUIDE.md` | Comprehensive setup instructions |
-| `HARDWARE_SETUP_DOCUMENTATION.md` | Hardware wiring and assembly |
-| `TESTING_TROUBLESHOOTING_GUIDE.md` | Common issues and solutions |
-| `API_DOCUMENTATION.md` | Test framework API reference |
-| `USAGE_EXAMPLES.md` | Practical usage examples |
+| `docs/setup/DEVELOPMENT_SETUP_GUIDE.md` | Comprehensive setup instructions |
+| `docs/hardware/HARDWARE_SETUP_DOCUMENTATION.md` | Hardware wiring and assembly |
+| `docs/troubleshooting/TESTING_TROUBLESHOOTING_GUIDE.md` | Common issues and solutions |
+| `docs/api/API_DOCUMENTATION.md` | Test framework API reference |
+| `docs/api/USAGE_EXAMPLES.md` | Practical usage examples |
 
 ## Validation Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `validation_scripts/setup_validation.py` | Software environment validation |
-| `validation_scripts/hardware_validation.py` | Hardware setup validation |
-| `validation_scripts/run_setup_validation.sh` | Complete automated validation |
+| `scripts/validation/setup_validation.py` | Software environment validation |
+| `scripts/validation/hardware_validation.py` | Hardware setup validation |
+| `scripts/validation/run_setup_validation.sh` | Complete automated validation |
 
 ## Key Commands
 
@@ -79,7 +79,7 @@ cargo check
 
 ```bash
 # Run hardware validation
-python3 validation_scripts/hardware_validation.py --interactive
+python3 scripts/validation/hardware_validation.py --interactive
 
 # Run comprehensive tests
 python3 test_framework/comprehensive_test_runner.py
@@ -119,7 +119,7 @@ python3 test_framework/report_generator.py
 
 ### Getting Help
 
-1. Check `TESTING_TROUBLESHOOTING_GUIDE.md` for detailed solutions
+1. Check `../troubleshooting/TESTING_TROUBLESHOOTING_GUIDE.md` for detailed solutions
 2. Run validation scripts to identify issues
 3. Review log files for error details
 4. Check hardware connections with multimeter

@@ -179,7 +179,7 @@ The logging integration maintains system performance:
 1. **`src/main.rs`**: Enhanced `battery_monitor_task` with logging integration
 2. **`src/config.rs`**: Added `BATTERY_PERIODIC_LOG_INTERVAL_SAMPLES` configuration
 3. **`validate_battery_logging.rs`**: Created validation script (new file)
-4. **`BATTERY_LOGGING_IMPLEMENTATION.md`**: This documentation (new file)
+4. **`docs/development/BATTERY_LOGGING_IMPLEMENTATION.md`**: This documentation (new file)
 
 ## Requirements Traceability
 

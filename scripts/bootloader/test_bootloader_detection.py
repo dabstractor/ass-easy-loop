@@ -6,6 +6,8 @@ Simple script to test bootloader device detection
 import sys
 import time
 import hid
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from test_framework.device_manager import UsbHidDeviceManager, DeviceStatus
 
 def detect_bootloader_device():

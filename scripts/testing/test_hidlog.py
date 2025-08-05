@@ -4,6 +4,10 @@ Test script for hidlog.py functionality
 """
 
 import struct
+import sys
+import os
+# Add utilities directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'utilities'))
 from hidlog import HidLogReceiver, LogMessage, LogLevel
 
 

@@ -159,12 +159,47 @@ The software uses a priority-based task system:
 - Store batteries at proper voltage levels (3.7V-3.8V)
 - Dispose of damaged batteries properly
 
+## Project Structure
+
+The project is organized into the following directories:
+
+```
+├── src/                    # Rust source code
+├── tests/                  # Rust integration tests
+├── docs/                   # All documentation
+│   ├── setup/             # Setup and installation guides
+│   ├── hardware/          # Hardware documentation and wiring guides
+│   ├── api/               # API documentation and usage examples
+│   ├── troubleshooting/   # Troubleshooting guides
+│   ├── development/       # Development environment documentation
+│   ├── BOOTLOADER_FLASHING_GUIDE.md  # Firmware flashing guide
+│   └── USB_HID_INTEGRATION_TESTS.md  # USB HID integration tests
+├── scripts/               # Executable scripts organized by function
+│   ├── validation/        # Hardware validation scripts (includes validate_* executables)
+│   ├── bootloader/        # Bootloader-related scripts
+│   ├── testing/           # Test execution scripts
+│   └── utilities/         # General utility scripts
+├── test_framework/        # Comprehensive test framework
+├── artifacts/             # Generated files and outputs
+│   ├── test_results/      # Test output files
+│   ├── firmware/          # Generated firmware files
+│   ├── logs/              # Log files
+│   ├── bootloader_debugging_summary.md  # Bootloader debugging info
+│   ├── bootloader_entry_fix.patch       # Bootloader patches
+│   └── bootloader_fix.rs                # Bootloader fixes
+└── validation_scripts/    # Setup validation scripts
+```
+
 ## Getting Started
 
-1. **Hardware Assembly** - See WIRING_GUIDE.md for detailed wiring instructions
-2. **Software Setup** - See SOFTWARE_SETUP.md for development environment setup
-3. **USB HID Logging** - See USB_HID_LOGGING_SETUP_GUIDE.md for comprehensive logging setup
-4. **Usage Guide** - See USB_HID_USAGE_EXAMPLES.md for operation examples
+1. **Hardware Assembly** - See [docs/hardware/WIRING_GUIDE.md](docs/hardware/WIRING_GUIDE.md) for detailed wiring instructions
+2. **Software Setup** - See [docs/setup/SOFTWARE_SETUP.md](docs/setup/SOFTWARE_SETUP.md) for development environment setup
+3. **USB HID Logging** - See [docs/setup/USB_HID_LOGGING_SETUP_GUIDE.md](docs/setup/USB_HID_LOGGING_SETUP_GUIDE.md) for comprehensive logging setup
+4. **Usage Guide** - See [docs/api/USB_HID_USAGE_EXAMPLES.md](docs/api/USB_HID_USAGE_EXAMPLES.md) for operation examples
+
+## Documentation Index
+
+For a complete overview of all available documentation, see [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md).
 
 ## Project Status
 

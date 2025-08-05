@@ -198,7 +198,7 @@ panic!("Early initialization panic");
 src/main.rs                     - Enhanced panic handler implementation
 tests/system_diagnostic_test.rs - Component validation tests
 tests/intentional_panic_test.rs - Manual testing scenarios
-PANIC_HANDLER_IMPLEMENTATION.md - This documentation
+docs/development/PANIC_HANDLER_IMPLEMENTATION.md - This documentation
 validate_panic_logging.rs      - Validation script
 ```
 

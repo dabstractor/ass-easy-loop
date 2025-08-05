@@ -31,7 +31,7 @@ class ComprehensiveTestRunner:
     and configurable test parameters.
     """
     
-    def __init__(self, output_dir: str = "test_results"):
+    def __init__(self, output_dir: str = "artifacts/test_results"):
         """
         Initialize the comprehensive test runner.
         
@@ -453,7 +453,7 @@ def main():
                        help="Run complete test suite")
     parser.add_argument("--devices", nargs="+",
                        help="Target specific device serial numbers")
-    parser.add_argument("--output-dir", default="test_results",
+    parser.add_argument("--output-dir", default="artifacts/test_results",
                        help="Output directory for test results")
     parser.add_argument("--log-level", default="INFO",
                        choices=["DEBUG", "INFO", "WARNING", "ERROR"],

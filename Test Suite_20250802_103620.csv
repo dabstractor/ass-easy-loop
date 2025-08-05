@@ -1,2 +1,0 @@
-device_serial,test_name,test_type,status,duration,start_time,end_time,retry_attempt,error_message,required,timeout,parameters
-TEST_DEVICE_001,simple_test,USB_COMMUNICATION_TEST,completed,5.000000715255737,1754145370.4278746,1754145375.4278753,0,,True,30.0,{}

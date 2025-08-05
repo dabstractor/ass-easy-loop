@@ -110,10 +110,10 @@ fn main() {
     // Test 5: Check documentation files exist
     println!("5. Checking documentation files...");
     let doc_files = [
-        "ARCH_LINUX_SETUP.md",
-        "SOFTWARE_SETUP.md", 
-        "WIRING_GUIDE.md",
-        "HIDLOG_USAGE.md"
+        "docs/setup/ARCH_LINUX_SETUP.md",
+        "docs/setup/SOFTWARE_SETUP.md", 
+        "docs/hardware/WIRING_GUIDE.md",
+        "docs/api/HIDLOG_USAGE.md"
     ];
     
     let mut missing_docs = Vec::new();
@@ -143,5 +143,5 @@ fn main() {
     println!("3. Run: python3 run_hardware_validation.py --all");
     println!("4. Or run: cargo test --test hardware_validation_tests -- --ignored");
     println!();
-    println!("For setup instructions, see: ARCH_LINUX_SETUP.md");
+    println!("For setup instructions, see: docs/setup/ARCH_LINUX_SETUP.md");
 }

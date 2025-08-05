@@ -207,7 +207,7 @@ println!("Average RTT: {}μs", stats.average_round_trip_time_us);
 - `tests/usb_communication_validation_test.rs` - Comprehensive test suite (no_std compatible)
 
 ### Documentation
-- `USB_COMMUNICATION_VALIDATION_IMPLEMENTATION.md` - This document
+- `docs/development/USB_COMMUNICATION_VALIDATION_IMPLEMENTATION.md` - This document
 
 ## Conclusion
 

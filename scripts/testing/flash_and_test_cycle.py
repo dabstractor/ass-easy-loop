@@ -44,7 +44,7 @@ class FlashAndTestCycle:
             result = subprocess.run([
                 'elf2uf2-rs', 
                 'target/thumbv6m-none-eabi/release/ass-easy-loop', 
-                'firmware.uf2'
+                'artifacts/firmware/firmware.uf2'
             ], capture_output=True, text=True)
             
             if result.returncode != 0:
@@ -52,12 +52,12 @@ class FlashAndTestCycle:
                 return False
                 
             # Verify UF2 file exists
-            if not os.path.exists('firmware.uf2'):
-                print("✗ firmware.uf2 not found after conversion")
+            if not os.path.exists('artifacts/firmware/firmware.uf2'):
+                print("✗ artifacts/firmware/firmware.uf2 not found after conversion")
                 return False
                 
-            file_size = os.path.getsize('firmware.uf2')
-            print(f"✓ UF2 conversion successful - firmware.uf2 ({file_size} bytes)")
+            file_size = os.path.getsize('artifacts/firmware/firmware.uf2')
+            print(f"✓ UF2 conversion successful - artifacts/firmware/firmware.uf2 ({file_size} bytes)")
             return True
             
         except Exception as e:
@@ -97,7 +97,7 @@ class FlashAndTestCycle:
         print("\n=== STEP 3: Flashing Firmware ===")
         
         try:
-            firmware_path = os.path.abspath('firmware.uf2')
+            firmware_path = os.path.abspath('artifacts/firmware/firmware.uf2')
             target_path = os.path.join(mount_point, 'firmware.uf2')
             
             print(f"Copying {firmware_path} to {target_path}")

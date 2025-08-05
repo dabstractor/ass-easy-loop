@@ -211,7 +211,7 @@ class SystemStateSnapshot:
 
 ### Documentation/Demo:
 - `test_framework/enhanced_monitoring_demo.py` - Complete demonstration script
-- `TASK_17_IMPLEMENTATION_SUMMARY.md` - This summary document
+- `docs/development/TASK_17_IMPLEMENTATION_SUMMARY.md` - This summary document
 
 ## Requirements Compliance
 

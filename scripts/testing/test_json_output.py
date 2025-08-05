@@ -4,6 +4,10 @@ Test JSON output functionality for hidlog.py
 """
 
 import json
+import sys
+import os
+# Add utilities directory to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'utilities'))
 from hidlog import LogMessage, LogLevel
 
 

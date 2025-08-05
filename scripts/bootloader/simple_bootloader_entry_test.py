@@ -160,9 +160,9 @@ def test_firmware_flash_if_bootloader():
     print("\n=== TESTING FIRMWARE FLASH ===")
     
     # Check if we have a firmware file
-    if not os.path.exists('firmware.uf2'):
-        print("✗ No firmware.uf2 file found")
-        print("Run 'cargo build --release && elf2uf2-rs target/thumbv6m-none-eabi/release/ass-easy-loop firmware.uf2' first")
+    if not os.path.exists('../../artifacts/firmware/firmware.uf2'):
+        print("✗ No artifacts/firmware/firmware.uf2 file found")
+        print("Run 'cargo build --release && elf2uf2-rs target/thumbv6m-none-eabi/release/ass-easy-loop artifacts/firmware/firmware.uf2' first")
         return False
     
     # Find mount point
@@ -182,7 +182,7 @@ def test_firmware_flash_if_bootloader():
     
     # Copy firmware
     try:
-        firmware_path = os.path.abspath('firmware.uf2')
+        firmware_path = os.path.abspath('../../artifacts/firmware/firmware.uf2')
         target_path = os.path.join(mount_point, 'firmware.uf2')
         
         print(f"Copying firmware to bootloader...")

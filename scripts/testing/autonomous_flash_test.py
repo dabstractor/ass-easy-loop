@@ -13,7 +13,7 @@ import logging
 from datetime import datetime
 
 # Import existing test framework components
-sys.path.append('.')
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 from test_framework.device_manager import UsbHidDeviceManager, DeviceStatus
 from test_framework.command_handler import CommandHandler
 from test_framework.firmware_flasher import FirmwareFlasher
@@ -51,19 +51,19 @@ class AutonomousFlashTest:
             result = subprocess.run([
                 'elf2uf2-rs', 
                 'target/thumbv6m-none-eabi/release/ass-easy-loop', 
-                'firmware.uf2'
+                'artifacts/firmware/firmware.uf2'
             ], capture_output=True, text=True)
             
             if result.returncode != 0:
                 print(f"✗ UF2 conversion failed: {result.stderr}")
                 return False
                 
-            if not os.path.exists('firmware.uf2'):
-                print("✗ firmware.uf2 not found after conversion")
+            if not os.path.exists('artifacts/firmware/firmware.uf2'):
+                print("✗ artifacts/firmware/firmware.uf2 not found after conversion")
                 return False
                 
-            file_size = os.path.getsize('firmware.uf2')
-            print(f"✓ UF2 conversion successful - firmware.uf2 ({file_size} bytes)")
+            file_size = os.path.getsize('artifacts/firmware/firmware.uf2')
+            print(f"✓ UF2 conversion successful - artifacts/firmware/firmware.uf2 ({file_size} bytes)")
             return True
             
         except Exception as e:
@@ -118,7 +118,7 @@ class AutonomousFlashTest:
         print("\n=== STEP 4: Flashing Firmware ===")
         
         try:
-            firmware_path = os.path.abspath('firmware.uf2')
+            firmware_path = os.path.abspath('artifacts/firmware/firmware.uf2')
             
             # Use the existing firmware flasher
             operation = self.firmware_flasher.flash_firmware(device_serial, firmware_path)
@@ -326,7 +326,7 @@ class AutonomousFlashTest:
                 mount_point = "/run/media/dustin/RPI-RP2/"
                 if os.path.exists(mount_point):
                     print("✓ Bootloader mount point found")
-                    firmware_path = os.path.abspath('firmware.uf2')
+                    firmware_path = os.path.abspath('artifacts/firmware/firmware.uf2')
                     target_path = os.path.join(mount_point, 'firmware.uf2')
                     
                     result = subprocess.run(['cp', firmware_path, target_path])

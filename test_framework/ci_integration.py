@@ -83,7 +83,7 @@ class CIIntegration:
     and automated device management for CI/CD pipelines.
     """
     
-    def __init__(self, output_dir: str = "ci_test_results", verbose: bool = False):
+    def __init__(self, output_dir: str = "artifacts/test_results", verbose: bool = False):
         """
         Initialize CI integration.
         
@@ -736,7 +736,7 @@ class CIIntegration:
             self.cleanup_resources()
 
 
-def create_ci_integration(output_dir: str = "ci_test_results", 
+def create_ci_integration(output_dir: str = "artifacts/test_results", 
                          verbose: bool = False) -> CIIntegration:
     """
     Factory function to create CI integration instance.
@@ -765,7 +765,7 @@ Examples:
   python -m test_framework.ci_integration --config ci_config.json
   
   # Run with firmware flashing
-  python -m test_framework.ci_integration --firmware firmware.uf2
+  python -m test_framework.ci_integration --firmware artifacts/firmware/firmware.uf2
   
   # Run with specific device count
   python -m test_framework.ci_integration --devices 2 --parallel 2
@@ -785,7 +785,7 @@ Examples:
                        help='Maximum parallel operations')
     parser.add_argument('--timeout', '-t', type=float, default=300.0,
                        help='Global timeout in seconds')
-    parser.add_argument('--output-dir', '-o', type=str, default='ci_test_results',
+    parser.add_argument('--output-dir', '-o', type=str, default='artifacts/test_results',
                        help='Output directory for results and artifacts')
     parser.add_argument('--verbose', '-v', action='store_true',
                        help='Enable verbose logging')

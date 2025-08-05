@@ -149,11 +149,11 @@ class BootloaderFixTester:
             
             # Convert to UF2
             print("Converting to UF2...")
-            elf_path = 'target/thumbv6m-none-eabi/release/ass-easy-loop'
+            elf_path = '../../target/thumbv6m-none-eabi/release/ass-easy-loop'
             result = subprocess.run([
                 'elf2uf2-rs', 
                 elf_path,
-                'firmware.uf2'
+                '../../artifacts/firmware/firmware.uf2'
             ], capture_output=True, text=True, timeout=30)
             
             if result.returncode != 0:
@@ -172,7 +172,7 @@ class BootloaderFixTester:
         # Flash firmware
         print("Flashing firmware...")
         try:
-            firmware_path = os.path.abspath('firmware.uf2')
+            firmware_path = os.path.abspath('../../artifacts/firmware/firmware.uf2')
             target_path = os.path.join(mount_point, 'firmware.uf2')
             
             result = subprocess.run(['cp', firmware_path, target_path], 

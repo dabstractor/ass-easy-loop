@@ -279,7 +279,7 @@ except Exception as e:
         
         // Run hidlog.py for a short duration to capture messages
         let hidlog_test = Command::new("python3")
-            .arg("hidlog.py")
+            .arg("scripts/utilities/hidlog.py")
             .arg("--timeout")
             .arg("10")
             .arg("--json-output")
@@ -316,9 +316,9 @@ except Exception as e:
             }
             Err(e) => {
                 println!("✗ Failed to run hidlog.py: {}", e);
-                println!("  Make sure hidlog.py is available in current directory");
+                println!("  Make sure hidlog.py is available at scripts/utilities/hidlog.py");
                 let result = HardwareTestResult::new("Log Message Reception")
-                    .failure(duration, &format!("hidlog.py execution failed: {}", e));
+                    .failure(duration, &format!("scripts/utilities/hidlog.py execution failed: {}", e));
                 self.results.push(result);
                 false
             }

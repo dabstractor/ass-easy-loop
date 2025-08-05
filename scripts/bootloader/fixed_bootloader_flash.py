@@ -54,7 +54,7 @@ class FixedBootloaderFlasher:
             print("✓ Firmware build successful")
             
             # Check if ELF file exists
-            elf_path = 'target/thumbv6m-none-eabi/release/ass-easy-loop'
+            elf_path = '../../target/thumbv6m-none-eabi/release/ass-easy-loop'
             if not os.path.exists(elf_path):
                 print(f"✗ ELF file not found at: {elf_path}")
                 return False
@@ -66,7 +66,7 @@ class FixedBootloaderFlasher:
             result = subprocess.run([
                 'elf2uf2-rs', 
                 elf_path,
-                'firmware.uf2'
+                '../../artifacts/firmware/firmware.uf2'
             ], capture_output=True, text=True, timeout=30)
             
             if result.returncode != 0:
@@ -76,16 +76,16 @@ class FixedBootloaderFlasher:
                 return False
                 
             # Verify UF2 file exists and has reasonable size
-            if not os.path.exists('firmware.uf2'):
-                print("✗ firmware.uf2 not found after conversion")
+            if not os.path.exists('../../artifacts/firmware/firmware.uf2'):
+                print("✗ artifacts/firmware/firmware.uf2 not found after conversion")
                 return False
                 
-            file_size = os.path.getsize('firmware.uf2')
+            file_size = os.path.getsize('../../artifacts/firmware/firmware.uf2')
             if file_size < 1000:  # Should be at least 1KB
-                print(f"✗ firmware.uf2 seems too small ({file_size} bytes)")
+                print(f"✗ artifacts/firmware/firmware.uf2 seems too small ({file_size} bytes)")
                 return False
                 
-            print(f"✓ UF2 conversion successful - firmware.uf2 ({file_size} bytes)")
+            print(f"✓ UF2 conversion successful - artifacts/firmware/firmware.uf2 ({file_size} bytes)")
             return True
             
         except subprocess.TimeoutExpired:
@@ -180,7 +180,7 @@ class FixedBootloaderFlasher:
         print("\n=== STEP 3: Flashing Firmware ===")
         
         try:
-            firmware_path = os.path.abspath('firmware.uf2')
+            firmware_path = os.path.abspath('../../artifacts/firmware/firmware.uf2')
             target_path = os.path.join(mount_point, 'firmware.uf2')
             
             print(f"Copying firmware from: {firmware_path}")

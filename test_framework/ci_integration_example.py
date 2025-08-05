@@ -448,7 +448,7 @@ def main():
                        help='Minimum number of devices required')
     parser.add_argument('--timeout', '-t', type=float,
                        help='Global test timeout in seconds')
-    parser.add_argument('--output-dir', '-o', type=str, default='test_results',
+    parser.add_argument('--output-dir', '-o', type=str, default='artifacts/test_results',
                        help='Output directory for test reports')
     parser.add_argument('--junit-xml', action='store_true',
                        help='Generate JUnit XML report')

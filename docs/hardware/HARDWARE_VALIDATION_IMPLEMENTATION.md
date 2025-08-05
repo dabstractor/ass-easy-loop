@@ -126,7 +126,7 @@ python3 run_hardware_validation.py --timing-test --duration 60
 python3 run_hardware_validation.py --verbose --all
 ```
 
-### 5. Arch Linux Setup Documentation (`ARCH_LINUX_SETUP.md`)
+### 5. Arch Linux Setup Documentation (`docs/setup/ARCH_LINUX_SETUP.md`)
 
 **Purpose**: Complete development environment setup guide for Arch Linux
 
@@ -181,7 +181,7 @@ yay -S pulseview sigrok-cli
 ## Requirements Compliance
 
 ### Requirement 9.1: Arch Linux Package Installation
-✅ **COMPLETED**: Comprehensive package installation guide in `ARCH_LINUX_SETUP.md`
+✅ **COMPLETED**: Comprehensive package installation guide in `docs/setup/ARCH_LINUX_SETUP.md`
 - Complete list of required Arch Linux packages
 - Step-by-step installation instructions
 - Package manager commands (pacman, yay)
@@ -245,7 +245,7 @@ yay -S pulseview sigrok-cli
 
 1. **Setup Development Environment**:
    ```bash
-   # Follow ARCH_LINUX_SETUP.md for complete setup
+   # Follow docs/setup/ARCH_LINUX_SETUP.md for complete setup
    source ~/setup-rp2040-dev.sh
    ```
 

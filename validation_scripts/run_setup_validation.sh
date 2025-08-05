@@ -293,8 +293,8 @@ echo "  4. Run test suite: python3 test_framework/comprehensive_test_runner.py"
 
 echo ""
 print_status "For detailed documentation, see:"
-echo "  - DEVELOPMENT_SETUP_GUIDE.md"
-echo "  - HARDWARE_SETUP_DOCUMENTATION.md"
-echo "  - TESTING_TROUBLESHOOTING_GUIDE.md"
+echo "  - docs/setup/DEVELOPMENT_SETUP_GUIDE.md"
+echo "  - docs/hardware/HARDWARE_SETUP_DOCUMENTATION.md"
+echo "  - docs/troubleshooting/TESTING_TROUBLESHOOTING_GUIDE.md"
 
 exit 0
