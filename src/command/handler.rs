@@ -11,6 +11,7 @@ use crate::command::parsing::{
     CommandReport, ParseResult, TestResponse, ResponseStatus, ErrorCode,
     AuthenticationValidator, CommandQueue, ResponseQueue, QueuedCommand, QueuedResponse
 };
+use crate::test_execution_handler::TestExecutionHandler;
 use core::option::Option::{self, Some};
 use core::result::Result::{Ok, Err};
 use core::convert::TryFrom;
@@ -21,6 +22,7 @@ use core::convert::TryFrom;
 pub struct UsbCommandHandler {
     command_queue: CommandQueue<8>,
     response_queue: ResponseQueue<8>,
+    test_execution_handler: TestExecutionHandler,
     processed_count: u32,
     error_count: u32,
     timeout_count: u32,
@@ -44,6 +46,7 @@ impl UsbCommandHandler {
         Self {
             command_queue: CommandQueue::new(),
             response_queue: ResponseQueue::new(),
+            test_execution_handler: TestExecutionHandler::new(),
             processed_count: 0,
             error_count: 0,
             timeout_count: 0,
@@ -310,6 +313,7 @@ impl UsbCommandHandler {
 
     /// Get enhanced command processing statistics
     pub fn get_stats(&self) -> CommandHandlerStats {
+        let test_stats = self.test_execution_handler.get_stats();
         CommandHandlerStats {
             processed_commands: self.processed_count,
             error_count: self.error_count,
@@ -327,6 +331,9 @@ impl UsbCommandHandler {
             max_process_time_us: self.max_process_time_us,
             avg_process_time_us: self.avg_process_time_us,
             process_count: self.process_count,
+            // Test execution metrics
+            test_executions: test_stats.total_executions,
+            pending_test_results: self.test_execution_handler.has_pending_results(),
         }
     }
 
@@ -374,6 +381,44 @@ impl UsbCommandHandler {
             PerformanceImpact::Critical
         }
     }
+
+    /// Process a test execution command and return response reports
+    /// Requirements: 4.2, 6.1, 6.4
+    pub fn process_test_command(&mut self, command: &CommandReport) -> Vec<LogReport, 8> {
+        match self.test_execution_handler.process_test_command(command) {
+            Ok(reports) => reports,
+            Err(error_code) => {
+                // Create error response
+                if let Some(error_response) = self.create_error_response(
+                    command.command_id,
+                    error_code,
+                    "Test command processing failed",
+                    0 // timestamp placeholder
+                ) {
+                    let mut error_reports = Vec::new();
+                    let _ = error_reports.push(error_response);
+                    error_reports
+                } else {
+                    Vec::new()
+                }
+            }
+        }
+    }
+
+    /// Register a test suite with the test execution handler
+    pub fn register_test_suite(&mut self, name: &'static str, suite_factory: fn() -> crate::test_framework::TestRunner) -> Result<(), &'static str> {
+        self.test_execution_handler.register_test_suite(name, suite_factory)
+    }
+
+    /// Check if there are pending test results to transmit
+    pub fn has_pending_test_results(&self) -> bool {
+        self.test_execution_handler.has_pending_results()
+    }
+
+    /// Get test execution statistics
+    pub fn get_test_execution_stats(&self) -> crate::test_execution_handler::TestExecutionStats {
+        self.test_execution_handler.get_stats()
+    }
 }
 
 /// Performance impact assessment for command processing
@@ -408,6 +453,9 @@ pub struct CommandHandlerStats {
     pub max_process_time_us: u32,
     pub avg_process_time_us: u32,
     pub process_count: u32,
+    // Test execution metrics
+    pub test_executions: u32,
+    pub pending_test_results: bool,
 }
 
 /// Process a USB HID output report (legacy function for compatibility)

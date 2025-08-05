@@ -42,6 +42,9 @@ pub enum TestCommand {
     ExecuteTest = 0x82,
     ConfigurationQuery = 0x83,
     PerformanceMetrics = 0x84,
+    RunTestSuite = 0x85,
+    GetTestResults = 0x86,
+    ClearTestResults = 0x87,
 }
 
 /// Test response types
@@ -52,6 +55,10 @@ pub enum TestResponse {
     StateData = 0x91,
     TestResult = 0x92,
     Error = 0x93,
+    SuiteSummary = 0x94,
+    StatusUpdate = 0x95,
+    BatchStart = 0x96,
+    BatchEnd = 0x97,
 }
 
 /// Response status codes
@@ -202,13 +209,16 @@ impl CommandReport {
             0x82 => Some(TestCommand::ExecuteTest),
             0x83 => Some(TestCommand::ConfigurationQuery),
             0x84 => Some(TestCommand::PerformanceMetrics),
+            0x85 => Some(TestCommand::RunTestSuite),
+            0x86 => Some(TestCommand::GetTestResults),
+            0x87 => Some(TestCommand::ClearTestResults),
             _ => None,
         }
     }
 
     /// Check if command is valid test command
     pub fn is_valid_test_command(&self) -> bool {
-        self.command_type >= 0x80 && self.command_type <= 0x84
+        self.command_type >= 0x80 && self.command_type <= 0x87
     }
 }
 

@@ -15,6 +15,10 @@ pub mod command;
 pub mod bootloader;
 pub mod system_state;
 pub mod test_processor;
+pub mod test_framework;
+pub mod test_framework_validation;
+pub mod test_result_serializer;
+pub mod test_execution_handler;
 
 pub use battery::{BatteryState, BatteryMonitor, AdcError};
 pub use logging::{LogLevel, LogMessage, LogQueue, Logger, QueueLogger, MessageFormatter};
@@ -42,4 +46,18 @@ pub use test_processor::{
     UsbCommunicationTestParameters, UsbCommunicationStatistics, TimingMeasurement,
     PemfTimingStatistics, PemfTimingParameters, TimingDeviation, TimingDeviationReport,
     TimingDeviationType, ComprehensiveTimingReport
+};
+pub use test_framework::{
+    TestResult as NoStdTestResult, TestCase, TestRunner, TestSuiteResult, TestSuiteStats,
+    TestExecutionResult, create_test_suite, MAX_TESTS_PER_SUITE, MAX_TEST_SUITES,
+    MAX_NAME_LENGTH, MAX_ERROR_MESSAGE_LENGTH
+};
+pub use test_framework_validation::validate_test_framework;
+pub use test_result_serializer::{
+    TestResultSerializer, TestResultCollector, SerializedTestResult, SerializedSuiteSummary,
+    TestReportType, TestResultStatus, SerializerStats, CollectorStats
+};
+pub use test_execution_handler::{
+    TestExecutionHandler, TestExecutionParams, TestExecutionFlags, TestExecutionStatus,
+    TestExecutionStats
 };

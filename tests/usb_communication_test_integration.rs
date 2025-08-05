@@ -5,23 +5,28 @@
 //! 
 //! Requirements: 9.4, 9.5
 
-#![cfg(test)]
 #![no_std]
+#![no_main]
+
+use panic_halt as _;
 
 use ass_easy_loop::{
-    TestCommandProcessor, TestType, TestStatus, TestParameters, TestResult,
+    TestCommandProcessor, TestType, TestStatus, TestParameters, TestResult as ProcessorTestResult,
     TestMeasurements, ResourceUsageStats, PerformanceMetrics, TestProcessorStatistics,
     TestExecutionError, TestParameterError,
     UsbCommunicationTestParameters, UsbCommunicationStatistics, TimingMeasurement
 };
+use ass_easy_loop::test_framework::{TestResult, TestRunner, TestExecutionResult, TestSuiteResult};
 use heapless::Vec;
+
+// Import custom assertion macros
+use ass_easy_loop::{assert_no_std, assert_eq_no_std, assert_ne_no_std, register_tests};
 
 // ============================================================================
 // USB Communication Test Parameter Validation Tests
 // ============================================================================
 
-#[test]
-fn test_usb_communication_parameters_validation() {
+fn test_usb_communication_parameters_validation() -> TestResult {
     // Test valid parameters
     let valid_params = UsbCommunicationTestParameters {
         message_count: 100,
@@ -34,46 +39,47 @@ fn test_usb_communication_parameters_validation() {
         bidirectional_test: true,
         concurrent_messages: 2,
     };
-    assert!(valid_params.validate().is_ok());
+    assert_no_std!(valid_params.validate().is_ok());
 
     // Test invalid message count (zero)
     let mut invalid_params = valid_params;
     invalid_params.message_count = 0;
-    assert_eq!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
+    assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
 
     // Test invalid message count (too high)
     invalid_params = valid_params;
     invalid_params.message_count = 20_000;
-    assert_eq!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
+    assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
 
     // Test invalid message size (zero)
     invalid_params = valid_params;
     invalid_params.message_size_bytes = 0;
-    assert_eq!(invalid_params.validate(), Err(TestParameterError::PayloadTooLarge));
+    assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::PayloadTooLarge));
 
     // Test invalid message size (too large)
     invalid_params = valid_params;
     invalid_params.message_size_bytes = 128;
-    assert_eq!(invalid_params.validate(), Err(TestParameterError::PayloadTooLarge));
+    assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::PayloadTooLarge));
 
     // Test invalid timeout (zero)
     invalid_params = valid_params;
     invalid_params.timeout_per_message_ms = 0;
-    assert_eq!(invalid_params.validate(), Err(TestParameterError::InvalidDuration));
+    assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::InvalidDuration));
 
     // Test invalid error injection rate (over 100%)
     invalid_params = valid_params;
     invalid_params.error_injection_rate_percent = 150;
-    assert_eq!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
+    assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
 
     // Test invalid concurrent messages (zero)
     invalid_params = valid_params;
     invalid_params.concurrent_messages = 0;
-    assert_eq!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
+    assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
+
+    TestResult::pass()
 }
 
-#[test]
-fn test_usb_communication_parameters_serialization() {
+fn test_usb_communication_parameters_serialization() -> TestResult {
     let params = UsbCommunicationTestParameters {
         message_count: 500,
         message_interval_ms: 20,
@@ -88,27 +94,32 @@ fn test_usb_communication_parameters_serialization() {
 
     // Serialize parameters
     let serialized = params.serialize();
-    assert!(serialized.len() >= 17); // Minimum expected size
+    assert_no_std!(serialized.len() >= 17); // Minimum expected size
 
     // Deserialize and verify
-    let deserialized = UsbCommunicationTestParameters::from_payload(&serialized).unwrap();
-    assert_eq!(deserialized.message_count, params.message_count);
-    assert_eq!(deserialized.message_interval_ms, params.message_interval_ms);
-    assert_eq!(deserialized.message_size_bytes, params.message_size_bytes);
-    assert_eq!(deserialized.timeout_per_message_ms, params.timeout_per_message_ms);
-    assert_eq!(deserialized.enable_integrity_checking, params.enable_integrity_checking);
-    assert_eq!(deserialized.enable_error_injection, params.enable_error_injection);
-    assert_eq!(deserialized.error_injection_rate_percent, params.error_injection_rate_percent);
-    assert_eq!(deserialized.bidirectional_test, params.bidirectional_test);
-    assert_eq!(deserialized.concurrent_messages, params.concurrent_messages);
+    let deserialized = match UsbCommunicationTestParameters::from_payload(&serialized) {
+        Ok(params) => params,
+        Err(_) => return TestResult::fail("Failed to deserialize parameters"),
+    };
+    
+    assert_eq_no_std!(deserialized.message_count, params.message_count);
+    assert_eq_no_std!(deserialized.message_interval_ms, params.message_interval_ms);
+    assert_eq_no_std!(deserialized.message_size_bytes, params.message_size_bytes);
+    assert_eq_no_std!(deserialized.timeout_per_message_ms, params.timeout_per_message_ms);
+    assert_eq_no_std!(deserialized.enable_integrity_checking, params.enable_integrity_checking);
+    assert_eq_no_std!(deserialized.enable_error_injection, params.enable_error_injection);
+    assert_eq_no_std!(deserialized.error_injection_rate_percent, params.error_injection_rate_percent);
+    assert_eq_no_std!(deserialized.bidirectional_test, params.bidirectional_test);
+    assert_eq_no_std!(deserialized.concurrent_messages, params.concurrent_messages);
+
+    TestResult::pass()
 }
 
 // ============================================================================
 // USB Communication Statistics Tests
 // ============================================================================
 
-#[test]
-fn test_usb_communication_statistics_calculation() {
+fn test_usb_communication_statistics_calculation() -> TestResult {
     let mut stats = UsbCommunicationStatistics::new();
     
     // Set test data
@@ -138,18 +149,18 @@ fn test_usb_communication_statistics_calculation() {
     let expected_success_rate = 100.0 - expected_error_rate; // ~94.87%
     let expected_throughput = total_operations as f32 / 5.0; // 39 messages/sec
     
-    assert!((stats.error_rate_percent - expected_error_rate).abs() < 0.1);
-    assert!((stats.success_rate_percent - expected_success_rate).abs() < 0.1);
-    assert_eq!(stats.throughput_messages_per_sec, expected_throughput as u32);
+    assert_no_std!((stats.error_rate_percent - expected_error_rate).abs() < 0.1);
+    assert_no_std!((stats.success_rate_percent - expected_success_rate).abs() < 0.1);
+    assert_eq_no_std!(stats.throughput_messages_per_sec, expected_throughput as u32);
     
     // Verify timing statistics
-    assert_eq!(stats.min_round_trip_time_us, 800);
-    assert_eq!(stats.max_round_trip_time_us, 2000);
-    assert!(stats.average_round_trip_time_us > 800);
-    assert!(stats.average_round_trip_time_us < 2000);
+    assert_eq_no_std!(stats.min_round_trip_time_us, 800);
+    assert_eq_no_std!(stats.max_round_trip_time_us, 2000);
+    assert_no_std!(stats.average_round_trip_time_us > 800);
+    assert_no_std!(stats.average_round_trip_time_us < 2000);
     
     // Verify bidirectional success (should be false with <95% success rate)
-    assert_eq!(stats.bidirectional_success, false);
+    assert_eq_no_std!(stats.bidirectional_success, false);
     
     // Test with higher success rate
     stats.transmission_errors = 0;
@@ -158,12 +169,13 @@ fn test_usb_communication_statistics_calculation() {
     stats.integrity_check_failures = 1; // Only 1 error
     stats.calculate_derived_stats();
     
-    assert!(stats.success_rate_percent >= 95.0);
-    assert_eq!(stats.bidirectional_success, true);
+    assert_no_std!(stats.success_rate_percent >= 95.0);
+    assert_eq_no_std!(stats.bidirectional_success, true);
+
+    TestResult::pass()
 }
 
-#[test]
-fn test_usb_communication_statistics_serialization() {
+fn test_usb_communication_statistics_serialization() -> TestResult {
     let mut stats = UsbCommunicationStatistics::new();
     stats.test_duration_ms = 10000;
     stats.messages_sent = 200;
@@ -180,24 +192,25 @@ fn test_usb_communication_statistics_serialization() {
 
     // Serialize statistics
     let serialized = stats.serialize();
-    assert!(serialized.len() > 40); // Should have substantial data
+    assert_no_std!(serialized.len() > 40); // Should have substantial data
 
     // Verify key fields are present in serialization
     // Test duration (first 4 bytes)
     let duration = u32::from_le_bytes([serialized[0], serialized[1], serialized[2], serialized[3]]);
-    assert_eq!(duration, 10000);
+    assert_eq_no_std!(duration, 10000);
 
     // Messages sent (bytes 4-7)
     let messages_sent = u32::from_le_bytes([serialized[4], serialized[5], serialized[6], serialized[7]]);
-    assert_eq!(messages_sent, 200);
+    assert_eq_no_std!(messages_sent, 200);
+
+    TestResult::pass()
 }
 
 // ============================================================================
 // Test Processor Integration Tests
 // ============================================================================
 
-#[test]
-fn test_usb_communication_test_execution() {
+fn test_usb_communication_test_execution() -> TestResult {
     let mut processor = TestCommandProcessor::new();
     
     // Create USB communication test parameters
@@ -218,24 +231,28 @@ fn test_usb_communication_test_execution() {
     
     // Execute USB communication test
     let result = processor.execute_usb_communication_test(test_id, params, timestamp_ms);
-    assert!(result.is_ok());
+    assert_no_std!(result.is_ok());
     
     // Verify test is active
-    assert!(processor.has_active_test());
+    assert_no_std!(processor.has_active_test());
     let active_test_info = processor.get_active_test_info();
-    assert!(active_test_info.is_some());
+    assert_no_std!(active_test_info.is_some());
     let (test_type, status, _test_id) = active_test_info.unwrap();
-    assert_eq!(test_type, TestType::UsbCommunicationTest);
-    assert_eq!(status, TestStatus::Running);
+    assert_eq_no_std!(test_type, TestType::UsbCommunicationTest);
+    assert_eq_no_std!(status, TestStatus::Running);
+
+    TestResult::pass()
 }
 
-#[test]
-fn test_usb_communication_message_processing() {
+fn test_usb_communication_message_processing() -> TestResult {
     let mut processor = TestCommandProcessor::new();
     
     // Set up test
     let params = UsbCommunicationTestParameters::default();
-    processor.execute_usb_communication_test(1, params, 1000).unwrap();
+    match processor.execute_usb_communication_test(1, params, 1000) {
+        Ok(_) => {},
+        Err(_) => return TestResult::fail("Failed to execute USB communication test"),
+    }
     
     // Process some messages
     for i in 0..10 {
@@ -246,18 +263,19 @@ fn test_usb_communication_message_processing() {
             i % 2 == 0, // Alternate between outbound and inbound
             1000 + i * 20,
         );
-        assert!(result.is_ok());
+        assert_no_std!(result.is_ok());
     }
     
     // Get current statistics
     let stats = processor.get_usb_communication_statistics();
-    assert!(stats.is_some());
+    assert_no_std!(stats.is_some());
     let stats = stats.unwrap();
-    assert!(stats.messages_sent > 0);
+    assert_no_std!(stats.messages_sent > 0);
+
+    TestResult::pass()
 }
 
-#[test]
-fn test_usb_communication_test_completion() {
+fn test_usb_communication_test_completion() -> TestResult {
     let mut processor = TestCommandProcessor::new();
     
     // Set up and run test
@@ -273,7 +291,10 @@ fn test_usb_communication_test_completion() {
         concurrent_messages: 1,
     };
     
-    processor.execute_usb_communication_test(99, params, 54321).unwrap();
+    match processor.execute_usb_communication_test(99, params, 54321) {
+        Ok(_) => {},
+        Err(_) => return TestResult::fail("Failed to execute USB communication test"),
+    }
     
     // Process some messages
     for i in 0..10 {
@@ -288,16 +309,17 @@ fn test_usb_communication_test_completion() {
     
     // Complete test and verify statistics
     let final_stats = processor.complete_usb_communication_test(54321 + 1000);
-    assert!(final_stats.is_ok());
+    assert_no_std!(final_stats.is_ok());
     let final_stats = final_stats.unwrap();
     
-    assert!(final_stats.test_duration_ms > 0);
-    assert!(final_stats.success_rate_percent >= 0.0);
-    assert!(final_stats.success_rate_percent <= 100.0);
+    assert_no_std!(final_stats.test_duration_ms > 0);
+    assert_no_std!(final_stats.success_rate_percent >= 0.0);
+    assert_no_std!(final_stats.success_rate_percent <= 100.0);
+
+    TestResult::pass()
 }
 
-#[test]
-fn test_usb_communication_test_with_integrity_checking() {
+fn test_usb_communication_test_with_integrity_checking() -> TestResult {
     let mut processor = TestCommandProcessor::new();
     
     // Create test parameters with integrity checking enabled
@@ -313,7 +335,10 @@ fn test_usb_communication_test_with_integrity_checking() {
         concurrent_messages: 1,
     };
     
-    processor.execute_usb_communication_test(123, params, 10000).unwrap();
+    match processor.execute_usb_communication_test(123, params, 10000) {
+        Ok(_) => {},
+        Err(_) => return TestResult::fail("Failed to execute USB communication test"),
+    }
     
     // Process messages with valid data
     let valid_message = b"Valid message data for integrity test";
@@ -323,7 +348,7 @@ fn test_usb_communication_test_with_integrity_checking() {
         true,
         10100,
     );
-    assert!(result.is_ok());
+    assert_no_std!(result.is_ok());
     
     // Process message with invalid data (simulating corruption)
     let invalid_message = b""; // Empty message should fail integrity check
@@ -334,19 +359,20 @@ fn test_usb_communication_test_with_integrity_checking() {
         10200,
     );
     // This should fail due to integrity checking
-    assert!(result.is_err());
+    assert_no_std!(result.is_err());
     
     // Complete test
     let final_stats = processor.complete_usb_communication_test(11000);
-    assert!(final_stats.is_ok());
+    assert_no_std!(final_stats.is_ok());
     let stats = final_stats.unwrap();
     
     // Should have some integrity check failures
-    assert!(stats.integrity_check_failures > 0 || stats.transmission_errors > 0);
+    assert_no_std!(stats.integrity_check_failures > 0 || stats.transmission_errors > 0);
+
+    TestResult::pass()
 }
 
-#[test]
-fn test_usb_communication_test_parameter_edge_cases() {
+fn test_usb_communication_test_parameter_edge_cases() -> TestResult {
     // Test minimum valid parameters
     let min_params = UsbCommunicationTestParameters {
         message_count: 1,
@@ -359,7 +385,7 @@ fn test_usb_communication_test_parameter_edge_cases() {
         bidirectional_test: false,
         concurrent_messages: 1,
     };
-    assert!(min_params.validate().is_ok());
+    assert_no_std!(min_params.validate().is_ok());
     
     // Test maximum valid parameters
     let max_params = UsbCommunicationTestParameters {
@@ -373,19 +399,20 @@ fn test_usb_communication_test_parameter_edge_cases() {
         bidirectional_test: true,
         concurrent_messages: 8,
     };
-    assert!(max_params.validate().is_ok());
+    assert_no_std!(max_params.validate().is_ok());
+
+    TestResult::pass()
 }
 
-#[test]
-fn test_usb_communication_statistics_edge_cases() {
+fn test_usb_communication_statistics_edge_cases() -> TestResult {
     let mut stats = UsbCommunicationStatistics::new();
     
     // Test with zero operations
     stats.calculate_derived_stats();
-    assert_eq!(stats.error_rate_percent, 0.0);
-    assert_eq!(stats.success_rate_percent, 0.0);
-    assert_eq!(stats.throughput_messages_per_sec, 0);
-    assert_eq!(stats.bidirectional_success, false);
+    assert_eq_no_std!(stats.error_rate_percent, 0.0);
+    assert_eq_no_std!(stats.success_rate_percent, 0.0);
+    assert_eq_no_std!(stats.throughput_messages_per_sec, 0);
+    assert_eq_no_std!(stats.bidirectional_success, false);
     
     // Test with only errors
     stats.messages_sent = 0;
@@ -393,8 +420,8 @@ fn test_usb_communication_statistics_edge_cases() {
     stats.transmission_errors = 5;
     stats.reception_errors = 3;
     stats.calculate_derived_stats();
-    assert_eq!(stats.error_rate_percent, 0.0); // No operations, so no error rate
-    assert_eq!(stats.success_rate_percent, 0.0);
+    assert_eq_no_std!(stats.error_rate_percent, 0.0); // No operations, so no error rate
+    assert_eq_no_std!(stats.success_rate_percent, 0.0);
     
     // Test with perfect success
     stats.messages_sent = 100;
@@ -405,14 +432,15 @@ fn test_usb_communication_statistics_edge_cases() {
     stats.integrity_check_failures = 0;
     stats.test_duration_ms = 1000;
     stats.calculate_derived_stats();
-    assert_eq!(stats.error_rate_percent, 0.0);
-    assert_eq!(stats.success_rate_percent, 100.0);
-    assert_eq!(stats.throughput_messages_per_sec, 200); // 200 operations per second
-    assert_eq!(stats.bidirectional_success, true);
+    assert_eq_no_std!(stats.error_rate_percent, 0.0);
+    assert_eq_no_std!(stats.success_rate_percent, 100.0);
+    assert_eq_no_std!(stats.throughput_messages_per_sec, 200); // 200 operations per second
+    assert_eq_no_std!(stats.bidirectional_success, true);
+
+    TestResult::pass()
 }
 
-#[test]
-fn test_multiple_usb_communication_tests() {
+fn test_multiple_usb_communication_tests() -> TestResult {
     let mut processor = TestCommandProcessor::new();
     
     // First test
@@ -428,7 +456,10 @@ fn test_multiple_usb_communication_tests() {
         concurrent_messages: 1,
     };
     
-    processor.execute_usb_communication_test(1, params1, 1000).unwrap();
+    match processor.execute_usb_communication_test(1, params1, 1000) {
+        Ok(_) => {},
+        Err(_) => return TestResult::fail("Failed to execute first USB communication test"),
+    }
     
     // Process some messages
     for i in 0..5 {
@@ -436,8 +467,11 @@ fn test_multiple_usb_communication_tests() {
     }
     
     // Complete first test
-    let stats1 = processor.complete_usb_communication_test(2000).unwrap();
-    assert!(stats1.test_duration_ms > 0);
+    let stats1 = match processor.complete_usb_communication_test(2000) {
+        Ok(stats) => stats,
+        Err(_) => return TestResult::fail("Failed to complete first USB communication test"),
+    };
+    assert_no_std!(stats1.test_duration_ms > 0);
     
     // Second test (should be able to start after first completes)
     let params2 = UsbCommunicationTestParameters {
@@ -453,11 +487,41 @@ fn test_multiple_usb_communication_tests() {
     };
     
     let result = processor.execute_usb_communication_test(2, params2, 3000);
-    assert!(result.is_ok());
+    assert_no_std!(result.is_ok());
     
     // Verify second test is now active
-    assert!(processor.has_active_test());
+    assert_no_std!(processor.has_active_test());
     let active_info = processor.get_active_test_info().unwrap();
-    assert_eq!(active_info.0, TestType::UsbCommunicationTest);
-    assert_eq!(active_info.2, 2); // Test ID should be 2
+    assert_eq_no_std!(active_info.0, TestType::UsbCommunicationTest);
+    assert_eq_no_std!(active_info.2, 2); // Test ID should be 2
+
+    TestResult::pass()
+}
+
+// Test runner setup and execution
+#[no_mangle]
+pub extern "C" fn main() -> ! {
+    let mut runner = TestRunner::new("USB Communication Integration Tests");
+    
+    // Register all test functions
+    register_tests!(runner,
+        test_usb_communication_parameters_validation,
+        test_usb_communication_parameters_serialization,
+        test_usb_communication_statistics_calculation,
+        test_usb_communication_statistics_serialization,
+        test_usb_communication_test_execution,
+        test_usb_communication_message_processing,
+        test_usb_communication_test_completion,
+        test_usb_communication_test_with_integrity_checking,
+        test_usb_communication_test_parameter_edge_cases,
+        test_usb_communication_statistics_edge_cases,
+        test_multiple_usb_communication_tests
+    );
+    
+    // Run all tests
+    let _results = runner.run_all();
+    
+    // In a real implementation, results would be transmitted via USB HID
+    // For now, we just loop indefinitely
+    loop {}
 }

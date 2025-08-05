@@ -95,3 +95,22 @@ path = "tests/battery_adc_integration_test.rs"
 [[test]]
 name = "core_functionality_unit_tests"
 path = "tests/core_functionality_unit_tests.rs"
+
+[[test]]
+name = "system_state_unit_tests"
+path = "tests/system_state_unit_tests.rs"
+
+[[test]]
+name = "system_state_tests"
+path = "tests/system_state_tests.rs"
+harness = false
+
+[[test]]
+name = "usb_communication_test_integration"
+path = "tests/usb_communication_test_integration.rs"
+harness = false
+
+[[test]]
+name = "usb_communication_validation_test"
+path = "tests/usb_communication_validation_test.rs"
+harness = false
