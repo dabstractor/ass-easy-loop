@@ -1701,6 +1701,48 @@ mod app {
                                 }
                             }
                         }
+                        Some(command::parsing::TestCommand::RunTestSuite) => {
+                            log_info!("Run test suite command received");
+                            // TODO: Implement test suite execution
+                            commands_failed += 1;
+                            if let Ok(error_response) = CommandReport::error_response(
+                                queued_cmd.command.command_id,
+                                command::parsing::ErrorCode::UnsupportedCommand,
+                                "Test suite execution not implemented"
+                            ) {
+                                ctx.shared.response_queue.lock(|queue| {
+                                    queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                });
+                            }
+                        }
+                        Some(command::parsing::TestCommand::GetTestResults) => {
+                            log_info!("Get test results command received");
+                            // TODO: Implement test results retrieval
+                            commands_failed += 1;
+                            if let Ok(error_response) = CommandReport::error_response(
+                                queued_cmd.command.command_id,
+                                command::parsing::ErrorCode::UnsupportedCommand,
+                                "Test results retrieval not implemented"
+                            ) {
+                                ctx.shared.response_queue.lock(|queue| {
+                                    queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                });
+                            }
+                        }
+                        Some(command::parsing::TestCommand::ClearTestResults) => {
+                            log_info!("Clear test results command received");
+                            // TODO: Implement test results clearing
+                            commands_failed += 1;
+                            if let Ok(error_response) = CommandReport::error_response(
+                                queued_cmd.command.command_id,
+                                command::parsing::ErrorCode::UnsupportedCommand,
+                                "Test results clearing not implemented"
+                            ) {
+                                ctx.shared.response_queue.lock(|queue| {
+                                    queue.enqueue(error_response, queued_cmd.sequence_number, timestamp)
+                                });
+                            }
+                        }
                         None => {
                             // Requirements: 2.5 (error response with diagnostic information)
                             log_warn!("Unknown command type: 0x{:02X}, seq={}", 

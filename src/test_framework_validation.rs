@@ -3,6 +3,7 @@
 
 use crate::test_framework::*;
 use crate::{assert_no_std, assert_eq_no_std};
+use core::option::Option::{Some, None};
 
 // Simple test functions to validate the framework
 fn validation_test_pass() -> TestResult {

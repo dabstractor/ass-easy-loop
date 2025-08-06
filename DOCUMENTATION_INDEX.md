@@ -200,7 +200,6 @@ Project Structure:
 │   ├── firmware/                                 # Generated firmware
 │   ├── logs/                                     # Log files
 │   ├── bootloader_debugging_summary.md          # Bootloader debugging info
-│   ├── bootloader_entry_fix.patch               # Bootloader patches
 │   └── bootloader_fix.rs                        # Bootloader fixes
 ├── src/                                          # Firmware source code
 ├── tests/                                        # Test files

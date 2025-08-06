@@ -2101,6 +2101,39 @@ impl StressTestStatistics {
             system_stability_score: 100,
         }
     }
+
+    /// Calculate success rate as percentage
+    pub fn success_rate_percent(&self) -> u8 {
+        if self.operations_completed + self.operations_failed == 0 {
+            return 100;
+        }
+        let total = self.operations_completed + self.operations_failed;
+        ((self.operations_completed * 100) / total) as u8
+    }
+
+    /// Check if statistics meet performance criteria
+    pub fn meets_performance_criteria(&self, min_success_rate: u8, max_failures: u32) -> bool {
+        self.success_rate_percent() >= min_success_rate && self.operations_failed <= max_failures
+    }
+
+    /// Serialize statistics to byte array
+    pub fn serialize(&self) -> [u8; 64] {
+        let mut data = [0u8; 64];
+        data[0..4].copy_from_slice(&self.test_duration_ms.to_le_bytes());
+        data[4] = self.peak_cpu_usage_percent;
+        data[5] = self.average_cpu_usage_percent;
+        data[6..10].copy_from_slice(&self.peak_memory_usage_bytes.to_le_bytes());
+        data[10..14].copy_from_slice(&self.average_memory_usage_bytes.to_le_bytes());
+        data[14..18].copy_from_slice(&self.memory_allocation_failures.to_le_bytes());
+        data[18..22].copy_from_slice(&self.performance_degradation_events.to_le_bytes());
+        data[22] = self.min_performance_percent;
+        data[23..27].copy_from_slice(&self.average_response_time_us.to_le_bytes());
+        data[27..31].copy_from_slice(&self.max_response_time_us.to_le_bytes());
+        data[31..35].copy_from_slice(&self.operations_completed.to_le_bytes());
+        data[35..39].copy_from_slice(&self.operations_failed.to_le_bytes());
+        data[39] = self.system_stability_score;
+        data
+    }
 }
 
 /// USB communication test parameters

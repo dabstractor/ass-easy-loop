@@ -12,6 +12,12 @@ use std::collections::HashMap;
 use std::process::Command;
 use std::thread;
 use std::time::{Duration, Instant};
+use core::option::Option::{self, Some, None};
+use core::result::Result::{self, Ok, Err};
+use core::default::Default;
+use heapless::{Vec, String};
+use ass_easy_loop::battery::BatteryState;
+use ass_easy_loop::logging::{log_info, log_error, log_debug};
 
 /// Battery monitoring constants from requirements
 const LOW_BATTERY_THRESHOLD_ADC: u16 = 1425;  // ~3.1V
@@ -160,7 +166,7 @@ impl BatteryAdcValidator {
             .output()
             .map_err(|e| format!("Failed to run lsusb: {}", e))?;
         
-        let output_str = String::from_utf8_lossy(&lsusb_output.stdout);
+        let output_str = std::string::String::from_utf8_lossy(&lsusb_output.stdout);
         let device_found = output_str.contains(&format!("{:04x}:{:04x}", TEST_DEVICE_VID, TEST_DEVICE_PID));
         
         if device_found {
@@ -170,12 +176,12 @@ impl BatteryAdcValidator {
         } else {
             println!("✗ RP2040 device not found");
             println!("Expected VID:PID = {:04x}:{:04x}", TEST_DEVICE_VID, TEST_DEVICE_PID);
-            Err("Device not found in USB enumeration".to_string())
+            Err("Device not found in USB enumeration")
         }
     }
 
     /// Capture ADC readings from device log messages
-    fn capture_adc_readings_from_logs(&mut self) -> Result<(), String> {
+    fn capture_adc_readings_from_logs(&mut self) -> Result<(), &'static str> {
         println!("Capturing ADC readings from device logs...");
         
         let capture_script = format!(r#"
@@ -294,11 +300,11 @@ except Exception as e:
             .output()
             .map_err(|e| format!("Failed to run battery capture: {}", e))?;
 
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        let error_str = String::from_utf8_lossy(&output.stderr);
+        let output_str = std::string::String::from_utf8_lossy(&output.stdout);
+        let error_str = std::string::String::from_utf8_lossy(&output.stderr);
 
         if !output.status.success() {
-            return Err(format!("Battery capture failed: {}", error_str));
+            return Err("Battery capture failed");
         }
 
         // Parse ADC readings and state transitions from output
@@ -310,12 +316,12 @@ except Exception as e:
     }
 
     /// Parse battery data from capture output
-    fn parse_battery_data(&mut self, output: &str) -> Result<(), String> {
+    fn parse_battery_data(&mut self, output: &str) -> Result<(), &'static str> {
         let mut previous_state: Option<BatteryState> = None;
         
         for line in output.lines() {
             if line.starts_with("ADC_READING|") {
-                let parts: Vec<&str> = line.split('|').collect();
+                let parts: std::vec::Vec<&str> = line.split('|').collect();
                 if parts.len() >= 4 {
                     let timestamp = parts[1].parse::<u64>().unwrap_or(0);
                     let adc_value = parts[2].parse::<u16>().unwrap_or(0);
@@ -325,7 +331,7 @@ except Exception as e:
                     self.adc_readings.push(reading);
                 }
             } else if line.starts_with("STATE_TRANSITION|") {
-                let parts: Vec<&str> = line.split('|').collect();
+                let parts: std::vec::Vec<&str> = line.split('|').collect();
                 if parts.len() >= 4 {
                     let timestamp = parts[1].parse::<u64>().unwrap_or(0);
                     let from_state = self.parse_battery_state(parts[2]);
@@ -388,7 +394,7 @@ except Exception as e:
     fn validate_adc_conversion_accuracy(&self) -> ValidationResult {
         println!("Validating ADC conversion accuracy...");
         
-        let mut conversion_errors = Vec::new();
+        let mut conversion_errors = std::vec::Vec::new();
         let mut max_error_percent = 0.0;
         
         for reading in &self.adc_readings {
@@ -453,7 +459,7 @@ except Exception as e:
         println!("Analyzing battery state transitions...");
         
         let mut transition_analysis = HashMap::new();
-        let mut invalid_transitions = Vec::new();
+        let mut invalid_transitions = std::vec::Vec::new();
         
         // Count state transitions
         for (from_state, to_state, timestamp) in &self.state_transitions {
@@ -522,7 +528,7 @@ except Exception as e:
     fn validate_threshold_detection(&self) -> ValidationResult {
         println!("Validating threshold detection...");
         
-        let mut threshold_errors = Vec::new();
+        let mut threshold_errors = std::vec::Vec::new();
         
         for reading in &self.adc_readings {
             let expected_state = BatteryState::from_adc_reading(reading.adc_value);
@@ -590,7 +596,7 @@ except Exception as e:
         }
         
         // Analyze timing intervals between readings
-        let mut intervals = Vec::new();
+        let mut intervals = std::vec::Vec::new();
         for i in 1..self.adc_readings.len() {
             let interval = self.adc_readings[i].timestamp_ms - self.adc_readings[i-1].timestamp_ms;
             intervals.push(interval);
@@ -663,7 +669,7 @@ except Exception as e:
         println!("  State transitions: {}", self.state_transitions.len());
         
         if !self.adc_readings.is_empty() {
-            let adc_values: Vec<u16> = self.adc_readings.iter().map(|r| r.adc_value).collect();
+            let adc_values: std::vec::Vec<u16> = self.adc_readings.iter().map(|r| r.adc_value).collect();
             let min_adc = *adc_values.iter().min().unwrap();
             let max_adc = *adc_values.iter().max().unwrap();
             println!("  ADC range: {} - {} ({:.0}mV - {:.0}mV)", 
@@ -730,8 +736,8 @@ except Exception as e:
 #[derive(Debug)]
 pub struct ValidationResult {
     pub passed: bool,
-    pub details: String,
-    pub measurements: Vec<f64>,
+    pub details: std::string::String,
+    pub measurements: std::vec::Vec<f64>,
 }
 
 // ============================================================================

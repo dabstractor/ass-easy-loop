@@ -596,8 +596,8 @@ mod tests {
             timestamp += 100;
             processor.update_stress_test_measurements(
                 cpu_usage + (i * 2),
-                memory_usage + (i * 100),
-                response_time + (i * 50),
+                memory_usage + (i as u32 * 100),
+                response_time + (i as u32 * 50),
                 true,
                 timestamp
             ).unwrap();
@@ -612,8 +612,8 @@ mod tests {
             let success = i < 10; // Some operations fail under high stress
             processor.update_stress_test_measurements(
                 cpu_usage + (i % 5),
-                memory_usage + (i * 200),
-                response_time + (i * 100),
+                memory_usage + (i as u32 * 200),
+                response_time + (i as u32 * 100),
                 success,
                 timestamp
             ).unwrap();
@@ -627,8 +627,8 @@ mod tests {
             timestamp += 100;
             processor.update_stress_test_measurements(
                 cpu_usage - (i * 2),
-                memory_usage - (i * 100),
-                response_time - (i * 50),
+                memory_usage - (i as u32 * 100),
+                response_time - (i as u32 * 50),
                 true,
                 timestamp
             ).unwrap();

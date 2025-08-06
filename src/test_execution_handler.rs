@@ -9,6 +9,7 @@
 use heapless::{Vec, String};
 use core::option::Option::{self, Some, None};
 use core::result::Result::{self, Ok, Err};
+use core::default::Default;
 use crate::command::parsing::{CommandReport, TestCommand, ErrorCode};
 use crate::test_framework::{TestRunner, TestSuiteResult};
 use crate::test_result_serializer::{TestResultCollector, TestResultStatus};

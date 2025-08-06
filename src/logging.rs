@@ -9,6 +9,7 @@ use core::iter::Iterator;
 use core::option::Option::{self, Some, None};
 use core::result::Result::{self, Ok, Err};
 use core::ops::FnOnce;
+use core::default::Default;
 
 
 
@@ -230,6 +231,15 @@ impl usbd_hid::descriptor::AsInputReport for LogReport {}
 pub struct LogReport {
     /// Complete log message data (64 bytes: level + module + message + timestamp + padding)
     pub data: [u8; 64],
+}
+
+#[cfg(test)]
+impl core::convert::TryFrom<[u8; 64]> for LogReport {
+    type Error = &'static str;
+
+    fn try_from(bytes: [u8; 64]) -> Result<Self, Self::Error> {
+        Ok(Self { data: bytes })
+    }
 }
 
 impl LogReport {
