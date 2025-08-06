@@ -294,9 +294,9 @@ mod tests {
         let results = runner.run_all();
         
         // Verify that the test suite runs
-        assert!(results.stats.total_tests > 0);
+        assert_no_std!(results.stats.total_tests > 0);
         
         // Most tests should pass (some may fail in test environment)
-        assert!(results.stats.passed > 0);
+        assert_no_std!(results.stats.passed > 0);
     }
 }

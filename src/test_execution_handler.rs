@@ -445,8 +445,8 @@ mod tests {
     #[test]
     fn test_register_test_suite() {
         let mut handler = TestExecutionHandler::new();
-        assert!(handler.register_test_suite("sample", create_sample_test_suite).is_ok());
-        assert_eq!(handler.test_suites.len(), 1);
+        assert_no_std!(handler.register_test_suite("sample", create_sample_test_suite).is_ok());
+        assert_eq_no_std!(handler.test_suites.len(), 1);
     }
 
     #[test]
@@ -455,8 +455,8 @@ mod tests {
         
         // Test empty payload (default params)
         let params = handler.parse_execution_params(&[]).unwrap();
-        assert_eq!(params.timeout_ms, 30000);
-        assert!(params.suite_name.is_empty());
+        assert_eq_no_std!(params.timeout_ms, 30000);
+        assert_no_std!(params.suite_name.is_empty());
         
         // Test with timeout and flags
         let payload = [
@@ -468,10 +468,10 @@ mod tests {
         ];
         
         let params = handler.parse_execution_params(&payload).unwrap();
-        assert_eq!(params.timeout_ms, 10000);
-        assert!(params.flags.parallel);
-        assert!(params.flags.stop_on_failure);
-        assert!(params.flags.collect_timing);
-        assert_eq!(params.suite_name.as_str(), "test");
+        assert_eq_no_std!(params.timeout_ms, 10000);
+        assert_no_std!(params.flags.parallel);
+        assert_no_std!(params.flags.stop_on_failure);
+        assert_no_std!(params.flags.collect_timing);
+        assert_eq_no_std!(params.suite_name.as_str(), "test");
     }
 }

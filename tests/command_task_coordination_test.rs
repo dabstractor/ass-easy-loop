@@ -25,25 +25,25 @@ use ass_easy_loop::command::{
         let cmd3 = CommandReport::new(TestCommand::ConfigurationQuery as u8, 3, &[0x03]).unwrap();
 
         // Enqueue commands
-        assert!(queue.enqueue(cmd1.clone(), timestamp, timeout));
-        assert!(queue.enqueue(cmd2.clone(), timestamp + 1, timeout));
-        assert!(queue.enqueue(cmd3.clone(), timestamp + 2, timeout));
+        assert_no_std!(queue.enqueue(cmd1.clone(), timestamp, timeout));
+        assert_no_std!(queue.enqueue(cmd2.clone(), timestamp + 1, timeout));
+        assert_no_std!(queue.enqueue(cmd3.clone(), timestamp + 2, timeout));
 
         // Verify FIFO order
         let dequeued1 = queue.dequeue().unwrap();
-        assert_eq!(dequeued1.command.command_id, 1);
-        assert_eq!(dequeued1.command.command_type, TestCommand::SystemStateQuery as u8);
+        assert_eq_no_std!(dequeued1.command.command_id, 1);
+        assert_eq_no_std!(dequeued1.command.command_type, TestCommand::SystemStateQuery as u8);
 
         let dequeued2 = queue.dequeue().unwrap();
-        assert_eq!(dequeued2.command.command_id, 2);
-        assert_eq!(dequeued2.command.command_type, TestCommand::ExecuteTest as u8);
+        assert_eq_no_std!(dequeued2.command.command_id, 2);
+        assert_eq_no_std!(dequeued2.command.command_type, TestCommand::ExecuteTest as u8);
 
         let dequeued3 = queue.dequeue().unwrap();
-        assert_eq!(dequeued3.command.command_id, 3);
-        assert_eq!(dequeued3.command.command_type, TestCommand::ConfigurationQuery as u8);
+        assert_eq_no_std!(dequeued3.command.command_id, 3);
+        assert_eq_no_std!(dequeued3.command.command_type, TestCommand::ConfigurationQuery as u8);
 
         // Queue should be empty
-        assert!(queue.dequeue().is_none());
+        assert_no_std!(queue.dequeue().is_none());
     }
 
     /// Test command timeout handling for task coordination
@@ -59,22 +59,22 @@ use ass_easy_loop::command::{
         let cmd2 = CommandReport::new(TestCommand::ExecuteTest as u8, 2, &[0x02]).unwrap();
 
         // Enqueue commands
-        assert!(queue.enqueue(cmd1, base_timestamp, short_timeout));
-        assert!(queue.enqueue(cmd2, base_timestamp, long_timeout));
+        assert_no_std!(queue.enqueue(cmd1, base_timestamp, short_timeout));
+        assert_no_std!(queue.enqueue(cmd2, base_timestamp, long_timeout));
 
-        assert_eq!(queue.len(), 2);
+        assert_eq_no_std!(queue.len(), 2);
 
         // Simulate time passing beyond short timeout
         let current_time = base_timestamp + short_timeout + 50;
         let removed_count = queue.remove_timed_out_commands(current_time);
 
         // Only the first command should be timed out
-        assert_eq!(removed_count, 1);
-        assert_eq!(queue.len(), 1);
+        assert_eq_no_std!(removed_count, 1);
+        assert_eq_no_std!(queue.len(), 1);
 
         // Remaining command should be the second one
         let remaining = queue.dequeue().unwrap();
-        assert_eq!(remaining.command.command_id, 2);
+        assert_eq_no_std!(remaining.command.command_id, 2);
     }
 
     /// Test command authentication for secure task coordination
@@ -85,18 +85,18 @@ use ass_easy_loop::command::{
         let command = CommandReport::new(TestCommand::ExecuteTest as u8, 42, &payload).unwrap();
 
         // Verify authentication passes
-        assert!(AuthenticationValidator::validate_command(&command));
-        assert!(AuthenticationValidator::validate_format(&command).is_ok());
+        assert_no_std!(AuthenticationValidator::validate_command(&command));
+        assert_no_std!(AuthenticationValidator::validate_format(&command).is_ok());
 
         // Test with corrupted checksum
         let mut corrupted_command = command.clone();
         corrupted_command.auth_token = corrupted_command.auth_token.wrapping_add(1);
-        assert!(!AuthenticationValidator::validate_command(&corrupted_command));
+        assert_no_std!(!AuthenticationValidator::validate_command(&corrupted_command));
 
         // Test with invalid command type
         let mut invalid_command = command.clone();
         invalid_command.command_type = 0x00; // Invalid command type
-        assert_eq!(
+        assert_eq_no_std!(
             AuthenticationValidator::validate_format(&invalid_command),
             Err(ErrorCode::UnsupportedCommand)
         );
@@ -113,22 +113,22 @@ use ass_easy_loop::command::{
         let resp2 = CommandReport::success_response(2, &[0x03, 0x04]).unwrap();
 
         // Test enqueueing
-        assert!(queue.enqueue(resp1.clone(), 100, timestamp));
-        assert!(queue.enqueue(resp2.clone(), 101, timestamp + 1));
+        assert_no_std!(queue.enqueue(resp1.clone(), 100, timestamp));
+        assert_no_std!(queue.enqueue(resp2.clone(), 101, timestamp + 1));
 
-        assert_eq!(queue.len(), 2);
+        assert_eq_no_std!(queue.len(), 2);
 
         // Test dequeuing
         let dequeued1 = queue.dequeue().unwrap();
-        assert_eq!(dequeued1.response.command_id, 1);
-        assert_eq!(dequeued1.sequence_number, 100);
+        assert_eq_no_std!(dequeued1.response.command_id, 1);
+        assert_eq_no_std!(dequeued1.sequence_number, 100);
 
         let dequeued2 = queue.dequeue().unwrap();
-        assert_eq!(dequeued2.response.command_id, 2);
-        assert_eq!(dequeued2.sequence_number, 101);
+        assert_eq_no_std!(dequeued2.response.command_id, 2);
+        assert_eq_no_std!(dequeued2.sequence_number, 101);
 
         // Queue should be empty
-        assert!(queue.dequeue().is_none());
+        assert_no_std!(queue.dequeue().is_none());
     }
 
     /// Test command parsing for USB HID integration
@@ -151,11 +151,11 @@ use ass_easy_loop::command::{
         // Test parsing
         match CommandReport::parse(&report_buffer) {
             ParseResult::Valid(command) => {
-                assert_eq!(command.command_type, TestCommand::SystemStateQuery as u8);
-                assert_eq!(command.command_id, 123);
-                assert_eq!(command.payload_length, 3);
-                assert_eq!(command.payload.as_slice(), &[0xAA, 0xBB, 0xCC]);
-                assert!(AuthenticationValidator::validate_command(&command));
+                assert_eq_no_std!(command.command_type, TestCommand::SystemStateQuery as u8);
+                assert_eq_no_std!(command.command_id, 123);
+                assert_eq_no_std!(command.payload_length, 3);
+                assert_eq_no_std!(command.payload.as_slice(), &[0xAA, 0xBB, 0xCC]);
+                assert_no_std!(AuthenticationValidator::validate_command(&command));
             }
             _ => panic!("Command parsing failed"),
         }
@@ -173,18 +173,18 @@ use ass_easy_loop::command::{
         let cmd2 = CommandReport::new(TestCommand::ExecuteTest as u8, 2, &[0x02]).unwrap();
         let cmd3 = CommandReport::new(TestCommand::ConfigurationQuery as u8, 3, &[0x03]).unwrap();
 
-        assert!(queue.enqueue(cmd1, timestamp, timeout));
-        assert!(queue.enqueue(cmd2, timestamp + 1, timeout));
+        assert_no_std!(queue.enqueue(cmd1, timestamp, timeout));
+        assert_no_std!(queue.enqueue(cmd2, timestamp + 1, timeout));
         
         // Queue should be full
-        assert!(queue.is_full());
-        assert_eq!(queue.len(), 2);
+        assert_no_std!(queue.is_full());
+        assert_eq_no_std!(queue.len(), 2);
 
         // Attempting to enqueue another command should fail
-        assert!(!queue.enqueue(cmd3, timestamp + 2, timeout));
+        assert_no_std!(!queue.enqueue(cmd3, timestamp + 2, timeout));
         
         // Dropped count should increase
-        assert_eq!(queue.dropped_count(), 1);
+        assert_eq_no_std!(queue.dropped_count(), 1);
     }
 
     /// Test task priority coordination by verifying command processing doesn't block
@@ -201,7 +201,7 @@ use ass_easy_loop::command::{
                 i, 
                 &[i as u8]
             ).unwrap();
-            assert!(command_queue.enqueue(cmd, timestamp + i as u32, 5000));
+            assert_no_std!(command_queue.enqueue(cmd, timestamp + i as u32, 5000));
         }
 
         // Simulate medium-priority command processing task
@@ -214,7 +214,7 @@ use ass_easy_loop::command::{
             ).unwrap();
 
             // Queue response
-            assert!(response_queue.enqueue(
+            assert_no_std!(response_queue.enqueue(
                 response, 
                 queued_cmd.sequence_number, 
                 timestamp + processed_count + 100
@@ -224,9 +224,9 @@ use ass_easy_loop::command::{
         }
 
         // Verify all commands were processed
-        assert_eq!(processed_count, 5);
-        assert_eq!(response_queue.len(), 5);
-        assert_eq!(command_queue.len(), 0);
+        assert_eq_no_std!(processed_count, 5);
+        assert_eq_no_std!(response_queue.len(), 5);
+        assert_eq_no_std!(command_queue.len(), 0);
     }
 
     /// Test error handling in command processing coordination
@@ -242,7 +242,7 @@ use ass_easy_loop::command::{
         match CommandReport::parse(&invalid_buffer) {
             ParseResult::Valid(command) => {
                 // Command parses but should fail validation
-                assert_eq!(
+                assert_eq_no_std!(
                     AuthenticationValidator::validate_format(&command),
                     Err(ErrorCode::UnsupportedCommand)
                 );

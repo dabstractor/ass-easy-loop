@@ -28,16 +28,16 @@ fn test_log_message_to_hid_report_serialization() {
     let report = LogReport::from_log_message(&message);
     
     // Verify report structure
-    assert_eq!(report.data.len(), 64);
+    assert_eq_no_std!(report.data.len(), 64);
     
     // Verify serialized content
-    assert_eq!(report.data[0], LogLevel::Info as u8); // Log level
-    assert_eq!(&report.data[1..5], b"TEST"); // Module name
-    assert_eq!(&report.data[9..21], b"Test message"); // Message content
+    assert_eq_no_std!(report.data[0], LogLevel::Info as u8); // Log level
+    assert_eq_no_std!(&report.data[1..5], b"TEST"); // Module name
+    assert_eq_no_std!(&report.data[9..21], b"Test message"); // Message content
     
     // Verify timestamp (little-endian u32 at bytes 57-60)
     let timestamp_bytes = 12345u32.to_le_bytes();
-    assert_eq!(&report.data[57..61], &timestamp_bytes);
+    assert_eq_no_std!(&report.data[57..61], &timestamp_bytes);
 }
 
 #[test]
@@ -50,10 +50,10 @@ fn test_hid_report_to_log_message_deserialization() {
     let deserialized_message = report.to_log_message().unwrap();
     
     // Verify all fields match
-    assert_eq!(deserialized_message.timestamp, original_message.timestamp);
-    assert_eq!(deserialized_message.level, original_message.level);
-    assert_eq!(deserialized_message.module_str(), original_message.module_str());
-    assert_eq!(deserialized_message.message_str(), original_message.message_str());
+    assert_eq_no_std!(deserialized_message.timestamp, original_message.timestamp);
+    assert_eq_no_std!(deserialized_message.level, original_message.level);
+    assert_eq_no_std!(deserialized_message.module_str(), original_message.module_str());
+    assert_eq_no_std!(deserialized_message.message_str(), original_message.message_str());
 }
 
 #[test]
@@ -71,10 +71,10 @@ fn test_hid_report_serialization_roundtrip() {
         let report = LogReport::from_log_message(&original);
         let recovered = report.to_log_message().unwrap();
         
-        assert_eq!(original.timestamp, recovered.timestamp);
-        assert_eq!(original.level, recovered.level);
-        assert_eq!(original.module_str(), recovered.module_str());
-        assert_eq!(original.message_str(), recovered.message_str());
+        assert_eq_no_std!(original.timestamp, recovered.timestamp);
+        assert_eq_no_std!(original.level, recovered.level);
+        assert_eq_no_std!(original.module_str(), recovered.module_str());
+        assert_eq_no_std!(original.message_str(), recovered.message_str());
     }
 }
 
@@ -85,8 +85,8 @@ fn test_invalid_hid_report_deserialization() {
     corrupted_report.data[0] = 255; // Invalid log level
     
     let result = corrupted_report.to_log_message();
-    assert!(result.is_err());
-    assert_eq!(result.unwrap_err(), "Invalid log level");
+    assert_no_std!(result.is_err());
+    assert_eq_no_std!(result.unwrap_err(), "Invalid log level");
 }
 
 // ============================================================================
@@ -108,7 +108,7 @@ fn test_queue_hid_report_integration() {
     
     // Enqueue all messages
     for message in &test_messages {
-        assert!(queue.enqueue(message.clone()));
+        assert_no_std!(queue.enqueue(message.clone()));
     }
     
     // Dequeue and convert to HID reports
@@ -119,16 +119,16 @@ fn test_queue_hid_report_integration() {
     }
     
     // Verify all messages were processed correctly
-    assert_eq!(reports.len(), 4);
+    assert_eq_no_std!(reports.len(), 4);
     
     for (i, report) in reports.iter().enumerate() {
         let recovered_message = report.to_log_message().unwrap();
         let original_message = &test_messages[i];
         
-        assert_eq!(recovered_message.timestamp, original_message.timestamp);
-        assert_eq!(recovered_message.level, original_message.level);
-        assert_eq!(recovered_message.module_str(), original_message.module_str());
-        assert_eq!(recovered_message.message_str(), original_message.message_str());
+        assert_eq_no_std!(recovered_message.timestamp, original_message.timestamp);
+        assert_eq_no_std!(recovered_message.level, original_message.level);
+        assert_eq_no_std!(recovered_message.module_str(), original_message.module_str());
+        assert_eq_no_std!(recovered_message.message_str(), original_message.message_str());
     }
 }
 
@@ -144,9 +144,9 @@ fn test_queue_overflow_with_hid_reports() {
     }
     
     let stats = queue.stats();
-    assert_eq!(stats.messages_sent, 8);
-    assert_eq!(stats.messages_dropped, 4); // 8 - 4 capacity
-    assert_eq!(queue.len(), 4);
+    assert_eq_no_std!(stats.messages_sent, 8);
+    assert_eq_no_std!(stats.messages_dropped, 4); // 8 - 4 capacity
+    assert_eq_no_std!(queue.len(), 4);
     
     // Verify remaining messages can be converted to HID reports
     let mut report_count = 0;
@@ -155,14 +155,14 @@ fn test_queue_overflow_with_hid_reports() {
         let recovered = report.to_log_message().unwrap();
         
         // Verify message integrity
-        assert_eq!(recovered.level, LogLevel::Info);
-        assert_eq!(recovered.module_str(), "OVERFLOW");
-        assert_eq!(recovered.message_str(), "Test message");
+        assert_eq_no_std!(recovered.level, LogLevel::Info);
+        assert_eq_no_std!(recovered.module_str(), "OVERFLOW");
+        assert_eq_no_std!(recovered.message_str(), "Test message");
         
         report_count += 1;
     }
     
-    assert_eq!(report_count, 4);
+    assert_eq_no_std!(report_count, 4);
 }
 
 // ============================================================================
@@ -199,11 +199,11 @@ fn test_hid_report_generation_performance() {
     };
     
     // HID report generation should add minimal overhead
-    assert!(overhead_percent < 50.0, "HID report generation overhead too high: {:.2}%", overhead_percent);
+    assert_no_std!(overhead_percent < 50.0, "HID report generation overhead too high: {:.2}%", overhead_percent);
     
     // Verify both operations complete in reasonable time
-    assert!(baseline_time.as_millis() < 10, "Baseline message creation too slow");
-    assert!(with_hid_time.as_millis() < 20, "HID report generation too slow");
+    assert_no_std!(baseline_time.as_millis() < 10, "Baseline message creation too slow");
+    assert_no_std!(with_hid_time.as_millis() < 20, "HID report generation too slow");
 }
 
 #[test]
@@ -231,13 +231,13 @@ fn test_queue_operations_performance_impact() {
     let drain_time = start.elapsed();
     
     // Verify performance characteristics
-    assert!(fill_time.as_millis() < 50, "Queue fill too slow: {}ms", fill_time.as_millis());
-    assert!(drain_time.as_millis() < 100, "Queue drain with HID too slow: {}ms", drain_time.as_millis());
-    assert_eq!(report_count, 32); // Only queue capacity should remain after overflow
+    assert_no_std!(fill_time.as_millis() < 50, "Queue fill too slow: {}ms", fill_time.as_millis());
+    assert_no_std!(drain_time.as_millis() < 100, "Queue drain with HID too slow: {}ms", drain_time.as_millis());
+    assert_eq_no_std!(report_count, 32); // Only queue capacity should remain after overflow
     
     let stats = queue.stats();
-    assert_eq!(stats.messages_sent, 1000);
-    assert_eq!(stats.messages_dropped, 968); // 1000 - 32 capacity
+    assert_eq_no_std!(stats.messages_sent, 1000);
+    assert_eq_no_std!(stats.messages_dropped, 968); // 1000 - 32 capacity
 }
 
 // ============================================================================
@@ -276,14 +276,14 @@ fn test_hid_report_error_recovery() {
         
         // Process successful report
         let recovered = report.to_log_message().unwrap();
-        assert_eq!(recovered.module_str(), "RECOVERY");
+        assert_eq_no_std!(recovered.module_str(), "RECOVERY");
         successful_reports += 1;
     }
     
     // Verify system handled failures gracefully
-    assert!(successful_reports > 0, "No reports processed successfully");
-    assert!(failed_reports > 0, "No failures simulated");
-    assert_eq!(successful_reports + failed_reports, 5);
+    assert_no_std!(successful_reports > 0, "No reports processed successfully");
+    assert_no_std!(failed_reports > 0, "No failures simulated");
+    assert_eq_no_std!(successful_reports + failed_reports, 5);
 }
 
 #[test]
@@ -298,9 +298,9 @@ fn test_queue_recovery_after_overflow() {
     }
     
     let overflow_stats = queue.stats();
-    assert_eq!(overflow_stats.messages_sent, 10);
-    assert_eq!(overflow_stats.messages_dropped, 6);
-    assert_eq!(queue.len(), 4);
+    assert_eq_no_std!(overflow_stats.messages_sent, 10);
+    assert_eq_no_std!(overflow_stats.messages_dropped, 6);
+    assert_eq_no_std!(queue.len(), 4);
     
     // Drain queue
     let mut drained_count = 0;
@@ -309,27 +309,27 @@ fn test_queue_recovery_after_overflow() {
         let recovered = report.to_log_message().unwrap();
         
         // Verify message integrity after overflow
-        assert_eq!(recovered.level, LogLevel::Warn);
-        assert_eq!(recovered.module_str(), "OVERFLOW");
+        assert_eq_no_std!(recovered.level, LogLevel::Warn);
+        assert_eq_no_std!(recovered.module_str(), "OVERFLOW");
         drained_count += 1;
     }
     
-    assert_eq!(drained_count, 4);
-    assert_eq!(queue.len(), 0);
+    assert_eq_no_std!(drained_count, 4);
+    assert_eq_no_std!(queue.len(), 0);
     
     // Verify queue can continue normal operation after recovery
     let recovery_message = LogMessage::new(100, LogLevel::Info, "RECOVERY", "System recovered");
-    assert!(queue.enqueue(recovery_message));
-    assert_eq!(queue.len(), 1);
+    assert_no_std!(queue.enqueue(recovery_message));
+    assert_eq_no_std!(queue.len(), 1);
     
     let recovered_msg = queue.dequeue().unwrap();
     let report = LogReport::from_log_message(&recovered_msg);
     let final_msg = report.to_log_message().unwrap();
     
-    assert_eq!(final_msg.timestamp, 100);
-    assert_eq!(final_msg.level, LogLevel::Info);
-    assert_eq!(final_msg.module_str(), "RECOVERY");
-    assert_eq!(final_msg.message_str(), "System recovered");
+    assert_eq_no_std!(final_msg.timestamp, 100);
+    assert_eq_no_std!(final_msg.level, LogLevel::Info);
+    assert_eq_no_std!(final_msg.module_str(), "RECOVERY");
+    assert_eq_no_std!(final_msg.message_str(), "System recovered");
 }
 
 #[test]
@@ -370,8 +370,8 @@ fn test_concurrent_queue_and_hid_operations() {
                 let recovered = report.to_log_message().unwrap();
                 
                 // Verify message integrity
-                assert_eq!(recovered.level, LogLevel::Info);
-                assert_eq!(recovered.module_str(), "THREAD");
+                assert_eq_no_std!(recovered.level, LogLevel::Info);
+                assert_eq_no_std!(recovered.module_str(), "THREAD");
                 processed_reports += 1;
             } else {
                 thread::sleep(std::time::Duration::from_millis(1));
@@ -391,12 +391,12 @@ fn test_concurrent_queue_and_hid_operations() {
     
     // Verify concurrent operations worked correctly
     let final_stats = queue.lock().unwrap().stats();
-    assert_eq!(final_stats.messages_sent, 40); // 4 threads * 10 messages
-    assert!(processed_count > 0, "No messages were processed");
+    assert_eq_no_std!(final_stats.messages_sent, 40); // 4 threads * 10 messages
+    assert_no_std!(processed_count > 0, "No messages were processed");
     
     // Some messages might remain in queue due to timing
     let remaining = queue.lock().unwrap().len();
-    assert_eq!(processed_count + remaining, std::cmp::min(40, 16)); // Account for queue capacity
+    assert_eq_no_std!(processed_count + remaining, std::cmp::min(40, 16)); // Account for queue capacity
 }
 
 // ============================================================================
@@ -419,7 +419,7 @@ fn test_complete_usb_hid_integration_workflow() {
     
     for (module, level, message) in &system_messages {
         let log_msg = LogMessage::new(mock_timestamp(), *level, module, message);
-        assert!(queue.enqueue(log_msg));
+        assert_no_std!(queue.enqueue(log_msg));
     }
     
     // Step 2: Process queue and generate HID reports (simulating USB HID task)
@@ -429,7 +429,7 @@ fn test_complete_usb_hid_integration_workflow() {
         hid_reports.push(report);
     }
     
-    assert_eq!(hid_reports.len(), 5);
+    assert_eq_no_std!(hid_reports.len(), 5);
     
     // Step 3: Simulate host-side processing (simulating host utility)
     let mut received_messages = Vec::new();
@@ -441,31 +441,31 @@ fn test_complete_usb_hid_integration_workflow() {
     }
     
     // Step 4: Verify end-to-end integrity
-    assert_eq!(received_messages.len(), 5);
+    assert_eq_no_std!(received_messages.len(), 5);
     
     for (i, received) in received_messages.iter().enumerate() {
         let (expected_module, expected_level, expected_message) = &system_messages[i];
         
-        assert_eq!(received.level, *expected_level);
-        assert_eq!(received.module_str(), *expected_module);
-        assert_eq!(received.message_str(), *expected_message);
-        assert_eq!(received.timestamp, mock_timestamp());
+        assert_eq_no_std!(received.level, *expected_level);
+        assert_eq_no_std!(received.module_str(), *expected_module);
+        assert_eq_no_std!(received.message_str(), *expected_message);
+        assert_eq_no_std!(received.timestamp, mock_timestamp());
     }
     
     // Step 5: Verify system statistics
     let final_stats = queue.stats();
-    assert_eq!(final_stats.messages_sent, 5);
-    assert_eq!(final_stats.messages_dropped, 0);
-    assert_eq!(queue.len(), 0);
+    assert_eq_no_std!(final_stats.messages_sent, 5);
+    assert_eq_no_std!(final_stats.messages_dropped, 0);
+    assert_eq_no_std!(queue.len(), 0);
     
     // Step 6: Verify system can continue operating after processing
     let post_test_message = LogMessage::new(999, LogLevel::Info, "TEST", "Integration test complete");
-    assert!(queue.enqueue(post_test_message));
+    assert_no_std!(queue.enqueue(post_test_message));
     
     let final_message = queue.dequeue().unwrap();
     let final_report = LogReport::from_log_message(&final_message);
     let final_recovered = final_report.to_log_message().unwrap();
     
-    assert_eq!(final_recovered.timestamp, 999);
-    assert_eq!(final_recovered.message_str(), "Integration test complete");
+    assert_eq_no_std!(final_recovered.timestamp, 999);
+    assert_eq_no_std!(final_recovered.message_str(), "Integration test complete");
 }

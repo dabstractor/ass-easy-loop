@@ -434,18 +434,18 @@ mod tests {
     fn test_registry_creation() {
         let registry = TestSuiteRegistry::new();
         let stats = registry.get_stats();
-        assert_eq!(stats.total_registered, 0);
-        assert_eq!(stats.enabled_count, 0);
+        assert_eq_no_std!(stats.total_registered, 0);
+        assert_eq_no_std!(stats.enabled_count, 0);
     }
 
     #[test]
     fn test_suite_registration() {
         let mut registry = TestSuiteRegistry::new();
-        assert!(registry.register_suite("test_suite", create_system_state_unit_tests, 5).is_ok());
+        assert_no_std!(registry.register_suite("test_suite", create_system_state_unit_tests, 5).is_ok());
         
         let stats = registry.get_stats();
-        assert_eq!(stats.total_registered, 1);
-        assert_eq!(stats.enabled_count, 1);
+        assert_eq_no_std!(stats.total_registered, 1);
+        assert_eq_no_std!(stats.enabled_count, 1);
     }
 
     #[test]
@@ -453,17 +453,17 @@ mod tests {
         let mut registry = TestSuiteRegistry::new();
         let _ = registry.register_suite("test_suite", create_system_state_unit_tests, 5);
         
-        assert!(registry.set_suite_enabled("test_suite", false).is_ok());
+        assert_no_std!(registry.set_suite_enabled("test_suite", false).is_ok());
         let stats = registry.get_stats();
-        assert_eq!(stats.enabled_count, 0);
-        assert_eq!(stats.disabled_count, 1);
+        assert_eq_no_std!(stats.enabled_count, 0);
+        assert_eq_no_std!(stats.disabled_count, 1);
     }
 
     #[test]
     fn test_initialize_test_registry() {
         let registry = initialize_test_registry();
         let stats = registry.get_stats();
-        assert!(stats.total_registered > 0);
-        assert_eq!(stats.enabled_count, stats.total_registered);
+        assert_no_std!(stats.total_registered > 0);
+        assert_eq_no_std!(stats.enabled_count, stats.total_registered);
     }
 }

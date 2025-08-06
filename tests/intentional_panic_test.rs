@@ -48,7 +48,7 @@ fn trigger_intentional_panic_without_message() {
     log_info!("Testing panic without explicit message");
     
     // Trigger panic without message (using assert)
-    assert!(false, "Assertion failure test");
+    assert_no_std!(false, "Assertion failure test");
 }
 
 /// Test function that panics during early initialization
@@ -158,5 +158,5 @@ fn test_panic(_info: &core::panic::PanicInfo) -> ! {
 // Dummy test to make the test runner happy
 #[test]
 fn dummy_test() {
-    assert!(true);
+    assert_no_std!(true);
 }

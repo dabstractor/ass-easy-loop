@@ -11,7 +11,7 @@ Successfully converted performance and stress tests from std to no_std environme
   - Added `#![no_std]` and `#![no_main]` attributes
   - Added `panic_halt` panic handler
   - Replaced all `#[test]` functions with `fn() -> TestResult`
-  - Converted all `assert!` and `assert_eq!` to `assert_no_std!` and `assert_eq_no_std!`
+  - Converted all `assert_no_std!` and `assert_eq_no_std!` to `assert_no_std!` and `assert_eq_no_std!`
   - Added test runner with `register_tests!` macro
   - Added `#[no_mangle] pub extern "C"` entry point function
   - **Test Functions Converted**: 8 test functions covering stress test parameters, statistics, memory monitoring, and edge cases
@@ -64,7 +64,7 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std, register_tests};
 // Before
 #[test]
 fn test_something() {
-    assert_eq!(result, expected);
+    assert_eq_no_std!(result, expected);
 }
 
 // After
@@ -141,7 +141,7 @@ struct MockProfiler {
 - **After**: Fixed-capacity collections with error handling for overflow
 
 ### Assertions
-- **Before**: `assert!()`, `assert_eq!()` from std
+- **Before**: `assert_no_std!()`, `assert_eq_no_std!()` from std
 - **After**: Custom `assert_no_std!()`, `assert_eq_no_std!()` macros
 
 ## Integration with Existing Infrastructure

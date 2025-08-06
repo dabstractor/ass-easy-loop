@@ -293,22 +293,22 @@ mod tests {
     #[test]
     fn test_validation_result() {
         let valid = ValidationResult::Valid;
-        assert_eq!(valid, ValidationResult::Valid);
+        assert_eq_no_std!(valid, ValidationResult::Valid);
         
         let mut issues = Vec::new();
         let _ = issues.push("test issue");
         let invalid = ValidationResult::Invalid(issues);
-        assert!(matches!(invalid, ValidationResult::Invalid(_)));
+        assert_no_std!(matches!(invalid, ValidationResult::Invalid(_)));
     }
 
     #[test]
     fn test_leak_detection_result() {
         let no_leaks = LeakDetectionResult::NoLeaks;
-        assert_eq!(no_leaks, LeakDetectionResult::NoLeaks);
+        assert_eq_no_std!(no_leaks, LeakDetectionResult::NoLeaks);
         
         let mut leaks = Vec::new();
         let _ = leaks.push("test leak");
         let potential_leaks = LeakDetectionResult::PotentialLeaks(leaks);
-        assert!(matches!(potential_leaks, LeakDetectionResult::PotentialLeaks(_)));
+        assert_no_std!(matches!(potential_leaks, LeakDetectionResult::PotentialLeaks(_)));
     }
 }

@@ -31,7 +31,7 @@ pub fn validate_panic_handler_logging() -> bool {
     
     // Test 1: Verify queue is initially empty
     unsafe {
-        assert!(TEST_QUEUE.is_empty());
+        assert_no_std!(TEST_QUEUE.is_empty());
     }
     
     // Test 2: Simulate panic message creation and queuing
@@ -44,17 +44,17 @@ pub fn validate_panic_handler_logging() -> bool {
     
     unsafe {
         let enqueue_result = TEST_QUEUE.enqueue(panic_message);
-        assert!(enqueue_result, "Failed to enqueue panic message");
-        assert_eq!(TEST_QUEUE.len(), 1, "Queue should contain one message");
+        assert_no_std!(enqueue_result, "Failed to enqueue panic message");
+        assert_eq_no_std!(TEST_QUEUE.len(), 1, "Queue should contain one message");
     }
     
     // Test 3: Verify message content
     unsafe {
         if let Some(logged_message) = TEST_QUEUE.dequeue() {
-            assert_eq!(logged_message.level, LogLevel::Error);
-            assert_eq!(logged_message.module_str(), "PANIC");
-            assert!(logged_message.message_str().contains("PANIC at test.rs:42"));
-            assert_eq!(logged_message.timestamp, mock_timestamp());
+            assert_eq_no_std!(logged_message.level, LogLevel::Error);
+            assert_eq_no_std!(logged_message.module_str(), "PANIC");
+            assert_no_std!(logged_message.message_str().contains("PANIC at test.rs:42"));
+            assert_eq_no_std!(logged_message.timestamp, mock_timestamp());
         } else {
             panic!("Expected to dequeue a panic message");
         }
@@ -80,13 +80,13 @@ fn test_panic_message_formatting() {
         test_line
     );
     
-    assert_eq!(panic_msg.as_str(), "PANIC at main.rs:123");
+    assert_eq_no_std!(panic_msg.as_str(), "PANIC at main.rs:123");
     
     // Test formatting without location information
     let mut panic_msg_no_loc: String<48> = String::new();
     let _ = write!(&mut panic_msg_no_loc, "PANIC at unknown location");
     
-    assert_eq!(panic_msg_no_loc.as_str(), "PANIC at unknown location");
+    assert_eq_no_std!(panic_msg_no_loc.as_str(), "PANIC at unknown location");
 }
 
 /// Test USB message flushing timeout mechanism
@@ -108,7 +108,7 @@ fn test_usb_flush_timeout() {
             FLUSH_TEST_QUEUE.enqueue(test_message);
         }
         
-        assert_eq!(FLUSH_TEST_QUEUE.len(), 8, "Queue should be full");
+        assert_eq_no_std!(FLUSH_TEST_QUEUE.len(), 8, "Queue should be full");
     }
     
     // Simulate the flush operation (simplified version)
@@ -125,8 +125,8 @@ fn test_usb_flush_timeout() {
         }
         
         // Verify that all messages were flushed or timeout occurred
-        assert!(FLUSH_TEST_QUEUE.is_empty() || timeout_counter >= FLUSH_TIMEOUT_LOOPS);
-        assert!(timeout_counter < FLUSH_TIMEOUT_LOOPS, "Flush should complete before timeout");
+        assert_no_std!(FLUSH_TEST_QUEUE.is_empty() || timeout_counter >= FLUSH_TIMEOUT_LOOPS);
+        assert_no_std!(timeout_counter < FLUSH_TIMEOUT_LOOPS, "Flush should complete before timeout");
     }
 }
 
@@ -157,10 +157,10 @@ fn test_panic_handler_graceful_degradation() {
         "" // Empty message
     );
     
-    assert_eq!(edge_case_message.timestamp, 0);
-    assert_eq!(edge_case_message.level, LogLevel::Error);
-    assert_eq!(edge_case_message.module_str(), "");
-    assert_eq!(edge_case_message.message_str(), "");
+    assert_eq_no_std!(edge_case_message.timestamp, 0);
+    assert_eq_no_std!(edge_case_message.level, LogLevel::Error);
+    assert_eq_no_std!(edge_case_message.module_str(), "");
+    assert_eq_no_std!(edge_case_message.message_str(), "");
 }
 
 /// Test panic handler with payload messages
@@ -175,7 +175,7 @@ fn test_panic_handler_with_payload() {
     let mut payload_msg: String<48> = String::new();
     let _ = write!(&mut payload_msg, "Panic msg: {}", test_payload);
     
-    assert_eq!(payload_msg.as_str(), "Panic msg: Division by zero");
+    assert_eq_no_std!(payload_msg.as_str(), "Panic msg: Division by zero");
     
     // Test payload message truncation for long messages
     let long_payload = "This is a very long panic message that exceeds the maximum length";
@@ -183,8 +183,8 @@ fn test_panic_handler_with_payload() {
     let _ = write!(&mut long_payload_msg, "Panic msg: {}", long_payload);
     
     // Verify that the message was truncated to fit the buffer
-    assert!(long_payload_msg.len() <= 48);
-    assert!(long_payload_msg.as_str().starts_with("Panic msg: This is a very long panic"));
+    assert_no_std!(long_payload_msg.len() <= 48);
+    assert_no_std!(long_payload_msg.as_str().starts_with("Panic msg: This is a very long panic"));
 }
 
 /// Test system state logging during panic
@@ -198,7 +198,7 @@ fn test_panic_system_state_logging() {
     let mut state_msg: String<48> = String::new();
     let _ = write!(&mut state_msg, "System halted due to panic");
     
-    assert_eq!(state_msg.as_str(), "System halted due to panic");
+    assert_eq_no_std!(state_msg.as_str(), "System halted due to panic");
     
     // Create a log message for system state
     let state_log = LogMessage::new(
@@ -208,10 +208,10 @@ fn test_panic_system_state_logging() {
         state_msg.as_str()
     );
     
-    assert_eq!(state_log.level, LogLevel::Error);
-    assert_eq!(state_log.module_str(), "PANIC");
-    assert_eq!(state_log.message_str(), "System halted due to panic");
-    assert_eq!(state_log.timestamp, mock_timestamp() + 2);
+    assert_eq_no_std!(state_log.level, LogLevel::Error);
+    assert_eq_no_std!(state_log.module_str(), "PANIC");
+    assert_eq_no_std!(state_log.message_str(), "System halted due to panic");
+    assert_eq_no_std!(state_log.timestamp, mock_timestamp() + 2);
 }
 
 /// Integration test for complete panic logging sequence
@@ -255,40 +255,40 @@ fn test_complete_panic_logging_sequence() {
     
     // Enqueue all messages
     unsafe {
-        assert!(SEQUENCE_TEST_QUEUE.enqueue(panic_log));
-        assert!(SEQUENCE_TEST_QUEUE.enqueue(payload_log));
-        assert!(SEQUENCE_TEST_QUEUE.enqueue(state_log));
+        assert_no_std!(SEQUENCE_TEST_QUEUE.enqueue(panic_log));
+        assert_no_std!(SEQUENCE_TEST_QUEUE.enqueue(payload_log));
+        assert_no_std!(SEQUENCE_TEST_QUEUE.enqueue(state_log));
         
-        assert_eq!(SEQUENCE_TEST_QUEUE.len(), 3, "Should have 3 panic messages");
+        assert_eq_no_std!(SEQUENCE_TEST_QUEUE.len(), 3, "Should have 3 panic messages");
     }
     
     // Verify messages in order
     unsafe {
         // First message: main panic
         if let Some(msg1) = SEQUENCE_TEST_QUEUE.dequeue() {
-            assert_eq!(msg1.timestamp, timestamp);
-            assert!(msg1.message_str().contains("PANIC at main.rs:123"));
+            assert_eq_no_std!(msg1.timestamp, timestamp);
+            assert_no_std!(msg1.message_str().contains("PANIC at main.rs:123"));
         } else {
             panic!("Expected first panic message");
         }
         
         // Second message: payload
         if let Some(msg2) = SEQUENCE_TEST_QUEUE.dequeue() {
-            assert_eq!(msg2.timestamp, timestamp + 1);
-            assert!(msg2.message_str().contains("Panic msg: Clock initialization failed"));
+            assert_eq_no_std!(msg2.timestamp, timestamp + 1);
+            assert_no_std!(msg2.message_str().contains("Panic msg: Clock initialization failed"));
         } else {
             panic!("Expected payload message");
         }
         
         // Third message: system state
         if let Some(msg3) = SEQUENCE_TEST_QUEUE.dequeue() {
-            assert_eq!(msg3.timestamp, timestamp + 2);
-            assert!(msg3.message_str().contains("System halted due to panic"));
+            assert_eq_no_std!(msg3.timestamp, timestamp + 2);
+            assert_no_std!(msg3.message_str().contains("System halted due to panic"));
         } else {
             panic!("Expected system state message");
         }
         
-        assert!(SEQUENCE_TEST_QUEUE.is_empty(), "Queue should be empty after dequeuing all messages");
+        assert_no_std!(SEQUENCE_TEST_QUEUE.is_empty(), "Queue should be empty after dequeuing all messages");
     }
 }
 

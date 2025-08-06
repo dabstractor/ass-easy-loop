@@ -555,8 +555,8 @@ mod tests {
     // Test converted to no_std - run via test framework
     fn test_integration_creation() {
         let integration = ComprehensiveTestIntegration::new();
-        assert_eq!(integration.contexts.len(), 0);
-        assert_eq!(integration.context_id_counter, 0);
+        assert_eq_no_std!(integration.contexts.len(), 0);
+        assert_eq_no_std!(integration.context_id_counter, 0);
     }
 
     // Test converted to no_std - run via test framework
@@ -570,10 +570,10 @@ mod tests {
 
         summary.update_from_comprehensive_results(&results);
         
-        assert_eq!(summary.total_tests, 10);
-        assert_eq!(summary.tests_passed, 8);
-        assert_eq!(summary.tests_failed, 2);
-        assert_eq!(summary.success_rate, 80);
+        assert_eq_no_std!(summary.total_tests, 10);
+        assert_eq_no_std!(summary.tests_passed, 8);
+        assert_eq_no_std!(summary.tests_failed, 2);
+        assert_eq_no_std!(summary.success_rate, 80);
     }
 
     // Test converted to no_std - run via test framework
@@ -581,6 +581,6 @@ mod tests {
         // This test will depend on the actual test implementations
         let result = quick_comprehensive_validation();
         // Result can be true or false depending on test implementations
-        assert!(result || !result); // Always true, just checking it runs
+        assert_no_std!(result || !result); // Always true, just checking it runs
     }
 }

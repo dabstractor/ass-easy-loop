@@ -392,45 +392,45 @@ mod tests {
     #[test]
     fn test_result_creation() {
         let pass = TestResult::pass();
-        assert!(pass.is_success());
-        assert!(!pass.is_failure());
-        assert!(!pass.is_skipped());
+        assert_no_std!(pass.is_success());
+        assert_no_std!(!pass.is_failure());
+        assert_no_std!(!pass.is_skipped());
 
         let fail = TestResult::fail("error");
-        assert!(!fail.is_success());
-        assert!(fail.is_failure());
-        assert!(!fail.is_skipped());
+        assert_no_std!(!fail.is_success());
+        assert_no_std!(fail.is_failure());
+        assert_no_std!(!fail.is_skipped());
 
         let skip = TestResult::skip("reason");
-        assert!(!skip.is_success());
-        assert!(!skip.is_failure());
-        assert!(skip.is_skipped());
+        assert_no_std!(!skip.is_success());
+        assert_no_std!(!skip.is_failure());
+        assert_no_std!(skip.is_skipped());
     }
 
     #[test]
     fn test_case_creation_and_execution() {
         let test_case = TestCase::new("sample_test", sample_passing_test);
-        assert_eq!(test_case.name.as_str(), "sample_test");
+        assert_eq_no_std!(test_case.name.as_str(), "sample_test");
         
         let result = test_case.run();
-        assert!(result.is_success());
+        assert_no_std!(result.is_success());
     }
 
     #[test]
     fn test_runner_registration_and_execution() {
         let mut runner = TestRunner::new("test_suite");
         
-        assert!(runner.register_test("pass_test", sample_passing_test).is_ok());
-        assert!(runner.register_test("fail_test", sample_failing_test).is_ok());
-        assert!(runner.register_test("skip_test", sample_skipped_test).is_ok());
+        assert_no_std!(runner.register_test("pass_test", sample_passing_test).is_ok());
+        assert_no_std!(runner.register_test("fail_test", sample_failing_test).is_ok());
+        assert_no_std!(runner.register_test("skip_test", sample_skipped_test).is_ok());
         
-        assert_eq!(runner.test_count(), 3);
+        assert_eq_no_std!(runner.test_count(), 3);
         
         let results = runner.run_all();
-        assert_eq!(results.stats.total_tests, 3);
-        assert_eq!(results.stats.passed, 1);
-        assert_eq!(results.stats.failed, 1);
-        assert_eq!(results.stats.skipped, 1);
+        assert_eq_no_std!(results.stats.total_tests, 3);
+        assert_eq_no_std!(results.stats.passed, 1);
+        assert_eq_no_std!(results.stats.failed, 1);
+        assert_eq_no_std!(results.stats.skipped, 1);
     }
 
     #[test]
@@ -441,13 +441,13 @@ mod tests {
         stats.update(&TestResult::fail("error"));
         stats.update(&TestResult::skip("reason"));
         
-        assert_eq!(stats.total_tests, 3);
-        assert_eq!(stats.passed, 1);
-        assert_eq!(stats.failed, 1);
-        assert_eq!(stats.skipped, 1);
-        assert!(!stats.all_passed());
-        assert!(stats.has_failures());
-        assert_eq!(stats.success_rate(), 33); // 1/3 * 100 = 33%
+        assert_eq_no_std!(stats.total_tests, 3);
+        assert_eq_no_std!(stats.passed, 1);
+        assert_eq_no_std!(stats.failed, 1);
+        assert_eq_no_std!(stats.skipped, 1);
+        assert_no_std!(!stats.all_passed());
+        assert_no_std!(stats.has_failures());
+        assert_eq_no_std!(stats.success_rate(), 33); // 1/3 * 100 = 33%
     }
 
     #[test]
@@ -458,11 +458,11 @@ mod tests {
         ];
         
         let runner = create_test_suite("utility_suite", &tests);
-        assert_eq!(runner.test_count(), 2);
+        assert_eq_no_std!(runner.test_count(), 2);
         
         let results = runner.run_all();
-        assert_eq!(results.stats.total_tests, 2);
-        assert_eq!(results.stats.passed, 1);
-        assert_eq!(results.stats.failed, 1);
+        assert_eq_no_std!(results.stats.total_tests, 2);
+        assert_eq_no_std!(results.stats.passed, 1);
+        assert_eq_no_std!(results.stats.failed, 1);
     }
 }

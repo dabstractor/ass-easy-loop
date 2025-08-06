@@ -507,7 +507,7 @@ test_case!(test_error_handling_invalid_commands, {
         if let Some(result) = result {
             // If test completed due to resource limits, it should be marked as failed
             if result.status == TestStatus::Failed {
-                assert!(result.error_details.is_some());
+                assert_no_std!(result.error_details.is_some());
             }
         }
     }
@@ -566,21 +566,21 @@ test_case!(test_measurement_collection, {
         let params = TestCommandProcessor::create_pemf_timing_parameters(5000, 1.0).unwrap();
         
         // Verify parameters are configured correctly for pEMF testing
-        assert_eq!(params.duration_ms, 5000);
-        assert_eq!(params.tolerance_percent, 1.0);
-        assert_eq!(params.sample_rate_hz, 2); // 2Hz for pEMF
-        assert_eq!(params.validation_criteria.min_success_rate_percent, 95);
-        assert!(params.resource_limits.max_cpu_usage_percent <= 10); // Non-intrusive
+        assert_eq_no_std!(params.duration_ms, 5000);
+        assert_eq_no_std!(params.tolerance_percent, 1.0);
+        assert_eq_no_std!(params.sample_rate_hz, 2); // 2Hz for pEMF
+        assert_eq_no_std!(params.validation_criteria.min_success_rate_percent, 95);
+        assert_no_std!(params.resource_limits.max_cpu_usage_percent <= 10); // Non-intrusive
         
         // Start pEMF timing test
         let test_id = processor.execute_pemf_timing_test(params, timestamp).unwrap();
-        assert_eq!(test_id, 1);
+        assert_eq_no_std!(test_id, 1);
         
         // Verify test is active
         let (test_type, status, id) = processor.get_active_test_info().unwrap();
-        assert_eq!(test_type, TestType::PemfTimingValidation);
-        assert_eq!(status, TestStatus::Running);
-        assert_eq!(id, test_id);
+        assert_eq_no_std!(test_type, TestType::PemfTimingValidation);
+        assert_eq_no_std!(status, TestStatus::Running);
+        assert_eq_no_std!(id, test_id);
         
         // Add some timing measurements
         let perfect_measurement = TimingMeasurement {
@@ -611,15 +611,15 @@ test_case!(test_measurement_collection, {
         
         // Get timing statistics
         let stats = processor.get_pemf_timing_statistics().unwrap();
-        assert_eq!(stats.total_measurements, 3);
-        assert_eq!(stats.within_tolerance_count, 2); // 2 measurements within 1% tolerance
-        assert_eq!(stats.error_count, 1); // 1 measurement outside tolerance
-        assert!((stats.success_rate_percent() - 66.67).abs() < 0.1); // ~66.67% success rate
-        assert!(stats.max_jitter_us >= 10_000); // Should capture the 10ms deviation
+        assert_eq_no_std!(stats.total_measurements, 3);
+        assert_eq_no_std!(stats.within_tolerance_count, 2); // 2 measurements within 1% tolerance
+        assert_eq_no_std!(stats.error_count, 1); // 1 measurement outside tolerance
+        assert_no_std!((stats.success_rate_percent() - 66.67).abs() < 0.1); // ~66.67% success rate
+        assert_no_std!(stats.max_jitter_us >= 10_000); // Should capture the 10ms deviation
         
         // Test validation criteria checking
-        assert!(!stats.meets_validation_criteria(95.0, 0)); // Should not meet 95% success rate
-        assert!(stats.meets_validation_criteria(60.0, 5)); // Should meet 60% success rate with 5 error limit
+        assert_no_std!(!stats.meets_validation_criteria(95.0, 0)); // Should not meet 95% success rate
+        assert_no_std!(stats.meets_validation_criteria(60.0, 5)); // Should meet 60% success rate with 5 error limit
     }
 
     /// Test pEMF timing parameters creation and validation
@@ -628,38 +628,38 @@ test_case!(test_measurement_collection, {
     fn test_pemf_timing_parameters() {
         // Test default parameters
         let default_params = PemfTimingParameters::default();
-        assert_eq!(default_params.expected_frequency_mhz, 2000); // 2Hz = 2000 mHz
-        assert_eq!(default_params.expected_high_duration_us, 2000); // 2ms
-        assert_eq!(default_params.expected_low_duration_us, 498000); // 498ms
-        assert_eq!(default_params.expected_total_period_us, 500000); // 500ms total
-        assert!(default_params.validate().is_ok());
+        assert_eq_no_std!(default_params.expected_frequency_mhz, 2000); // 2Hz = 2000 mHz
+        assert_eq_no_std!(default_params.expected_high_duration_us, 2000); // 2ms
+        assert_eq_no_std!(default_params.expected_low_duration_us, 498000); // 498ms
+        assert_eq_no_std!(default_params.expected_total_period_us, 500000); // 500ms total
+        assert_no_std!(default_params.validate().is_ok());
         
         // Test parameters from frequency
         let freq_params = PemfTimingParameters::from_frequency_hz(1.0); // 1Hz
-        assert_eq!(freq_params.expected_frequency_mhz, 1000); // 1Hz = 1000 mHz
-        assert_eq!(freq_params.expected_high_duration_us, 2000); // Fixed 2ms HIGH
-        assert_eq!(freq_params.expected_low_duration_us, 998000); // 998ms LOW for 1Hz
-        assert_eq!(freq_params.expected_total_period_us, 1000000); // 1000ms total
-        assert!(freq_params.validate().is_ok());
+        assert_eq_no_std!(freq_params.expected_frequency_mhz, 1000); // 1Hz = 1000 mHz
+        assert_eq_no_std!(freq_params.expected_high_duration_us, 2000); // Fixed 2ms HIGH
+        assert_eq_no_std!(freq_params.expected_low_duration_us, 998000); // 998ms LOW for 1Hz
+        assert_eq_no_std!(freq_params.expected_total_period_us, 1000000); // 1000ms total
+        assert_no_std!(freq_params.validate().is_ok());
         
         // Test parameter serialization
         let serialized = default_params.serialize();
-        assert_eq!(serialized.len(), 10); // 2 + 4 + 4 bytes
+        assert_eq_no_std!(serialized.len(), 10); // 2 + 4 + 4 bytes
         
         // Test parameter parsing
         let parsed = TestCommandProcessor::parse_pemf_timing_parameters(&serialized).unwrap();
-        assert_eq!(parsed.expected_frequency_mhz, default_params.expected_frequency_mhz);
-        assert_eq!(parsed.expected_high_duration_us, default_params.expected_high_duration_us);
-        assert_eq!(parsed.expected_low_duration_us, default_params.expected_low_duration_us);
-        assert_eq!(parsed.expected_total_period_us, default_params.expected_total_period_us);
+        assert_eq_no_std!(parsed.expected_frequency_mhz, default_params.expected_frequency_mhz);
+        assert_eq_no_std!(parsed.expected_high_duration_us, default_params.expected_high_duration_us);
+        assert_eq_no_std!(parsed.expected_low_duration_us, default_params.expected_low_duration_us);
+        assert_eq_no_std!(parsed.expected_total_period_us, default_params.expected_total_period_us);
         
         // Test invalid parameters
         let mut invalid_params = default_params;
         invalid_params.expected_frequency_mhz = 50; // 0.05Hz - too low
-        assert!(invalid_params.validate().is_err());
+        assert_no_std!(invalid_params.validate().is_err());
         
         invalid_params.expected_frequency_mhz = 15000; // 15Hz - too high
-        assert!(invalid_params.validate().is_err());
+        assert_no_std!(invalid_params.validate().is_err());
     }
 
     /// Test pEMF timing statistics calculation and serialization
@@ -677,27 +677,27 @@ test_case!(test_measurement_collection, {
         };
         
         // Test success rate calculation
-        assert!((stats.success_rate_percent() - 97.0).abs() < 0.1);
+        assert_no_std!((stats.success_rate_percent() - 97.0).abs() < 0.1);
         
         // Test validation criteria
-        assert!(stats.meets_validation_criteria(95.0, 5)); // Should meet criteria
-        assert!(!stats.meets_validation_criteria(98.0, 2)); // Should not meet stricter criteria
+        assert_no_std!(stats.meets_validation_criteria(95.0, 5)); // Should meet criteria
+        assert_no_std!(!stats.meets_validation_criteria(98.0, 2)); // Should not meet stricter criteria
         
         // Test serialization
         let serialized = stats.serialize();
-        assert_eq!(serialized.len(), 28); // 7 fields * 4 bytes each
+        assert_eq_no_std!(serialized.len(), 28); // 7 fields * 4 bytes each
         
         // Verify first field (total_measurements) is serialized correctly
         let serialized_total = u32::from_le_bytes([
             serialized[0], serialized[1], serialized[2], serialized[3]
         ]);
-        assert_eq!(serialized_total, stats.total_measurements);
+        assert_eq_no_std!(serialized_total, stats.total_measurements);
         
         // Verify timing accuracy is serialized correctly
         let serialized_accuracy = f32::from_le_bytes([
             serialized[4], serialized[5], serialized[6], serialized[7]
         ]);
-        assert_eq!(serialized_accuracy, stats.timing_accuracy_percent);
+        assert_eq_no_std!(serialized_accuracy, stats.timing_accuracy_percent);
     }
 
     /// Test that pEMF timing test prevents multiple concurrent tests
@@ -712,18 +712,18 @@ test_case!(test_measurement_collection, {
         
         // Start first test
         let test_id1 = processor.execute_pemf_timing_test(params.clone(), timestamp).unwrap();
-        assert_eq!(test_id1, 1);
+        assert_eq_no_std!(test_id1, 1);
         
         // Try to start second test - should fail
         let result = processor.execute_pemf_timing_test(params, timestamp + 100);
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), TestExecutionError::TestAborted);
+        assert_no_std!(result.is_err());
+        assert_eq_no_std!(result.unwrap_err(), TestExecutionError::TestAborted);
         
         // Verify first test is still active
         let (test_type, status, id) = processor.get_active_test_info().unwrap();
-        assert_eq!(test_type, TestType::PemfTimingValidation);
-        assert_eq!(status, TestStatus::Running);
-        assert_eq!(id, test_id1);
+        assert_eq_no_std!(test_type, TestType::PemfTimingValidation);
+        assert_eq_no_std!(status, TestStatus::Running);
+        assert_eq_no_std!(id, test_id1);
     }
 
     /// Test pEMF timing measurement rejection when no test is active
@@ -741,11 +741,11 @@ test_case!(test_measurement_collection, {
         
         // Should reject measurement when no test is active
         let result = processor.update_pemf_timing_measurements(measurement);
-        assert!(result.is_ok()); // Function doesn't error, just ignores when no test active
+        assert_no_std!(result.is_ok()); // Function doesn't error, just ignores when no test active
         
         // Should return None for statistics when no test is active
         let stats = processor.get_pemf_timing_statistics();
-        assert!(stats.is_none());
+        assert_no_std!(stats.is_none());
     }
 
     /// Test enhanced timing deviation detection functionality
@@ -785,16 +785,16 @@ test_case!(test_measurement_collection, {
         let deviations = processor.detect_detailed_timing_deviations(0.5); // 0.5% tolerance
         
         // Should detect the 5ms and 3ms deviations (both > 0.5% of 500ms = 2.5ms)
-        assert!(deviations.len() >= 2, "Should detect at least 2 timing deviations");
+        assert_no_std!(deviations.len() >= 2, "Should detect at least 2 timing deviations");
         
         // Check specific deviations
         let slow_deviation = deviations.iter()
             .find(|d| d.deviation_type == TimingDeviationType::TooSlow && d.deviation_us == 5000);
-        assert!(slow_deviation.is_some(), "Should detect 5ms slow deviation");
+        assert_no_std!(slow_deviation.is_some(), "Should detect 5ms slow deviation");
         
         let fast_deviation = deviations.iter()
             .find(|d| d.deviation_type == TimingDeviationType::TooFast && d.deviation_us == 3000);
-        assert!(fast_deviation.is_some(), "Should detect 3ms fast deviation");
+        assert_no_std!(fast_deviation.is_some(), "Should detect 3ms fast deviation");
     }
 
     /// Test comprehensive timing report generation
@@ -839,14 +839,14 @@ test_case!(test_measurement_collection, {
             .expect("Failed to generate comprehensive timing report");
         
         // Verify report contents
-        assert_eq!(report.total_measurements, 7);
-        assert_eq!(report.within_tolerance_count, 5); // First 5 measurements within 1%
-        assert!(report.success_rate_percent > 70); // Should be around 71% (5/7)
-        assert!(report.timing_accuracy_percent > 0.0);
-        assert!(report.max_deviation_us >= 8000); // Should capture the 8ms deviation
-        assert!(report.deviation_count >= 2); // Should detect 2 deviations outside tolerance
-        assert_eq!(report.tolerance_percent, 1.0);
-        assert!(report.timing_stability_score > 0);
+        assert_eq_no_std!(report.total_measurements, 7);
+        assert_eq_no_std!(report.within_tolerance_count, 5); // First 5 measurements within 1%
+        assert_no_std!(report.success_rate_percent > 70); // Should be around 71% (5/7)
+        assert_no_std!(report.timing_accuracy_percent > 0.0);
+        assert_no_std!(report.max_deviation_us >= 8000); // Should capture the 8ms deviation
+        assert_no_std!(report.deviation_count >= 2); // Should detect 2 deviations outside tolerance
+        assert_eq_no_std!(report.tolerance_percent, 1.0);
+        assert_no_std!(report.timing_stability_score > 0);
     }
 
 /// Test test result retrieval by ID

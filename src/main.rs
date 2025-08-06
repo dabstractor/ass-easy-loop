@@ -279,11 +279,11 @@ mod app {
     const USB_POLL_PRIORITY: u8 = 1;  // Lowest priority - non-critical
     
     // Compile-time assertions to verify priority hierarchy
-    const _: () = assert!(PEMF_PULSE_PRIORITY > BATTERY_MONITOR_PRIORITY, "pEMF pulse must have higher priority than battery monitoring");
-    const _: () = assert!(PEMF_PULSE_PRIORITY > LED_CONTROL_PRIORITY, "pEMF pulse must have higher priority than LED control");
-    const _: () = assert!(BATTERY_MONITOR_PRIORITY > LED_CONTROL_PRIORITY, "Battery monitoring must have higher priority than LED control");
-    const _: () = assert!(PEMF_PULSE_PRIORITY > USB_HID_PRIORITY, "pEMF pulse must have higher priority than USB HID");
-    const _: () = assert!(PEMF_PULSE_PRIORITY > USB_POLL_PRIORITY, "pEMF pulse must have higher priority than USB polling");
+    const _: () = assert_no_std!(PEMF_PULSE_PRIORITY > BATTERY_MONITOR_PRIORITY, "pEMF pulse must have higher priority than battery monitoring");
+    const _: () = assert_no_std!(PEMF_PULSE_PRIORITY > LED_CONTROL_PRIORITY, "pEMF pulse must have higher priority than LED control");
+    const _: () = assert_no_std!(BATTERY_MONITOR_PRIORITY > LED_CONTROL_PRIORITY, "Battery monitoring must have higher priority than LED control");
+    const _: () = assert_no_std!(PEMF_PULSE_PRIORITY > USB_HID_PRIORITY, "pEMF pulse must have higher priority than USB HID");
+    const _: () = assert_no_std!(PEMF_PULSE_PRIORITY > USB_POLL_PRIORITY, "pEMF pulse must have higher priority than USB polling");
 
     #[shared]
     struct Shared {

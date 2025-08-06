@@ -40,11 +40,11 @@ fn test_battery_state_change_logging() {
         };
         
         let calculated_state = BatteryState::from_adc_reading(adc_value);
-        assert_eq!(calculated_state, to_state);
+        assert_eq_no_std!(calculated_state, to_state);
         
         // Verify voltage calculation
         let voltage_mv = BatteryMonitor::adc_to_battery_voltage(adc_value);
-        assert!(voltage_mv > 0);
+        assert_no_std!(voltage_mv > 0);
         
         // The actual logging integration is tested in the main application
         // Here we verify the supporting functions work correctly
@@ -77,7 +77,7 @@ fn test_battery_voltage_calculation_accuracy() {
             expected_voltage_mv - calculated_voltage
         };
         
-        assert!(voltage_diff <= tolerance, 
+        assert_no_std!(voltage_diff <= tolerance, 
                "ADC {} should give ~{}mV, got {}mV (diff: {}mV)", 
                adc_value, expected_voltage_mv, calculated_voltage, voltage_diff);
     }
@@ -88,18 +88,18 @@ fn test_battery_threshold_detection() {
     // Test that battery threshold crossings are correctly detected
     
     // Test Low battery threshold (ADC ≤ 1425)
-    assert_eq!(BatteryState::from_adc_reading(1425), BatteryState::Low);
-    assert_eq!(BatteryState::from_adc_reading(1424), BatteryState::Low);
-    assert_eq!(BatteryState::from_adc_reading(1426), BatteryState::Normal);
+    assert_eq_no_std!(BatteryState::from_adc_reading(1425), BatteryState::Low);
+    assert_eq_no_std!(BatteryState::from_adc_reading(1424), BatteryState::Low);
+    assert_eq_no_std!(BatteryState::from_adc_reading(1426), BatteryState::Normal);
     
     // Test Charging threshold (ADC ≥ 1675)
-    assert_eq!(BatteryState::from_adc_reading(1674), BatteryState::Normal);
-    assert_eq!(BatteryState::from_adc_reading(1675), BatteryState::Charging);
-    assert_eq!(BatteryState::from_adc_reading(1676), BatteryState::Charging);
+    assert_eq_no_std!(BatteryState::from_adc_reading(1674), BatteryState::Normal);
+    assert_eq_no_std!(BatteryState::from_adc_reading(1675), BatteryState::Charging);
+    assert_eq_no_std!(BatteryState::from_adc_reading(1676), BatteryState::Charging);
     
     // Test Normal range (1425 < ADC < 1675)
-    assert_eq!(BatteryState::from_adc_reading(1500), BatteryState::Normal);
-    assert_eq!(BatteryState::from_adc_reading(1600), BatteryState::Normal);
+    assert_eq_no_std!(BatteryState::from_adc_reading(1500), BatteryState::Normal);
+    assert_eq_no_std!(BatteryState::from_adc_reading(1600), BatteryState::Normal);
 }
 
 #[test]
@@ -109,13 +109,13 @@ fn test_periodic_logging_interval_configuration() {
     let interval = config::logging::BATTERY_PERIODIC_LOG_INTERVAL_SAMPLES;
     
     // Should be a reasonable value (not too frequent, not too infrequent)
-    assert!(interval >= 10, "Periodic logging interval too frequent: {}", interval);
-    assert!(interval <= 600, "Periodic logging interval too infrequent: {}", interval);
+    assert_no_std!(interval >= 10, "Periodic logging interval too frequent: {}", interval);
+    assert_no_std!(interval <= 600, "Periodic logging interval too infrequent: {}", interval);
     
     // At 10Hz sampling rate, calculate the actual time interval
     let time_interval_seconds = interval as f32 / 10.0;
-    assert!(time_interval_seconds >= 1.0, "Periodic logging less than 1 second");
-    assert!(time_interval_seconds <= 60.0, "Periodic logging more than 1 minute");
+    assert_no_std!(time_interval_seconds >= 1.0, "Periodic logging less than 1 second");
+    assert_no_std!(time_interval_seconds <= 60.0, "Periodic logging more than 1 minute");
     
     println!("Periodic logging interval: {} samples = {:.1} seconds", 
              interval, time_interval_seconds);
@@ -135,7 +135,7 @@ fn test_logging_message_format_for_battery_data() {
         let voltage_mv = BatteryMonitor::adc_to_battery_voltage(adc_value);
         let actual_state = BatteryState::from_adc_reading(adc_value);
         
-        assert_eq!(actual_state, expected_state);
+        assert_eq_no_std!(actual_state, expected_state);
         
         // Create a log message similar to what would be generated
         let message = std::format!(
@@ -144,9 +144,9 @@ fn test_logging_message_format_for_battery_data() {
         );
         
         // Verify the message contains expected information
-        assert!(message.contains(&std::format!("{:?}", actual_state)));
-        assert!(message.contains(&adc_value.to_string()));
-        assert!(message.contains(&voltage_mv.to_string()));
+        assert_no_std!(message.contains(&std::format!("{:?}", actual_state)));
+        assert_no_std!(message.contains(&adc_value.to_string()));
+        assert_no_std!(message.contains(&voltage_mv.to_string()));
         
         println!("{}: {}", description, message);
     }
@@ -174,15 +174,15 @@ fn test_adc_error_handling_for_logging() {
             
             // Verify that we can format appropriate error messages
             let error_message = "ADC read failed - GPIO26 battery monitoring error";
-            assert!(error_message.contains("ADC read failed"));
-            assert!(error_message.contains("GPIO26"));
+            assert_no_std!(error_message.contains("ADC read failed"));
+            assert_no_std!(error_message.contains("GPIO26"));
             
             let diagnostic_message = std::format!(
                 "ADC diagnostic info - Last good reading: {} (state: {:?})",
                 1500, BatteryState::Normal
             );
-            assert!(diagnostic_message.contains("diagnostic info"));
-            assert!(diagnostic_message.contains("Last good reading"));
+            assert_no_std!(diagnostic_message.contains("diagnostic info"));
+            assert_no_std!(diagnostic_message.contains("Last good reading"));
         }
     }
 }
@@ -192,22 +192,22 @@ fn test_battery_logging_configuration_validation() {
     // Test that battery logging configuration is valid
     
     // Verify battery logging is enabled
-    assert!(config::logging::ENABLE_BATTERY_LOGS, 
+    assert_no_std!(config::logging::ENABLE_BATTERY_LOGS, 
            "Battery logging should be enabled");
     
     // Verify periodic logging interval is configured
     let interval = config::logging::BATTERY_PERIODIC_LOG_INTERVAL_SAMPLES;
-    assert!(interval > 0, "Periodic logging interval must be positive");
+    assert_no_std!(interval > 0, "Periodic logging interval must be positive");
     
     // Verify timing configuration is consistent
     let battery_interval_ms = config::timing::BATTERY_MONITOR_INTERVAL_MS;
-    assert_eq!(battery_interval_ms, 100, "Battery monitoring should run at 100ms intervals");
+    assert_eq_no_std!(battery_interval_ms, 100, "Battery monitoring should run at 100ms intervals");
     
     let sampling_hz = config::timing::BATTERY_SAMPLING_HZ;
-    assert_eq!(sampling_hz, 10.0, "Battery sampling should be 10Hz");
+    assert_eq_no_std!(sampling_hz, 10.0, "Battery sampling should be 10Hz");
     
     // Verify the relationship between sampling rate and interval
     let calculated_interval = (1000.0 / sampling_hz) as u64;
-    assert_eq!(calculated_interval, battery_interval_ms, 
+    assert_eq_no_std!(calculated_interval, battery_interval_ms, 
               "Sampling interval should match calculated value from frequency");
 }

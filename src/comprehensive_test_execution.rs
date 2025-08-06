@@ -943,12 +943,12 @@ mod tests {
         
         results.add_suite_result(&suite_result);
         
-        assert_eq!(results.total_suites, 1);
-        assert_eq!(results.total_tests, 5);
-        assert_eq!(results.tests_passed, 3);
-        assert_eq!(results.tests_failed, 1);
-        assert_eq!(results.tests_skipped, 1);
-        assert_eq!(results.success_rate, 60); // 3/5 * 100 = 60%
+        assert_eq_no_std!(results.total_suites, 1);
+        assert_eq_no_std!(results.total_tests, 5);
+        assert_eq_no_std!(results.tests_passed, 3);
+        assert_eq_no_std!(results.tests_failed, 1);
+        assert_eq_no_std!(results.tests_skipped, 1);
+        assert_eq_no_std!(results.success_rate, 60); // 3/5 * 100 = 60%
     }
 
     #[test]
@@ -959,15 +959,15 @@ mod tests {
         monitor.add_cpu_usage_sample(50);
         monitor.add_cpu_usage_sample(75);
         
-        assert_eq!(monitor.peak_memory_usage, 1024);
-        assert_eq!(monitor.get_avg_cpu_usage(), 62); // (50 + 75) / 2 = 62.5 -> 62
-        assert_eq!(monitor.get_peak_cpu_usage(), 75);
+        assert_eq_no_std!(monitor.peak_memory_usage, 1024);
+        assert_eq_no_std!(monitor.get_avg_cpu_usage(), 62); // (50 + 75) / 2 = 62.5 -> 62
+        assert_eq_no_std!(monitor.get_peak_cpu_usage(), 75);
     }
 
     #[test]
     fn test_comprehensive_executor_creation() {
         let executor = ComprehensiveTestExecutor::new();
-        assert_eq!(executor.sessions.len(), 0);
-        assert_eq!(executor.session_id_counter, 0);
+        assert_eq_no_std!(executor.sessions.len(), 0);
+        assert_eq_no_std!(executor.session_id_counter, 0);
     }
 }

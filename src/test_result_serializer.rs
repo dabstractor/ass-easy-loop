@@ -474,8 +474,8 @@ mod tests {
         
         // Verify report structure
         let data = report.as_bytes();
-        assert_eq!(data[0], TestReportType::TestResult as u8);
-        assert_eq!(data[2], TestResultStatus::Pass as u8);
+        assert_eq_no_std!(data[0], TestReportType::TestResult as u8);
+        assert_eq_no_std!(data[2], TestResultStatus::Pass as u8);
     }
 
     #[test]
@@ -492,11 +492,11 @@ mod tests {
         
         // Verify report structure
         let data = report.as_bytes();
-        assert_eq!(data[0], TestReportType::SuiteSummary as u8);
+        assert_eq_no_std!(data[0], TestReportType::SuiteSummary as u8);
         
         // Check statistics
         let total = u16::from_le_bytes([data[4], data[5]]);
-        assert_eq!(total, 5);
+        assert_eq_no_std!(total, 5);
     }
 
     #[test]
@@ -506,9 +506,9 @@ mod tests {
         let test_result = TestExecutionResult::new("test1", TestResult::pass());
         collector.add_test_result(test_result).unwrap();
         
-        assert!(collector.has_pending_results());
+        assert_no_std!(collector.has_pending_results());
         
         let batch = collector.get_next_batch().unwrap();
-        assert!(!batch.is_empty());
+        assert_no_std!(!batch.is_empty());
     }
 }

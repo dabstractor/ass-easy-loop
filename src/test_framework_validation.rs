@@ -111,6 +111,6 @@ mod tests {
     fn test_framework_validation() {
         // This test will only run in std environment (for development)
         // The actual no_std validation happens through the validate_test_framework function
-        assert!(validate_test_framework());
+        assert_no_std!(validate_test_framework());
     }
 }

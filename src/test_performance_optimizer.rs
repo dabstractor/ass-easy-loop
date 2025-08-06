@@ -524,8 +524,8 @@ mod tests {
     // Test converted to no_std - run via test framework
     fn test_performance_profile_creation() {
         let profile = TestExecutionProfile::new("test_sample");
-        assert_eq!(profile.test_id.as_str(), "test_sample");
-        assert_eq!(profile.sample_count, 0);
+        assert_eq_no_std!(profile.test_id.as_str(), "test_sample");
+        assert_eq_no_std!(profile.sample_count, 0);
     }
 
     // Test converted to no_std - run via test framework
@@ -533,22 +533,22 @@ mod tests {
         let mut profile = TestExecutionProfile::new("test_sample");
         profile.update_with_execution(1000, 512, 10);
         
-        assert_eq!(profile.avg_execution_time_us, 1000);
-        assert_eq!(profile.max_execution_time_us, 1000);
-        assert_eq!(profile.sample_count, 1);
+        assert_eq_no_std!(profile.avg_execution_time_us, 1000);
+        assert_eq_no_std!(profile.max_execution_time_us, 1000);
+        assert_eq_no_std!(profile.sample_count, 1);
     }
 
     // Test converted to no_std - run via test framework
     fn test_optimizer_creation() {
         let optimizer = TestPerformanceOptimizer::new();
-        assert_eq!(optimizer.test_profiles.len(), 0);
-        assert_eq!(optimizer.performance_samples.len(), 0);
+        assert_eq_no_std!(optimizer.test_profiles.len(), 0);
+        assert_eq_no_std!(optimizer.performance_samples.len(), 0);
     }
 
     // Test converted to no_std - run via test framework
     fn test_system_readiness_check() {
         let optimizer = TestPerformanceOptimizer::new();
         // Should be ready when no samples are available
-        assert!(optimizer.is_system_ready_for_tests());
+        assert_no_std!(optimizer.is_system_ready_for_tests());
     }
 }

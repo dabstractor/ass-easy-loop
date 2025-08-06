@@ -50,7 +50,7 @@ fn validate_battery_thresholds() {
             "Charging"
         };
         
-        assert_eq!(actual_state, expected_state, "{}", description);
+        assert_eq_no_std!(actual_state, expected_state, "{}", description);
         println!("  ✅ ADC {} -> {} state", adc_value, actual_state);
     }
 }
@@ -76,7 +76,7 @@ fn validate_voltage_calculations() {
             expected_voltage_mv - calculated_voltage
         };
         
-        assert!(voltage_diff <= tolerance, 
+        assert_no_std!(voltage_diff <= tolerance, 
                "{}: ADC {} should give ~{}mV, got {}mV (diff: {}mV)", 
                description, adc_value, expected_voltage_mv, calculated_voltage, voltage_diff);
         
@@ -92,18 +92,18 @@ fn validate_configuration() {
     let sampling_hz = 10.0; // From config::timing::BATTERY_SAMPLING_HZ
     
     // Validate periodic logging interval
-    assert!(periodic_log_interval >= 10, "Periodic logging interval too frequent");
-    assert!(periodic_log_interval <= 600, "Periodic logging interval too infrequent");
+    assert_no_std!(periodic_log_interval >= 10, "Periodic logging interval too frequent");
+    assert_no_std!(periodic_log_interval <= 600, "Periodic logging interval too infrequent");
     
     let time_interval_seconds = periodic_log_interval as f32 / sampling_hz;
-    assert!(time_interval_seconds >= 1.0, "Periodic logging less than 1 second");
-    assert!(time_interval_seconds <= 60.0, "Periodic logging more than 1 minute");
+    assert_no_std!(time_interval_seconds >= 1.0, "Periodic logging less than 1 second");
+    assert_no_std!(time_interval_seconds <= 60.0, "Periodic logging more than 1 minute");
     
     println!("  ✅ Periodic logging: {} samples = {:.1}s", periodic_log_interval, time_interval_seconds);
     
     // Validate sampling rate consistency
     let calculated_interval = (1000.0 / sampling_hz) as u64;
-    assert_eq!(calculated_interval, battery_monitor_interval_ms, 
+    assert_eq_no_std!(calculated_interval, battery_monitor_interval_ms, 
               "Sampling interval should match calculated value");
     
     println!("  ✅ Sampling rate: {}Hz = {}ms interval", sampling_hz, battery_monitor_interval_ms);

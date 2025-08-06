@@ -160,7 +160,7 @@ fn test_pemf_pulse_timing_accuracy() {
         
         // Verify timing accuracy calculation
         let high_accuracy = calculate_timing_accuracy(2.0, high_ms);
-        assert!(
+        assert_no_std!(
             (high_accuracy - expected_accuracy).abs() < 1.0,
             "HIGH phase accuracy mismatch: expected {:.1}%, got {:.1}%",
             expected_accuracy,
@@ -174,7 +174,7 @@ fn test_pemf_pulse_timing_accuracy() {
     let results = profiler.calculate_results();
     
     // Verify overall timing accuracy meets requirements
-    assert!(
+    assert_no_std!(
         results.timing_accuracy.pemf_high_accuracy_percent >= 99.0,
         "pEMF HIGH phase accuracy below requirement: {:.1}% < 99.0%",
         results.timing_accuracy.pemf_high_accuracy_percent
@@ -224,13 +224,13 @@ fn test_battery_monitoring_latency() {
     
     // Verify battery monitoring latency meets requirements
     let avg_latency_ms = results.task_execution_times.battery_monitor_time_us / 1000;
-    assert!(
+    assert_no_std!(
         avg_latency_ms <= 200,
         "Battery monitoring latency exceeds requirement: {}ms > 200ms",
         avg_latency_ms
     );
     
-    assert!(
+    assert_no_std!(
         results.timing_accuracy.battery_sampling_accuracy_percent >= 95.0,
         "Battery sampling accuracy below requirement: {:.1}% < 95.0%",
         results.timing_accuracy.battery_sampling_accuracy_percent
@@ -281,13 +281,13 @@ fn test_led_response_time() {
     
     // Verify LED response time meets requirements
     let avg_response_time_ms = results.task_execution_times.led_control_time_us / 1000;
-    assert!(
+    assert_no_std!(
         avg_response_time_ms <= 500,
         "LED response time exceeds requirement: {}ms > 500ms",
         avg_response_time_ms
     );
     
-    assert!(
+    assert_no_std!(
         results.timing_accuracy.led_response_accuracy_percent >= 90.0,
         "LED response accuracy below requirement: {:.1}% < 90.0%",
         results.timing_accuracy.led_response_accuracy_percent
@@ -334,13 +334,13 @@ fn test_system_jitter_measurement() {
     let results = profiler.calculate_results();
     
     // Verify jitter is within acceptable limits
-    assert!(
+    assert_no_std!(
         results.jitter_measurements.pemf_pulse_jitter_us <= 1000,
         "pEMF pulse jitter too high: {}μs > 1000μs",
         results.jitter_measurements.pemf_pulse_jitter_us
     );
     
-    assert!(
+    assert_no_std!(
         results.jitter_measurements.max_system_jitter_us <= 2000,
         "System jitter too high: {}μs > 2000μs",
         results.jitter_measurements.max_system_jitter_us
@@ -390,7 +390,7 @@ fn test_cpu_utilization_calculation() {
     let results = profiler.calculate_results();
     
     // Verify CPU utilization is reasonable
-    assert!(
+    assert_no_std!(
         results.cpu_utilization_percent <= 50,
         "CPU utilization too high: {}% > 50%",
         results.cpu_utilization_percent
@@ -487,7 +487,7 @@ fn test_performance_scoring() {
     let results = profiler.calculate_results();
     
     // Verify performance scoring is reasonable
-    assert!(
+    assert_no_std!(
         results.overall_performance_score >= 60,
         "Overall performance score too low: {} < 60",
         results.overall_performance_score
@@ -554,43 +554,43 @@ fn test_comprehensive_performance_validation() {
     println!("- Overall performance score: {}", results.overall_performance_score);
     
     // Requirements validation
-    assert!(
+    assert_no_std!(
         results.timing_accuracy.pemf_high_accuracy_percent >= 99.0,
         "pEMF HIGH timing accuracy requirement not met: {:.1}% < 99.0%",
         results.timing_accuracy.pemf_high_accuracy_percent
     );
     
-    assert!(
+    assert_no_std!(
         results.timing_accuracy.pemf_low_accuracy_percent >= 99.0,
         "pEMF LOW timing accuracy requirement not met: {:.1}% < 99.0%",
         results.timing_accuracy.pemf_low_accuracy_percent
     );
     
-    assert!(
+    assert_no_std!(
         results.timing_accuracy.battery_sampling_accuracy_percent >= 95.0,
         "Battery sampling accuracy requirement not met: {:.1}% < 95.0%",
         results.timing_accuracy.battery_sampling_accuracy_percent
     );
     
-    assert!(
+    assert_no_std!(
         results.timing_accuracy.led_response_accuracy_percent >= 90.0,
         "LED response accuracy requirement not met: {:.1}% < 90.0%",
         results.timing_accuracy.led_response_accuracy_percent
     );
     
-    assert!(
+    assert_no_std!(
         results.cpu_utilization_percent <= 50,
         "CPU utilization too high: {}% > 50%",
         results.cpu_utilization_percent
     );
     
-    assert!(
+    assert_no_std!(
         results.memory_utilization_percent <= 30,
         "Memory utilization too high: {}% > 30%",
         results.memory_utilization_percent
     );
     
-    assert!(
+    assert_no_std!(
         results.jitter_measurements.max_system_jitter_us <= 2000,
         "System jitter too high: {}μs > 2000μs",
         results.jitter_measurements.max_system_jitter_us
@@ -623,16 +623,16 @@ fn calculate_cpu_utilization(execution_time_us: u32, period_us: u32) -> u8 {
 #[test]
 fn test_timing_accuracy_calculation() {
     // Test perfect timing
-    assert_eq!(calculate_timing_accuracy(100.0, 100.0), 100.0);
+    assert_eq_no_std!(calculate_timing_accuracy(100.0, 100.0), 100.0);
     
     // Test 1% deviation
-    assert!((calculate_timing_accuracy(100.0, 101.0) - 99.0).abs() < 0.1);
+    assert_no_std!((calculate_timing_accuracy(100.0, 101.0) - 99.0).abs() < 0.1);
     
     // Test 5% deviation
-    assert!((calculate_timing_accuracy(100.0, 105.0) - 95.0).abs() < 0.1);
+    assert_no_std!((calculate_timing_accuracy(100.0, 105.0) - 95.0).abs() < 0.1);
     
     // Test large deviation
-    assert!((calculate_timing_accuracy(100.0, 150.0) - 50.0).abs() < 0.1);
+    assert_no_std!((calculate_timing_accuracy(100.0, 150.0) - 50.0).abs() < 0.1);
     
     println!("✓ Timing accuracy calculation test passed");
 }
@@ -640,19 +640,19 @@ fn test_timing_accuracy_calculation() {
 #[test]
 fn test_cpu_utilization_calculation_helper() {
     // Test low utilization
-    assert_eq!(calculate_cpu_utilization(1000, 100000), 1); // 1%
+    assert_eq_no_std!(calculate_cpu_utilization(1000, 100000), 1); // 1%
     
     // Test moderate utilization
-    assert_eq!(calculate_cpu_utilization(25000, 100000), 25); // 25%
+    assert_eq_no_std!(calculate_cpu_utilization(25000, 100000), 25); // 25%
     
     // Test high utilization
-    assert_eq!(calculate_cpu_utilization(75000, 100000), 75); // 75%
+    assert_eq_no_std!(calculate_cpu_utilization(75000, 100000), 75); // 75%
     
     // Test maximum utilization
-    assert_eq!(calculate_cpu_utilization(100000, 100000), 100); // 100%
+    assert_eq_no_std!(calculate_cpu_utilization(100000, 100000), 100); // 100%
     
     // Test over-utilization (should cap at 100%)
-    assert_eq!(calculate_cpu_utilization(150000, 100000), 100); // Capped at 100%
+    assert_eq_no_std!(calculate_cpu_utilization(150000, 100000), 100); // Capped at 100%
     
     println!("✓ CPU utilization calculation helper test passed");
 }

@@ -547,16 +547,16 @@ mod tests {
     // Test converted to no_std - run via test framework
     fn test_validation_result_creation() {
         let pass = ValidationResult::pass();
-        assert!(pass.is_success());
-        assert!(!pass.is_failure());
+        assert_no_std!(pass.is_success());
+        assert_no_std!(!pass.is_failure());
 
         let fail = ValidationResult::fail("test error");
-        assert!(!fail.is_success());
-        assert!(fail.is_failure());
+        assert_no_std!(!fail.is_success());
+        assert_no_std!(fail.is_failure());
 
         let skip = ValidationResult::skip("test skipped");
-        assert!(!skip.is_success());
-        assert!(!skip.is_failure());
+        assert_no_std!(!skip.is_success());
+        assert_no_std!(!skip.is_failure());
     }
 
     // Test converted to no_std - run via test framework
@@ -575,18 +575,18 @@ mod tests {
         
         report.add_suite_result(&suite_result);
         
-        assert_eq!(report.total_suites, 1);
-        assert_eq!(report.suites_failed, 1);
-        assert_eq!(report.tests_failed, 1);
-        assert!(!report.all_tests_passed());
-        assert!(report.overall_result.is_failure());
+        assert_eq_no_std!(report.total_suites, 1);
+        assert_eq_no_std!(report.suites_failed, 1);
+        assert_eq_no_std!(report.tests_failed, 1);
+        assert_no_std!(!report.all_tests_passed());
+        assert_no_std!(report.overall_result.is_failure());
     }
 
     // Test converted to no_std - run via test framework
     fn test_comprehensive_validator_creation() {
         let validator = ComprehensiveTestValidator::new();
         let stats = validator.get_registry_stats();
-        assert!(stats.total_registered > 0);
+        assert_no_std!(stats.total_registered > 0);
     }
 
     // Test converted to no_std - run via test framework
@@ -595,6 +595,6 @@ mod tests {
         // For now, we just verify it doesn't panic
         let result = quick_validation_check();
         // Result can be true or false depending on test implementations
-        assert!(result || !result); // Always true, just checking it runs
+        assert_no_std!(result || !result); // Always true, just checking it runs
     }
 }

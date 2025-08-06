@@ -116,7 +116,7 @@ For manual testing of panic functionality:
 
 2. **Test Scenarios**:
    - Panic with message: `panic!("Test message")`
-   - Panic without message: `assert!(false)`
+   - Panic without message: `assert_no_std!(false)`
    - Panic before logging init: Early initialization panic
    - Panic in critical section: Interrupt-disabled panic
    - Panic with full queue: Queue overflow conditions
@@ -159,7 +159,7 @@ panic!("Clock initialization failed");
 // [timestamp] [ERROR] [PANIC] PANIC at main.rs:456
 // [timestamp+1] [ERROR] [PANIC] Panic msg: assertion failed: false
 // [timestamp+2] [ERROR] [PANIC] System halted due to panic
-assert!(false, "Assertion failure test");
+assert_no_std!(false, "Assertion failure test");
 ```
 
 ### Example 3: Early Panic (Before Logging Init)

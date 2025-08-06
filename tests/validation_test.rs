@@ -107,6 +107,6 @@ mod tests {
     
     #[test]
     fn test_validation() {
-        assert!(run_validation());
+        assert_no_std!(run_validation());
     }
 }

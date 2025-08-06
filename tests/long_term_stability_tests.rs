@@ -403,7 +403,7 @@ fn test_continuous_operation() {
         
         // Check for lockups periodically
         if i % 100 == 0 {
-            assert!(!test_runner.check_for_lockups(), "System lockup detected at sample {}", i);
+            assert_no_std!(!test_runner.check_for_lockups(), "System lockup detected at sample {}", i);
         }
         
         thread::sleep(Duration::from_millis(1)); // Minimal delay for testing
@@ -412,12 +412,12 @@ fn test_continuous_operation() {
     let report = test_runner.generate_stability_report();
     
     // Validate continuous operation requirements
-    assert!(!report.lockup_detected, "System lockup detected during continuous operation");
-    assert!(report.final_metrics.system_resets == 0, "Unexpected system resets: {}", report.final_metrics.system_resets);
-    assert!(report.final_metrics.task_execution_count > 0, "No task execution detected");
+    assert_no_std!(!report.lockup_detected, "System lockup detected during continuous operation");
+    assert_no_std!(report.final_metrics.system_resets == 0, "Unexpected system resets: {}", report.final_metrics.system_resets);
+    assert_no_std!(report.final_metrics.task_execution_count > 0, "No task execution detected");
     
     let error_rate = (report.final_metrics.error_count as f32 / report.final_metrics.task_execution_count as f32) * 100.0;
-    assert!(error_rate <= 1.0, "Error rate too high: {:.2}% > 1.0%", error_rate);
+    assert_no_std!(error_rate <= 1.0, "Error rate too high: {:.2}% > 1.0%", error_rate);
     
     println!("✓ Continuous operation test passed");
     println!("  - Duration: {:.1} hours (simulated)", report.test_duration_hours);
@@ -472,7 +472,7 @@ fn test_timing_drift_detection() {
         
         // Validate drift detection
         if drift_ppm <= TIMING_DRIFT_THRESHOLD_PPM {
-            assert!(drift_acceptable, "Acceptable drift incorrectly flagged as excessive: {:.1} PPM", drift_ppm);
+            assert_no_std!(drift_acceptable, "Acceptable drift incorrectly flagged as excessive: {:.1} PPM", drift_ppm);
         } else {
             // Note: In real implementation, this would detect excessive drift
             // For testing, we just verify the measurement is reasonable
@@ -509,7 +509,7 @@ fn test_memory_leak_detection() {
         test_runner.record_sample(sample);
     }
     
-    assert!(!test_runner.detect_memory_leaks(), "False positive memory leak detection");
+    assert_no_std!(!test_runner.detect_memory_leaks(), "False positive memory leak detection");
     
     // Test case 2: Memory leak simulation
     println!("Testing memory leak simulation...");
@@ -531,7 +531,7 @@ fn test_memory_leak_detection() {
         test_runner.record_sample(sample);
     }
     
-    assert!(test_runner.detect_memory_leaks(), "Memory leak not detected");
+    assert_no_std!(test_runner.detect_memory_leaks(), "Memory leak not detected");
     
     println!("✓ Memory leak detection test passed");
 }
@@ -601,8 +601,8 @@ fn test_battery_condition_stability() {
         let report = test_runner.generate_stability_report();
         
         // Validate stability under battery condition
-        assert!(!report.lockup_detected, "System lockup under {} battery condition", description);
-        assert!(report.final_metrics.system_resets == 0, "System reset under {} battery condition", description);
+        assert_no_std!(!report.lockup_detected, "System lockup under {} battery condition", description);
+        assert_no_std!(report.final_metrics.system_resets == 0, "System reset under {} battery condition", description);
         
         let error_rate = if report.final_metrics.task_execution_count > 0 {
             (report.final_metrics.error_count as f32 / report.final_metrics.task_execution_count as f32) * 100.0
@@ -616,7 +616,7 @@ fn test_battery_condition_stability() {
             _ => 1.0, // 1% for normal conditions
         };
         
-        assert!(error_rate <= max_error_rate, 
+        assert_no_std!(error_rate <= max_error_rate, 
                "Error rate too high under {} battery condition: {:.2}% > {:.1}%", 
                description, error_rate, max_error_rate);
         
@@ -682,8 +682,8 @@ fn test_comprehensive_stability_validation() {
         }
         
         // Check system health every hour
-        assert!(!test_runner.check_for_lockups(), "System lockup detected at hour {}", hour);
-        assert!(!test_runner.detect_memory_leaks(), "Memory leak detected at hour {}", hour);
+        assert_no_std!(!test_runner.check_for_lockups(), "System lockup detected at hour {}", hour);
+        assert_no_std!(!test_runner.detect_memory_leaks(), "Memory leak detected at hour {}", hour);
         
         println!("  Hour {}: tasks={}, errors={}, memory={}B", 
                 hour + 1, task_count, error_count, memory_usage);
@@ -693,15 +693,15 @@ fn test_comprehensive_stability_validation() {
     report.print_report();
     
     // Comprehensive validation
-    assert!(report.requirements_met, "Long-term stability requirements not met");
-    assert!(report.stability_score >= 90, "Stability score too low: {}/100", report.stability_score);
-    assert!(!report.lockup_detected, "System lockup detected during long-term test");
-    assert!(!report.memory_leak_detected, "Memory leak detected during long-term test");
-    assert!(report.timing_drift_ppm.abs() <= TIMING_DRIFT_THRESHOLD_PPM, 
+    assert_no_std!(report.requirements_met, "Long-term stability requirements not met");
+    assert_no_std!(report.stability_score >= 90, "Stability score too low: {}/100", report.stability_score);
+    assert_no_std!(!report.lockup_detected, "System lockup detected during long-term test");
+    assert_no_std!(!report.memory_leak_detected, "Memory leak detected during long-term test");
+    assert_no_std!(report.timing_drift_ppm.abs() <= TIMING_DRIFT_THRESHOLD_PPM, 
            "Timing drift exceeds threshold: {:.1} PPM", report.timing_drift_ppm);
     
     let final_error_rate = (report.final_metrics.error_count as f32 / report.final_metrics.task_execution_count as f32) * 100.0;
-    assert!(final_error_rate <= 1.0, "Final error rate too high: {:.3}%", final_error_rate);
+    assert_no_std!(final_error_rate <= 1.0, "Final error rate too high: {:.3}%", final_error_rate);
     
     println!("✓ Comprehensive long-term stability validation passed");
     println!("  - Test duration: {:.1} hours", report.test_duration_hours);

@@ -53,7 +53,7 @@ error: cannot find attribute `test` in this scope
 // Before:
 #[test]
 fn my_test() {
-    assert_eq!(1 + 1, 2);
+    assert_eq_no_std!(1 + 1, 2);
 }
 
 // After:
@@ -114,7 +114,7 @@ let data = [1, 2, 3];
 error: cannot find macro `assert_eq` in this scope
  --> tests/my_test.rs:10:5
   |
-10 |     assert_eq!(result, expected);
+10 |     assert_eq_no_std!(result, expected);
    |     ^^^^^^^^^
 ```
 

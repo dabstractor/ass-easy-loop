@@ -89,12 +89,12 @@ mod tests {
         // Simulate USB polling task enqueueing commands
         for command in usb_commands.iter() {
             let success = command_queue.enqueue(command.clone());
-            assert!(success, "Command should be enqueued successfully");
+            assert_no_std!(success, "Command should be enqueued successfully");
         }
 
         // Verify all commands were enqueued
-        assert_eq!(command_queue.len(), 3);
-        assert_eq!(command_queue.dropped_count(), 0);
+        assert_eq_no_std!(command_queue.len(), 3);
+        assert_eq_no_std!(command_queue.dropped_count(), 0);
     }
 
     /// Test that simulates command handler task processing commands in FIFO order
@@ -121,15 +121,15 @@ mod tests {
         }
 
         // Verify FIFO order
-        assert_eq!(processed_commands.len(), 3);
-        assert_eq!(processed_commands[0].command_id, 1);
-        assert_eq!(processed_commands[1].command_id, 2);
-        assert_eq!(processed_commands[2].command_id, 3);
+        assert_eq_no_std!(processed_commands.len(), 3);
+        assert_eq_no_std!(processed_commands[0].command_id, 1);
+        assert_eq_no_std!(processed_commands[1].command_id, 2);
+        assert_eq_no_std!(processed_commands[2].command_id, 3);
 
         // Verify command types are preserved
-        assert_eq!(processed_commands[0].command_type, 0x80);
-        assert_eq!(processed_commands[1].command_type, 0x81);
-        assert_eq!(processed_commands[2].command_type, 0x82);
+        assert_eq_no_std!(processed_commands[0].command_type, 0x80);
+        assert_eq_no_std!(processed_commands[1].command_type, 0x81);
+        assert_eq_no_std!(processed_commands[2].command_type, 0x82);
     }
 
     /// Test task priority coordination simulation
@@ -155,16 +155,16 @@ mod tests {
 
         // Enqueue high-priority commands first
         for command in high_priority_commands.iter() {
-            assert!(command_queue.enqueue(command.clone()));
+            assert_no_std!(command_queue.enqueue(command.clone()));
         }
 
         // Enqueue medium-priority commands
         for command in medium_priority_commands.iter() {
-            assert!(command_queue.enqueue(command.clone()));
+            assert_no_std!(command_queue.enqueue(command.clone()));
         }
 
         // Verify all commands are queued (no interference)
-        assert_eq!(command_queue.len(), 4);
+        assert_eq_no_std!(command_queue.len(), 4);
 
         // Simulate command processing (medium priority task)
         let mut processed_order = Vec::new();
@@ -175,7 +175,7 @@ mod tests {
         // Verify processing order maintains FIFO regardless of priority
         // (The priority coordination happens at the RTIC scheduler level,
         // not in the queue itself)
-        assert_eq!(processed_order, vec![10, 11, 20, 21]);
+        assert_eq_no_std!(processed_order, vec![10, 11, 20, 21]);
     }
 
     /// Test command queue capacity limits and error handling
@@ -190,14 +190,14 @@ mod tests {
         let cmd3 = MockCommand { command_type: 0x82, command_id: 3, payload: vec![0x03], timestamp: 3002 };
 
         // First two commands should succeed
-        assert!(command_queue.enqueue(cmd1));
-        assert!(command_queue.enqueue(cmd2));
-        assert_eq!(command_queue.len(), 2);
+        assert_no_std!(command_queue.enqueue(cmd1));
+        assert_no_std!(command_queue.enqueue(cmd2));
+        assert_eq_no_std!(command_queue.len(), 2);
 
         // Third command should fail (queue full)
-        assert!(!command_queue.enqueue(cmd3));
-        assert_eq!(command_queue.len(), 2);
-        assert_eq!(command_queue.dropped_count(), 1);
+        assert_no_std!(!command_queue.enqueue(cmd3));
+        assert_eq_no_std!(command_queue.len(), 2);
+        assert_eq_no_std!(command_queue.dropped_count(), 1);
     }
 
     /// Test command timeout simulation
@@ -241,9 +241,9 @@ mod tests {
         }
 
         // Verify timeout handling
-        assert_eq!(timed_out_count, 1); // Old command timed out
-        assert_eq!(non_timed_out_commands.len(), 1); // Recent command preserved
-        assert_eq!(non_timed_out_commands[0].command_id, 2);
+        assert_eq_no_std!(timed_out_count, 1); // Old command timed out
+        assert_eq_no_std!(non_timed_out_commands.len(), 1); // Recent command preserved
+        assert_eq_no_std!(non_timed_out_commands[0].command_id, 2);
     }
 
     /// Test integration between USB polling and command processing tasks
@@ -265,7 +265,7 @@ mod tests {
             
             // USB polling task enqueues command
             let enqueue_success = command_queue.enqueue(command);
-            assert!(enqueue_success, "USB polling should successfully enqueue command");
+            assert_no_std!(enqueue_success, "USB polling should successfully enqueue command");
             
             // Command processing task processes available commands
             if let Some(cmd) = command_queue.dequeue() {
@@ -274,16 +274,16 @@ mod tests {
         }
 
         // Verify integration
-        assert_eq!(processed_commands.len(), 5);
+        assert_eq_no_std!(processed_commands.len(), 5);
         
         // Verify commands were processed in order
         for (i, cmd) in processed_commands.iter().enumerate() {
-            assert_eq!(cmd.command_id, i as u8);
-            assert_eq!(cmd.command_type, 0x81);
+            assert_eq_no_std!(cmd.command_id, i as u8);
+            assert_eq_no_std!(cmd.command_type, 0x81);
         }
         
         // Queue should be empty after processing
-        assert!(command_queue.is_empty());
+        assert_no_std!(command_queue.is_empty());
     }
 
     /// Test that command processing doesn't interfere with critical timing
@@ -304,7 +304,7 @@ mod tests {
                 timestamp: 5000 + i as u32,
             };
             
-            assert!(command_queue.enqueue(command));
+            assert_no_std!(command_queue.enqueue(command));
         }
         
         // Simulate command processing with timing measurement
@@ -323,14 +323,14 @@ mod tests {
         let total_time = start_time.elapsed();
         
         // Verify timing constraints
-        assert_eq!(processing_times.len(), command_burst_size);
+        assert_eq_no_std!(processing_times.len(), command_burst_size);
         
         // Each command processing should be fast (< 1ms for this test)
         for duration in processing_times.iter() {
-            assert!(duration.as_millis() < 1, "Command processing should be fast");
+            assert_no_std!(duration.as_millis() < 1, "Command processing should be fast");
         }
         
         // Total processing time should be reasonable
-        assert!(total_time.as_millis() < 50, "Total processing should be efficient");
+        assert_no_std!(total_time.as_millis() < 50, "Total processing should be efficient");
     }
 }

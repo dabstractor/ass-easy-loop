@@ -1012,7 +1012,7 @@ fn test_hardware_device_connection() {
         return;
     }
     
-    assert!(connected, "RP2040 device should be connected and accessible");
+    assert_no_std!(connected, "RP2040 device should be connected and accessible");
 }
 
 #[test]
@@ -1025,7 +1025,7 @@ fn test_hardware_usb_hid_communication() {
     }
     
     let success = test_suite.test_usb_hid_communication();
-    assert!(success, "USB HID communication should work with real hardware");
+    assert_no_std!(success, "USB HID communication should work with real hardware");
 }
 
 #[test]
@@ -1038,7 +1038,7 @@ fn test_hardware_pemf_timing() {
     }
     
     let success = test_suite.test_pemf_timing_accuracy();
-    assert!(success, "pEMF timing should be accurate with USB logging active");
+    assert_no_std!(success, "pEMF timing should be accurate with USB logging active");
 }
 
 #[test]
@@ -1051,7 +1051,7 @@ fn test_hardware_battery_monitoring() {
     }
     
     let success = test_suite.test_battery_monitoring_integration();
-    assert!(success, "Battery monitoring should work with actual ADC readings");
+    assert_no_std!(success, "Battery monitoring should work with actual ADC readings");
 }
 
 #[test]
@@ -1064,7 +1064,7 @@ fn test_hardware_system_integration() {
     }
     
     let success = test_suite.test_system_integration();
-    assert!(success, "Complete system should integrate properly");
+    assert_no_std!(success, "Complete system should integrate properly");
 }
 
 #[test]
@@ -1078,5 +1078,5 @@ fn test_hardware_full_validation_suite() {
     
     let all_passed = test_suite.run_all_tests();
     
-    assert!(all_passed, "All hardware validation tests should pass");
+    assert_no_std!(all_passed, "All hardware validation tests should pass");
 }

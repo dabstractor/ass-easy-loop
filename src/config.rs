@@ -676,34 +676,34 @@ mod tests {
 
     #[test]
     fn test_usb_config_validation() {
-        assert!(ConfigValidator::validate_usb_config());
+        assert_no_std!(ConfigValidator::validate_usb_config());
         assert_ne!(usb::VENDOR_ID, 0);
         assert_ne!(usb::PRODUCT_ID, 0);
-        assert!(usb::HID_REPORT_SIZE >= 8);
-        assert!(usb::HID_REPORT_SIZE <= 256);
+        assert_no_std!(usb::HID_REPORT_SIZE >= 8);
+        assert_no_std!(usb::HID_REPORT_SIZE <= 256);
     }
 
     #[test]
     fn test_logging_config_validation() {
-        assert!(ConfigValidator::validate_logging_config());
-        assert!(logging::DEFAULT_QUEUE_SIZE > 0);
-        assert!(logging::DEFAULT_QUEUE_SIZE <= logging::MAX_QUEUE_SIZE);
-        assert!(logging::TRANSMISSION_TIMEOUT_MS > 0);
-        assert!(logging::MAX_RETRY_ATTEMPTS > 0);
+        assert_no_std!(ConfigValidator::validate_logging_config());
+        assert_no_std!(logging::DEFAULT_QUEUE_SIZE > 0);
+        assert_no_std!(logging::DEFAULT_QUEUE_SIZE <= logging::MAX_QUEUE_SIZE);
+        assert_no_std!(logging::TRANSMISSION_TIMEOUT_MS > 0);
+        assert_no_std!(logging::MAX_RETRY_ATTEMPTS > 0);
     }
 
     #[test]
     fn test_timing_config_validation() {
-        assert!(ConfigValidator::validate_timing_config());
+        assert_no_std!(ConfigValidator::validate_timing_config());
 
         // Test pEMF timing calculation
         let total_period = timing::PEMF_PULSE_HIGH_MS + timing::PEMF_PULSE_LOW_MS;
         let expected_period = (1000.0 / timing::PEMF_FREQUENCY_HZ) as u64;
-        assert_eq!(total_period, expected_period);
+        assert_eq_no_std!(total_period, expected_period);
 
         // Test battery monitoring timing
         let expected_battery_interval = (1000.0 / timing::BATTERY_SAMPLING_HZ) as u64;
-        assert_eq!(
+        assert_eq_no_std!(
             timing::BATTERY_MONITOR_INTERVAL_MS,
             expected_battery_interval
         );
@@ -711,33 +711,33 @@ mod tests {
 
     #[test]
     fn test_system_config_validation() {
-        assert!(ConfigValidator::validate_system_config());
-        assert!(system::SYSTEM_CLOCK_HZ > 0);
-        assert!(system::EXTERNAL_CRYSTAL_HZ > 0);
-        assert!(system::USB_POLL_INTERVAL_MS > 0);
-        assert!(system::HID_TASK_INTERVAL_MS > 0);
+        assert_no_std!(ConfigValidator::validate_system_config());
+        assert_no_std!(system::SYSTEM_CLOCK_HZ > 0);
+        assert_no_std!(system::EXTERNAL_CRYSTAL_HZ > 0);
+        assert_no_std!(system::USB_POLL_INTERVAL_MS > 0);
+        assert_no_std!(system::HID_TASK_INTERVAL_MS > 0);
     }
 
     #[test]
     fn test_all_config_validation() {
-        assert!(ConfigValidator::validate_all_config());
+        assert_no_std!(ConfigValidator::validate_all_config());
     }
 
     #[test]
     fn test_priority_ordering() {
         // Ensure priorities are correctly ordered (higher number = higher priority)
-        assert!(priorities::PEMF_PULSE_PRIORITY > priorities::BATTERY_MONITOR_PRIORITY);
-        assert!(priorities::BATTERY_MONITOR_PRIORITY > priorities::LED_CONTROL_PRIORITY);
-        assert!(priorities::LED_CONTROL_PRIORITY >= priorities::USB_HID_TASK_PRIORITY);
-        assert!(priorities::USB_HID_TASK_PRIORITY > priorities::USB_POLL_TASK_PRIORITY);
+        assert_no_std!(priorities::PEMF_PULSE_PRIORITY > priorities::BATTERY_MONITOR_PRIORITY);
+        assert_no_std!(priorities::BATTERY_MONITOR_PRIORITY > priorities::LED_CONTROL_PRIORITY);
+        assert_no_std!(priorities::LED_CONTROL_PRIORITY >= priorities::USB_HID_TASK_PRIORITY);
+        assert_no_std!(priorities::USB_HID_TASK_PRIORITY > priorities::USB_POLL_TASK_PRIORITY);
     }
 
     #[test]
     fn test_feature_flags() {
         // Test that essential features are enabled
-        assert!(features::ENABLE_USB_HID_LOGGING);
-        assert!(features::ENABLE_LOG_TIMESTAMPS);
-        assert!(features::ENABLE_LOG_MODULE_NAMES);
+        assert_no_std!(features::ENABLE_USB_HID_LOGGING);
+        assert_no_std!(features::ENABLE_LOG_TIMESTAMPS);
+        assert_no_std!(features::ENABLE_LOG_MODULE_NAMES);
     }
 }
 
