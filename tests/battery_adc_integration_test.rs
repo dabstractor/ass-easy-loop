@@ -12,12 +12,10 @@ use std::collections::HashMap;
 use std::process::Command;
 use std::thread;
 use std::time::{Duration, Instant};
-use core::option::Option::{self, Some, None};
-use core::result::Result::{self, Ok, Err};
-use core::default::Default;
-use heapless::{Vec, String};
+use std::vec::Vec;
+use std::string::String;
 use ass_easy_loop::battery::BatteryState;
-use ass_easy_loop::logging::{log_info, log_error, log_debug};
+// Logging macros not available in test mode
 
 /// Battery monitoring constants from requirements
 const LOW_BATTERY_THRESHOLD_ADC: u16 = 1425;  // ~3.1V
@@ -30,25 +28,7 @@ const ADC_RESOLUTION: u16 = 4095;              // 12-bit ADC
 const TEST_DEVICE_VID: u16 = 0x1234;
 const TEST_DEVICE_PID: u16 = 0x5678;
 
-/// Battery state enumeration matching the firmware
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum BatteryState {
-    Low,      // ADC ≤ 1425
-    Normal,   // 1425 < ADC < 1675
-    Charging, // ADC ≥ 1675
-}
-
-impl BatteryState {
-    pub fn from_adc_reading(adc_value: u16) -> Self {
-        if adc_value <= LOW_BATTERY_THRESHOLD_ADC {
-            BatteryState::Low
-        } else if adc_value < CHARGING_THRESHOLD_ADC {
-            BatteryState::Normal
-        } else {
-            BatteryState::Charging
-        }
-    }
-}
+// Using BatteryState from the library
 
 /// ADC reading with associated metadata
 #[derive(Debug, Clone)]
@@ -99,8 +79,8 @@ pub fn battery_voltage_to_adc(battery_voltage_mv: u32) -> u16 {
 
 /// Battery monitoring integration validator
 pub struct BatteryAdcValidator {
-    pub adc_readings: Vec<AdcReading>,
-    pub state_transitions: Vec<(BatteryState, BatteryState, u64)>,
+    pub adc_readings: std::vec::Vec<AdcReading>,
+    pub state_transitions: std::vec::Vec<(BatteryState, BatteryState, u64)>,
     pub test_duration_seconds: u64,
     pub device_connected: bool,
 }
@@ -116,7 +96,7 @@ impl BatteryAdcValidator {
     }
 
     /// Run comprehensive battery ADC integration validation
-    pub fn run_battery_validation(&mut self) -> Result<bool, String> {
+    pub fn run_battery_validation(&mut self) -> std::result::Result<bool, std::string::String> {
         println!("=== Battery ADC Integration Validation ===");
         println!("Low threshold: {} ADC (~{}mV)", LOW_BATTERY_THRESHOLD_ADC, 
                  adc_to_battery_voltage(LOW_BATTERY_THRESHOLD_ADC));
@@ -159,7 +139,7 @@ impl BatteryAdcValidator {
     }
 
     /// Check if RP2040 device is connected and accessible
-    fn check_device_connection(&mut self) -> Result<bool, String> {
+    fn check_device_connection(&mut self) -> std::result::Result<bool, std::string::String> {
         println!("Checking device connection...");
         
         let lsusb_output = Command::new("lsusb")
@@ -176,12 +156,12 @@ impl BatteryAdcValidator {
         } else {
             println!("✗ RP2040 device not found");
             println!("Expected VID:PID = {:04x}:{:04x}", TEST_DEVICE_VID, TEST_DEVICE_PID);
-            Err("Device not found in USB enumeration")
+            Err("Device not found in USB enumeration".to_string())
         }
     }
 
     /// Capture ADC readings from device log messages
-    fn capture_adc_readings_from_logs(&mut self) -> Result<(), &'static str> {
+    fn capture_adc_readings_from_logs(&mut self) -> Result<(), String> {
         println!("Capturing ADC readings from device logs...");
         
         let capture_script = format!(r#"
@@ -304,7 +284,7 @@ except Exception as e:
         let error_str = std::string::String::from_utf8_lossy(&output.stderr);
 
         if !output.status.success() {
-            return Err("Battery capture failed");
+            return Err("Battery capture failed".to_string());
         }
 
         // Parse ADC readings and state transitions from output
@@ -382,7 +362,7 @@ except Exception as e:
             let reading = AdcReading::new(timestamp, *adc_value, previous_state);
             
             // Verify synthetic data matches expected state
-            assert_eq_no_std!(reading.battery_state, *expected_state, 
+            assert_eq!(reading.battery_state, *expected_state, 
                       "Synthetic ADC {} should map to state {:?}", adc_value, expected_state);
             
             previous_state = Some(reading.battery_state);
@@ -484,6 +464,9 @@ except Exception as e:
                         (BatteryState::Charging, BatteryState::Normal) => reading.adc_value < CHARGING_THRESHOLD_ADC,
                         (BatteryState::Low, BatteryState::Charging) => reading.adc_value >= CHARGING_THRESHOLD_ADC,
                         (BatteryState::Charging, BatteryState::Low) => reading.adc_value <= LOW_BATTERY_THRESHOLD_ADC,
+                        (BatteryState::Low, BatteryState::Low) => true,
+                        (BatteryState::Normal, BatteryState::Normal) => true,
+                        (BatteryState::Charging, BatteryState::Charging) => true,
                     };
                     
                     if !transition_valid {
@@ -551,9 +534,9 @@ except Exception as e:
             (CHARGING_THRESHOLD_ADC + 1, BatteryState::Charging),
         ];
         
-        for (adc_value, expected_state) in boundary_tests {
-            let detected_state = BatteryState::from_adc_reading(adc_value);
-            if detected_state != expected_state {
+        for (adc_value, expected_state) in &boundary_tests {
+            let detected_state = BatteryState::from_adc_reading(*adc_value);
+            if detected_state != *expected_state {
                 threshold_errors.push(format!(
                     "Boundary test: ADC {} should be {:?} but detected as {:?}",
                     adc_value, expected_state, detected_state
@@ -747,56 +730,56 @@ pub struct ValidationResult {
 #[test]
 fn test_adc_conversion_calculations() {
     // Test ADC to voltage conversion
-    assert_eq_no_std!(adc_to_battery_voltage(0), 0);
+    assert_eq!(adc_to_battery_voltage(0), 0);
     
     // Test known conversion points
     let voltage_1425 = adc_to_battery_voltage(1425);
-    assert_no_std!(voltage_1425 >= 3000 && voltage_1425 <= 3200, 
+    assert!(voltage_1425 >= 3000 && voltage_1425 <= 3200, 
             "ADC 1425 should be ~3100mV, got {}mV", voltage_1425);
     
     let voltage_1675 = adc_to_battery_voltage(1675);
-    assert_no_std!(voltage_1675 >= 3500 && voltage_1675 <= 3700, 
+    assert!(voltage_1675 >= 3500 && voltage_1675 <= 3700, 
             "ADC 1675 should be ~3600mV, got {}mV", voltage_1675);
     
     // Test reverse conversion
     let adc_from_3100 = battery_voltage_to_adc(3100);
-    assert_no_std!(adc_from_3100 >= 1400 && adc_from_3100 <= 1450, 
+    assert!(adc_from_3100 >= 1400 && adc_from_3100 <= 1450, 
             "3100mV should be ~1425 ADC, got {}", adc_from_3100);
 }
 
 #[test]
 fn test_battery_state_detection() {
     // Test state detection at boundaries
-    assert_eq_no_std!(BatteryState::from_adc_reading(1424), BatteryState::Low);
-    assert_eq_no_std!(BatteryState::from_adc_reading(1425), BatteryState::Low);
-    assert_eq_no_std!(BatteryState::from_adc_reading(1426), BatteryState::Normal);
+    assert_eq!(BatteryState::from_adc_reading(1424), BatteryState::Low);
+    assert_eq!(BatteryState::from_adc_reading(1425), BatteryState::Low);
+    assert_eq!(BatteryState::from_adc_reading(1426), BatteryState::Normal);
     
-    assert_eq_no_std!(BatteryState::from_adc_reading(1674), BatteryState::Normal);
-    assert_eq_no_std!(BatteryState::from_adc_reading(1675), BatteryState::Charging);
-    assert_eq_no_std!(BatteryState::from_adc_reading(1676), BatteryState::Charging);
+    assert_eq!(BatteryState::from_adc_reading(1674), BatteryState::Normal);
+    assert_eq!(BatteryState::from_adc_reading(1675), BatteryState::Charging);
+    assert_eq!(BatteryState::from_adc_reading(1676), BatteryState::Charging);
     
     // Test extreme values
-    assert_eq_no_std!(BatteryState::from_adc_reading(0), BatteryState::Low);
-    assert_eq_no_std!(BatteryState::from_adc_reading(4095), BatteryState::Charging);
+    assert_eq!(BatteryState::from_adc_reading(0), BatteryState::Low);
+    assert_eq!(BatteryState::from_adc_reading(4095), BatteryState::Charging);
 }
 
 #[test]
 fn test_adc_reading_creation() {
     // Test ADC reading creation and state change detection
     let reading1 = AdcReading::new(1000, 1500, None);
-    assert_eq_no_std!(reading1.battery_state, BatteryState::Normal);
-    assert_no_std!(!reading1.state_changed);
-    assert_eq_no_std!(reading1.previous_state, None);
+    assert_eq!(reading1.battery_state, BatteryState::Normal);
+    assert!(!reading1.state_changed);
+    assert_eq!(reading1.previous_state, None);
     
     let reading2 = AdcReading::new(2000, 1700, Some(BatteryState::Normal));
-    assert_eq_no_std!(reading2.battery_state, BatteryState::Charging);
-    assert_no_std!(reading2.state_changed);
-    assert_eq_no_std!(reading2.previous_state, Some(BatteryState::Normal));
+    assert_eq!(reading2.battery_state, BatteryState::Charging);
+    assert!(reading2.state_changed);
+    assert_eq!(reading2.previous_state, Some(BatteryState::Normal));
     
     let reading3 = AdcReading::new(3000, 1650, Some(BatteryState::Charging));
-    assert_eq_no_std!(reading3.battery_state, BatteryState::Normal);
-    assert_no_std!(reading3.state_changed);
-    assert_eq_no_std!(reading3.previous_state, Some(BatteryState::Charging));
+    assert_eq!(reading3.battery_state, BatteryState::Normal);
+    assert!(reading3.state_changed);
+    assert_eq!(reading3.previous_state, Some(BatteryState::Charging));
 }
 
 #[test]
@@ -832,7 +815,7 @@ fn test_battery_adc_comprehensive_validation() {
     
     match validator.run_battery_validation() {
         Ok(success) => {
-            assert_no_std!(success, "Comprehensive battery ADC validation should pass with hardware");
+            assert!(success, "Comprehensive battery ADC validation should pass with hardware");
         }
         Err(e) => {
             panic!("Hardware validation failed: {}", e);
@@ -850,8 +833,8 @@ fn test_battery_validation_with_synthetic_data() {
     let state_result = validator.analyze_battery_state_transitions();
     let threshold_result = validator.validate_threshold_detection();
     
-    assert_no_std!(conversion_result.passed, "ADC conversion should pass with synthetic data");
-    assert_no_std!(threshold_result.passed, "Threshold detection should pass with synthetic data");
+    assert!(conversion_result.passed, "ADC conversion should pass with synthetic data");
+    assert!(threshold_result.passed, "Threshold detection should pass with synthetic data");
     
     // State analysis might not pass with synthetic data due to lack of transitions
     println!("State analysis result: {:?}", state_result);

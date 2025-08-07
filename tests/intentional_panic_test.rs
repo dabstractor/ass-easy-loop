@@ -4,10 +4,28 @@
 //! It's designed to be run manually to verify panic handler behavior.
 //! Requirements: 5.4, 7.3
 
-#![no_std]
-#![no_main]
+// Test files should use std
 
 use ass_easy_loop::logging::{LogQueue, init_global_logging};
+
+// Add macros for testing
+macro_rules! log_info {
+    ($($arg:tt)*) => {
+        println!("INFO: {}", format!($($arg)*));
+    };
+}
+
+macro_rules! log_warn {
+    ($($arg:tt)*) => {
+        println!("WARN: {}", format!($($arg)*));
+    };
+}
+
+macro_rules! log_error {
+    ($($arg:tt)*) => {
+        println!("ERROR: {}", format!($($arg)*));
+    };
+}
 
 // Mock timestamp function for testing
 fn test_timestamp() -> u32 {
@@ -48,7 +66,7 @@ fn trigger_intentional_panic_without_message() {
     log_info!("Testing panic without explicit message");
     
     // Trigger panic without message (using assert)
-    assert_no_std!(false, "Assertion failure test");
+    assert!(false, "Assertion failure test");
 }
 
 /// Test function that panics during early initialization
@@ -149,14 +167,10 @@ fn trigger_panic_with_full_queue() {
 /// 4. Panic in critical section: Should handle safely
 /// 5. Panic with full queue: Should still attempt logging
 
-#[cfg(test)]
-#[panic_handler]
-fn test_panic(_info: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
+// Panic handler removed - conflicts with std in test mode
 
 // Dummy test to make the test runner happy
 #[test]
 fn dummy_test() {
-    assert_no_std!(true);
+    assert!(true);
 }

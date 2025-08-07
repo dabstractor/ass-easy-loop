@@ -5,10 +5,7 @@
 //! 
 //! Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
 
-#![no_std]
-#![no_main]
-
-use panic_halt as _;
+// Test file - uses std for host-side testing
 use ass_easy_loop::system_state::*;
 use ass_easy_loop::battery::BatteryState;
 use ass_easy_loop::config::LogConfig;
@@ -18,12 +15,12 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
 
     fn test_state_query_type_conversion() -> TestResult {
         // Test conversion from u8 to StateQueryType
-        assert_eq_no_std!(StateQueryType::from_u8(0x01), Some(StateQueryType::SystemHealth));
-        assert_eq_no_std!(StateQueryType::from_u8(0x02), Some(StateQueryType::TaskPerformance));
-        assert_eq_no_std!(StateQueryType::from_u8(0x03), Some(StateQueryType::HardwareStatus));
-        assert_eq_no_std!(StateQueryType::from_u8(0x04), Some(StateQueryType::ConfigurationDump));
-        assert_eq_no_std!(StateQueryType::from_u8(0x05), Some(StateQueryType::ErrorHistory));
-        assert_eq_no_std!(StateQueryType::from_u8(0xFF), None);
+        assert_eq!(StateQueryType::from_u8(0x01), Some(StateQueryType::SystemHealth));
+        assert_eq!(StateQueryType::from_u8(0x02), Some(StateQueryType::TaskPerformance));
+        assert_eq!(StateQueryType::from_u8(0x03), Some(StateQueryType::HardwareStatus));
+        assert_eq!(StateQueryType::from_u8(0x04), Some(StateQueryType::ConfigurationDump));
+        assert_eq!(StateQueryType::from_u8(0x05), Some(StateQueryType::ErrorHistory));
+        assert_eq!(StateQueryType::from_u8(0xFF), None);
         TestResult::pass()
     }
 
@@ -65,15 +62,15 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         };
 
         // Verify data structure integrity
-        assert_eq_no_std!(health_data.uptime_ms, 12345);
-        assert_eq_no_std!(health_data.battery_state, BatteryState::Normal);
-        assert_eq_no_std!(health_data.battery_voltage_mv, 3300);
-        assert_no_std!(health_data.pemf_active);
-        assert_eq_no_std!(health_data.pemf_cycle_count, 100);
-        assert_no_std!(health_data.task_health_status.pemf_task_healthy);
-        assert_eq_no_std!(health_data.memory_usage.total_ram_usage_bytes, 6656);
-        assert_eq_no_std!(health_data.error_counts.total_error_count, 1);
-        assert_eq_no_std!(health_data.system_temperature, Some(250));
+        assert_eq!(health_data.uptime_ms, 12345);
+        assert_eq!(health_data.battery_state, BatteryState::Normal);
+        assert_eq!(health_data.battery_voltage_mv, 3300);
+        assert!(health_data.pemf_active);
+        assert_eq!(health_data.pemf_cycle_count, 100);
+        assert!(health_data.task_health_status.pemf_task_healthy);
+        assert_eq!(health_data.memory_usage.total_ram_usage_bytes, 6656);
+        assert_eq!(health_data.error_counts.total_error_count, 1);
+        assert_eq!(health_data.system_temperature, Some(250));
         TestResult::pass()
     }
 
@@ -121,10 +118,10 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         };
 
         // Verify performance data integrity
-        assert_eq_no_std!(performance_data.task_execution_times.pemf_task_avg_us, 50);
-        assert_eq_no_std!(performance_data.timing_statistics.pemf_frequency_hz, 2.0);
-        assert_eq_no_std!(performance_data.resource_usage.cpu_usage_percent, 15);
-        assert_eq_no_std!(performance_data.performance_metrics.messages_per_second, 100);
+        assert_eq!(performance_data.task_execution_times.pemf_task_avg_us, 50);
+        assert_eq!(performance_data.timing_statistics.pemf_frequency_hz, 2.0);
+        assert_eq!(performance_data.resource_usage.cpu_usage_percent, 15);
+        assert_eq!(performance_data.performance_metrics.messages_per_second, 100);
         TestResult::pass()
     }
 
@@ -173,12 +170,12 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         };
 
         // Verify hardware data integrity
-        assert_no_std!(!hardware_data.gpio_states.mosfet_pin_state);
-        assert_no_std!(hardware_data.gpio_states.led_pin_state);
-        assert_eq_no_std!(hardware_data.adc_readings.battery_adc_raw, 1500);
-        assert_no_std!(hardware_data.usb_status.connected);
-        assert_eq_no_std!(hardware_data.power_status.supply_voltage_mv, 3300);
-        assert_eq_no_std!(hardware_data.sensor_readings.internal_temperature_c, 25);
+        assert!(!hardware_data.gpio_states.mosfet_pin_state);
+        assert!(hardware_data.gpio_states.led_pin_state);
+        assert_eq!(hardware_data.adc_readings.battery_adc_raw, 1500);
+        assert!(hardware_data.usb_status.connected);
+        assert_eq!(hardware_data.power_status.supply_voltage_mv, 3300);
+        assert_eq!(hardware_data.sensor_readings.internal_temperature_c, 25);
         TestResult::pass()
     }
 
@@ -223,10 +220,10 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         };
 
         // Verify configuration data integrity
-        assert_eq_no_std!(config_data.timing_config.pemf_frequency_hz, 2.0);
-        assert_eq_no_std!(config_data.hardware_config.mosfet_pin, 15);
-        assert_no_std!(config_data.feature_flags.usb_hid_logging_enabled);
-        assert_eq_no_std!(config_data.calibration_data.voltage_divider_ratio, 0.337);
+        assert_eq!(config_data.timing_config.pemf_frequency_hz, 2.0);
+        assert_eq!(config_data.hardware_config.mosfet_pin, 15);
+        assert!(config_data.feature_flags.usb_hid_logging_enabled);
+        assert_eq!(config_data.calibration_data.voltage_divider_ratio, 0.337);
         TestResult::pass()
     }
 
@@ -235,12 +232,12 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         let stats = handler.get_stats();
         
         // Verify initial state
-        assert_eq_no_std!(stats.queries_processed, 0);
-        assert_eq_no_std!(stats.last_query_timestamp, 0);
-        assert_eq_no_std!(stats.performance_queries, 0);
-        assert_eq_no_std!(stats.hardware_queries, 0);
-        assert_eq_no_std!(stats.config_queries, 0);
-        assert_eq_no_std!(stats.error_queries, 0);
+        assert_eq!(stats.queries_processed, 0);
+        assert_eq!(stats.last_query_timestamp, 0);
+        assert_eq!(stats.performance_queries, 0);
+        assert_eq!(stats.hardware_queries, 0);
+        assert_eq!(stats.config_queries, 0);
+        assert_eq!(stats.error_queries, 0);
         TestResult::pass()
     }
 
@@ -249,16 +246,16 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         
         // Test system health query
         let result = handler.process_state_query(StateQueryType::SystemHealth, 12345);
-        assert_no_std!(result.is_ok());
+        assert!(result.is_ok());
         
         let serialized_data = result.unwrap();
-        assert_no_std!(!serialized_data.is_empty());
-        assert_no_std!(serialized_data.len() <= 60); // Must fit in command payload
+        assert!(!serialized_data.is_empty());
+        assert!(serialized_data.len() <= 60); // Must fit in command payload
         
         // Verify handler statistics updated
         let stats = handler.get_stats();
-        assert_eq_no_std!(stats.queries_processed, 1);
-        assert_eq_no_std!(stats.last_query_timestamp, 12345);
+        assert_eq!(stats.queries_processed, 1);
+        assert_eq!(stats.last_query_timestamp, 12345);
         TestResult::pass()
     }
 
@@ -267,15 +264,15 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         
         // Test task performance query
         let result = handler.process_state_query(StateQueryType::TaskPerformance, 12345);
-        assert_no_std!(result.is_ok());
+        assert!(result.is_ok());
         
         let serialized_data = result.unwrap();
-        assert_no_std!(!serialized_data.is_empty());
-        assert_no_std!(serialized_data.len() <= 60); // Must fit in command payload
+        assert!(!serialized_data.is_empty());
+        assert!(serialized_data.len() <= 60); // Must fit in command payload
         
         // Verify the serialized data contains expected performance information
         // First 20 bytes should be task execution times (5 tasks * 4 bytes each)
-        assert_no_std!(serialized_data.len() >= 20);
+        assert!(serialized_data.len() >= 20);
         TestResult::pass()
     }
 
@@ -284,14 +281,14 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         
         // Test hardware status query
         let result = handler.process_state_query(StateQueryType::HardwareStatus, 12345);
-        assert_no_std!(result.is_ok());
+        assert!(result.is_ok());
         
         let serialized_data = result.unwrap();
-        assert_no_std!(!serialized_data.is_empty());
-        assert_no_std!(serialized_data.len() <= 60); // Must fit in command payload
+        assert!(!serialized_data.is_empty());
+        assert!(serialized_data.len() <= 60); // Must fit in command payload
         
         // Verify the serialized data contains GPIO, ADC, and USB status information
-        assert_no_std!(serialized_data.len() >= 30); // Minimum expected size for hardware data
+        assert!(serialized_data.len() >= 30); // Minimum expected size for hardware data
         TestResult::pass()
     }
 
@@ -300,15 +297,15 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         
         // Test configuration dump query
         let result = handler.process_state_query(StateQueryType::ConfigurationDump, 12345);
-        assert_no_std!(result.is_ok());
+        assert!(result.is_ok());
         
         let serialized_data = result.unwrap();
-        assert_no_std!(!serialized_data.is_empty());
-        assert_no_std!(serialized_data.len() <= 60); // Must fit in command payload
+        assert!(!serialized_data.is_empty());
+        assert!(serialized_data.len() <= 60); // Must fit in command payload
         
         // Verify the serialized data contains configuration information
         // Should include log config (16 bytes) + timing config + hardware config
-        assert_no_std!(serialized_data.len() >= 16);
+        assert!(serialized_data.len() >= 16);
         TestResult::pass()
     }
 
@@ -317,16 +314,16 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         
         // Test error history query
         let result = handler.process_state_query(StateQueryType::ErrorHistory, 12345);
-        assert_no_std!(result.is_ok());
+        assert!(result.is_ok());
         
         let serialized_data = result.unwrap();
-        assert_no_std!(serialized_data.len() <= 60); // Must fit in command payload
+        assert!(serialized_data.len() <= 60); // Must fit in command payload
         
         // Error history might be empty initially, so just verify it doesn't fail
         // First byte should be error count
         if !serialized_data.is_empty() {
             let error_count = serialized_data[0];
-            assert_no_std!(error_count <= 15); // Maximum errors that fit in payload
+            assert!(error_count <= 15); // Maximum errors that fit in payload
         }
         TestResult::pass()
     }
@@ -342,18 +339,18 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
             &test_data,
         );
         
-        assert_no_std!(response.is_ok());
+        assert!(response.is_ok());
         let command_report = response.unwrap();
         
         // Verify response structure
-        assert_eq_no_std!(command_report.command_id, 0x42);
-        assert_eq_no_std!(command_report.payload.len(), 6); // 1 byte type + 1 byte length + 4 bytes data
-        assert_eq_no_std!(command_report.payload[0], StateQueryType::SystemHealth as u8);
-        assert_eq_no_std!(command_report.payload[1], 4); // data length
-        assert_eq_no_std!(command_report.payload[2], 0x01);
-        assert_eq_no_std!(command_report.payload[3], 0x02);
-        assert_eq_no_std!(command_report.payload[4], 0x03);
-        assert_eq_no_std!(command_report.payload[5], 0x04);
+        assert_eq!(command_report.command_id, 0x42);
+        assert_eq!(command_report.payload.len(), 6); // 1 byte type + 1 byte length + 4 bytes data
+        assert_eq!(command_report.payload[0], StateQueryType::SystemHealth as u8);
+        assert_eq!(command_report.payload[1], 4); // data length
+        assert_eq!(command_report.payload[2], 0x01);
+        assert_eq!(command_report.payload[3], 0x02);
+        assert_eq!(command_report.payload[4], 0x03);
+        assert_eq!(command_report.payload[5], 0x04);
         TestResult::pass()
     }
 
@@ -361,28 +358,28 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         let mut monitor = PerformanceMonitor::new();
         
         // Test initial state
-        assert_eq_no_std!(monitor.get_query_count(), 0);
+        assert_eq!(monitor.get_query_count(), 0);
         
         // Test task execution times collection
         let execution_times = monitor.get_task_execution_times();
-        assert_no_std!(execution_times.pemf_task_avg_us > 0);
-        assert_no_std!(execution_times.pemf_task_max_us >= execution_times.pemf_task_avg_us);
-        assert_eq_no_std!(monitor.get_query_count(), 1);
+        assert!(execution_times.pemf_task_avg_us > 0);
+        assert!(execution_times.pemf_task_max_us >= execution_times.pemf_task_avg_us);
+        assert_eq!(monitor.get_query_count(), 1);
         
         // Test timing statistics collection
         let timing_stats = monitor.get_timing_statistics();
-        assert_eq_no_std!(timing_stats.pemf_frequency_hz, 2.0);
-        assert_no_std!(timing_stats.pemf_timing_accuracy_percent > 90.0);
+        assert_eq!(timing_stats.pemf_frequency_hz, 2.0);
+        assert!(timing_stats.pemf_timing_accuracy_percent > 90.0);
         
         // Test resource usage collection
         let resource_usage = monitor.get_resource_usage();
-        assert_no_std!(resource_usage.cpu_usage_percent <= 100);
-        assert_no_std!(resource_usage.memory_usage_percent <= 100);
+        assert!(resource_usage.cpu_usage_percent <= 100);
+        assert!(resource_usage.memory_usage_percent <= 100);
         
         // Test performance metrics collection
         let performance_metrics = monitor.get_performance_metrics();
-        assert_no_std!(performance_metrics.messages_per_second > 0);
-        assert_no_std!(performance_metrics.system_efficiency_percent <= 100);
+        assert!(performance_metrics.messages_per_second > 0);
+        assert!(performance_metrics.system_efficiency_percent <= 100);
         TestResult::pass()
     }
 
@@ -390,34 +387,34 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         let mut collector = DiagnosticCollector::new();
         
         // Test initial state
-        assert_eq_no_std!(collector.get_query_count(), 0);
+        assert_eq!(collector.get_query_count(), 0);
         
         // Test GPIO states collection
         let gpio_states = collector.get_gpio_states();
-        assert_eq_no_std!(gpio_states.gpio_error_count, 0);
-        assert_eq_no_std!(collector.get_query_count(), 1);
+        assert_eq!(gpio_states.gpio_error_count, 0);
+        assert_eq!(collector.get_query_count(), 1);
         
         // Test ADC readings collection
         let adc_readings = collector.get_adc_readings();
-        assert_no_std!(adc_readings.battery_adc_raw > 0);
-        assert_no_std!(adc_readings.battery_voltage_mv > 0);
-        assert_eq_no_std!(adc_readings.adc_error_count, 0);
+        assert!(adc_readings.battery_adc_raw > 0);
+        assert!(adc_readings.battery_voltage_mv > 0);
+        assert_eq!(adc_readings.adc_error_count, 0);
         
         // Test USB status collection
         let usb_status = collector.get_usb_status();
-        assert_no_std!(usb_status.connected);
-        assert_no_std!(usb_status.configured);
-        assert_eq_no_std!(usb_status.usb_errors, 0);
+        assert!(usb_status.connected);
+        assert!(usb_status.configured);
+        assert_eq!(usb_status.usb_errors, 0);
         
         // Test power status collection
         let power_status = collector.get_power_status();
-        assert_no_std!(power_status.supply_voltage_mv > 0);
-        assert_no_std!(power_status.power_good);
+        assert!(power_status.supply_voltage_mv > 0);
+        assert!(power_status.power_good);
         
         // Test sensor readings collection
         let sensor_readings = collector.get_sensor_readings();
-        assert_no_std!(sensor_readings.internal_temperature_c > -40);
-        assert_no_std!(sensor_readings.internal_temperature_c < 85);
+        assert!(sensor_readings.internal_temperature_c > -40);
+        assert!(sensor_readings.internal_temperature_c < 85);
         TestResult::pass()
     }
 
@@ -425,35 +422,35 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         let mut manager = ConfigurationManager::new();
         
         // Test initial state
-        assert_eq_no_std!(manager.get_query_count(), 0);
+        assert_eq!(manager.get_query_count(), 0);
         
         // Test log configuration retrieval
         let _log_config = manager.get_log_config();
-        assert_eq_no_std!(manager.get_query_count(), 1);
+        assert_eq!(manager.get_query_count(), 1);
         
         // Test timing configuration retrieval
         let timing_config = manager.get_timing_config();
-        assert_eq_no_std!(timing_config.pemf_frequency_hz, 2.0);
-        assert_eq_no_std!(timing_config.pemf_high_duration_ms, 2);
-        assert_eq_no_std!(timing_config.pemf_low_duration_ms, 498);
+        assert_eq!(timing_config.pemf_frequency_hz, 2.0);
+        assert_eq!(timing_config.pemf_high_duration_ms, 2);
+        assert_eq!(timing_config.pemf_low_duration_ms, 498);
         
         // Test hardware configuration retrieval
         let hardware_config = manager.get_hardware_config();
-        assert_eq_no_std!(hardware_config.mosfet_pin, 15);
-        assert_eq_no_std!(hardware_config.led_pin, 25);
-        assert_eq_no_std!(hardware_config.adc_pin, 26);
+        assert_eq!(hardware_config.mosfet_pin, 15);
+        assert_eq!(hardware_config.led_pin, 25);
+        assert_eq!(hardware_config.adc_pin, 26);
         
         // Test feature flags retrieval
         let feature_flags = manager.get_feature_flags();
-        assert_no_std!(feature_flags.usb_hid_logging_enabled);
-        assert_no_std!(feature_flags.battery_monitoring_enabled);
-        assert_no_std!(feature_flags.pemf_generation_enabled);
+        assert!(feature_flags.usb_hid_logging_enabled);
+        assert!(feature_flags.battery_monitoring_enabled);
+        assert!(feature_flags.pemf_generation_enabled);
         
         // Test calibration data retrieval
         let calibration_data = manager.get_calibration_data();
-        assert_eq_no_std!(calibration_data.adc_offset, 0);
-        assert_eq_no_std!(calibration_data.adc_gain, 1.0);
-        assert_eq_no_std!(calibration_data.voltage_divider_ratio, 0.337);
+        assert_eq!(calibration_data.adc_offset, 0);
+        assert_eq!(calibration_data.adc_gain, 1.0);
+        assert_eq!(calibration_data.voltage_divider_ratio, 0.337);
         TestResult::pass()
     }
 
@@ -461,19 +458,19 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         let mut error_history = ErrorHistory::new();
         
         // Test initial state
-        assert_eq_no_std!(error_history.get_query_count(), 0);
+        assert_eq!(error_history.get_query_count(), 0);
         let errors = error_history.get_recent_errors();
-        assert_no_std!(errors.is_empty());
-        assert_eq_no_std!(error_history.get_query_count(), 1);
+        assert!(errors.is_empty());
+        assert_eq!(error_history.get_query_count(), 1);
         
         // Test adding errors
         error_history.add_error(SystemError::AdcReadFailed, 1000);
         error_history.add_error(SystemError::GpioOperationFailed, 2000);
         
         let errors = error_history.get_recent_errors();
-        assert_eq_no_std!(errors.len(), 2);
-        assert_eq_no_std!(errors[0].timestamp_ms, 1000);
-        assert_eq_no_std!(errors[1].timestamp_ms, 2000);
+        assert_eq!(errors.len(), 2);
+        assert_eq!(errors[0].timestamp_ms, 1000);
+        assert_eq!(errors[1].timestamp_ms, 2000);
         
         // Test error history overflow (should remove oldest)
         for i in 0..20 {
@@ -481,12 +478,12 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         }
         
         let errors = error_history.get_recent_errors();
-        assert_eq_no_std!(errors.len(), 16); // Maximum capacity
+        assert_eq!(errors.len(), 16); // Maximum capacity
         
         // Test clearing errors
         error_history.clear_errors();
         let errors = error_history.get_recent_errors();
-        assert_no_std!(errors.is_empty());
+        assert!(errors.is_empty());
         TestResult::pass()
     }
 
@@ -504,10 +501,10 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         
         for query_type in &query_types {
             let result = handler.process_state_query(*query_type, 12345);
-            assert_no_std!(result.is_ok(), "Query type failed");
+            assert!(result.is_ok(), "Query type failed");
             
             let serialized_data = result.unwrap();
-            assert_no_std!(
+            assert!(
                 serialized_data.len() <= 60,
                 "Query type serialized data too large"
             );
@@ -524,10 +521,10 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         let _ = handler.process_state_query(StateQueryType::HardwareStatus, 3000);
         
         let stats = handler.get_stats();
-        assert_eq_no_std!(stats.queries_processed, 3);
-        assert_eq_no_std!(stats.last_query_timestamp, 3000);
-        assert_no_std!(stats.performance_queries > 0);
-        assert_no_std!(stats.hardware_queries > 0);
+        assert_eq!(stats.queries_processed, 3);
+        assert_eq!(stats.last_query_timestamp, 3000);
+        assert!(stats.performance_queries > 0);
+        assert!(stats.hardware_queries > 0);
         TestResult::pass()
     }
 
@@ -535,17 +532,17 @@ use ass_easy_loop::{assert_no_std, assert_eq_no_std};
         use core::mem::size_of;
         
         // Verify data structures are reasonably sized for embedded use
-        assert_no_std!(size_of::<SystemHealthData>() < 1024);
-        assert_no_std!(size_of::<TaskPerformanceData>() < 1024);
-        assert_no_std!(size_of::<HardwareStatusData>() < 1024);
-        assert_no_std!(size_of::<ConfigurationData>() < 1024);
-        assert_no_std!(size_of::<SystemStateHandler>() < 2048);
+        assert!(size_of::<SystemHealthData>() < 1024);
+        assert!(size_of::<TaskPerformanceData>() < 1024);
+        assert!(size_of::<HardwareStatusData>() < 1024);
+        assert!(size_of::<ConfigurationData>() < 1024);
+        assert!(size_of::<SystemStateHandler>() < 2048);
         
         // Verify critical structures fit in expected memory constraints
-        assert_no_std!(size_of::<TaskExecutionTimes>() <= 40); // 10 u32 values
-        assert_no_std!(size_of::<GpioStates>() <= 20);
-        assert_no_std!(size_of::<AdcReadings>() <= 24);
-        assert_no_std!(size_of::<UsbStatus>() <= 32);
+        assert!(size_of::<TaskExecutionTimes>() <= 40); // 10 u32 values
+        assert!(size_of::<GpioStates>() <= 20);
+        assert!(size_of::<AdcReadings>() <= 24);
+        assert!(size_of::<UsbStatus>() <= 32);
         TestResult::pass()
     }
 

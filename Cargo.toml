@@ -6,6 +6,7 @@ edition = "2021"
 [[bin]]
 name = "ass-easy-loop"
 path = "src/main.rs"
+required-features = ["embedded"]
 
 [lib]
 name = "ass_easy_loop"
@@ -44,6 +45,7 @@ portable-atomic = { version = "1.11", features = ["unsafe-assume-single-core"] }
 [features]
 default = ["battery-logs", "pemf-logs", "system-logs", "usb-logs", "test-commands"]
 std = []
+embedded = []
 
 # Build configuration feature flags
 production = ["battery-logs", "system-logs", "performance-optimized"]

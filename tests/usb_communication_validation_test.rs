@@ -320,12 +320,12 @@ fn test_usb_communication_parameters_validation() -> TestResult {
         bidirectional_test: true,
         concurrent_messages: 2,
     };
-    assert_no_std!(valid_params.validate().is_ok());
+    assert!(valid_params.validate().is_ok());
 
     // Test invalid message count (zero)
     let mut invalid_params = valid_params;
     invalid_params.message_count = 0;
-    assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
+    assert_eq!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
 
     TestResult::pass()
 }
@@ -341,10 +341,10 @@ fn test_message_integrity_validation() -> TestResult {
         Err(_) => return TestResult::fail("Failed to deserialize message"),
     };
 
-    assert_eq_no_std!(deserialized.message_id, message.message_id);
-    assert_eq_no_std!(deserialized.timestamp_ms, message.timestamp_ms);
-    assert_eq_no_std!(deserialized.data, message.data);
-    assert_eq_no_std!(deserialized.checksum, message.checksum);
+    assert_eq!(deserialized.message_id, message.message_id);
+    assert_eq!(deserialized.timestamp_ms, message.timestamp_ms);
+    assert_eq!(deserialized.data, message.data);
+    assert_eq!(deserialized.checksum, message.checksum);
 
     TestResult::pass()
 }
@@ -357,9 +357,9 @@ fn test_message_integrity_corruption_detection() -> TestResult {
     message.inject_error(ErrorType::CorruptChecksum);
     let serialized = message.serialize();
     let result = UsbTestMessage::deserialize(&serialized);
-    assert_no_std!(result.is_err());
+    assert!(result.is_err());
     if let Err(error) = result {
-        assert_eq_no_std!(error, "Checksum validation failed");
+        assert_eq!(error, "Checksum validation failed");
     }
 
     TestResult::pass()
@@ -375,7 +375,7 @@ fn test_bidirectional_communication_success() -> TestResult {
         Ok(id) => id,
         Err(_) => return TestResult::fail("Failed to send message"),
     };
-    assert_no_std!(message_id > 0);
+    assert!(message_id > 0);
 
     // Test host-to-device communication
     let inbound_message = UsbTestMessage::new(message_id + 1, 33333, b"Host to device response", false);
@@ -385,16 +385,16 @@ fn test_bidirectional_communication_success() -> TestResult {
         Err(_) => return TestResult::fail("Failed to receive message"),
     };
 
-    assert_eq_no_std!(received.message_id, inbound_message.message_id);
-    assert_eq_no_std!(received.data, inbound_message.data);
-    assert_no_std!(!received.is_outbound);
+    assert_eq!(received.message_id, inbound_message.message_id);
+    assert_eq!(received.data, inbound_message.data);
+    assert!(!received.is_outbound);
 
     // Verify statistics
     let (tx_count, rx_count, tx_errors, rx_errors) = device.get_transmission_stats();
-    assert_eq_no_std!(tx_count, 1);
-    assert_eq_no_std!(rx_count, 1);
-    assert_eq_no_std!(tx_errors, 0);
-    assert_eq_no_std!(rx_errors, 0);
+    assert_eq!(tx_count, 1);
+    assert_eq!(rx_count, 1);
+    assert_eq!(tx_errors, 0);
+    assert_eq!(rx_errors, 0);
 
     TestResult::pass()
 }
@@ -420,21 +420,21 @@ fn test_usb_communication_test_integration() -> TestResult {
     
     // Execute USB communication test
     let result = processor.execute_usb_communication_test(test_id, params, timestamp_ms);
-    assert_no_std!(result.is_ok());
+    assert!(result.is_ok());
     
     // Verify test is active
-    assert_no_std!(processor.has_active_test());
+    assert!(processor.has_active_test());
     let active_test_type = processor.get_active_test_type();
-    assert_eq_no_std!(active_test_type, Some(TestType::UsbCommunicationTest));
+    assert_eq!(active_test_type, Some(TestType::UsbCommunicationTest));
     
     // Complete the test
     let final_stats = processor.complete_usb_communication_test(timestamp_ms + 2000);
-    assert_no_std!(final_stats.is_ok());
+    assert!(final_stats.is_ok());
     let final_stats = final_stats.unwrap();
     
     // Verify final statistics
-    assert_no_std!(final_stats.test_duration_ms > 0);
-    assert_no_std!(final_stats.success_rate_percent >= 0.0);
+    assert!(final_stats.test_duration_ms > 0);
+    assert!(final_stats.success_rate_percent >= 0.0);
 
     TestResult::pass()
 }

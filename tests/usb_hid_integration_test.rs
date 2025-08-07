@@ -201,24 +201,24 @@ fn test_usb_device_enumeration_success() {
     let mut device = MockUsbHidDevice::new(0x1234, 0x5678);
     
     // Initially not connected or enumerated
-    assert_no_std!(!device.is_connected);
-    assert_no_std!(!device.is_enumerated);
+    assert!(!device.is_connected);
+    assert!(!device.is_enumerated);
     
     // Connect device
     device.connect();
-    assert_no_std!(device.is_connected);
-    assert_no_std!(!device.is_enumerated);
+    assert!(device.is_connected);
+    assert!(!device.is_enumerated);
     
     // Enumerate device
     let result = device.enumerate();
-    assert_no_std!(result.is_ok());
-    assert_no_std!(device.is_enumerated);
-    assert_eq_no_std!(device.get_enumeration_failures(), 0);
+    assert!(result.is_ok());
+    assert!(device.is_enumerated);
+    assert_eq!(device.get_enumeration_failures(), 0);
     
     // Verify device descriptors
-    assert_eq_no_std!(device.vendor_id, 0x1234);
-    assert_eq_no_std!(device.product_id, 0x5678);
-    assert_eq_no_std!(device.device_release, 0x0100);
+    assert_eq!(device.vendor_id, 0x1234);
+    assert_eq!(device.product_id, 0x5678);
+    assert_eq!(device.device_release, 0x0100);
 }
 
 #[test]
@@ -230,15 +230,15 @@ fn test_usb_device_enumeration_failure() {
     
     // Attempt enumeration without connection
     let result = device.enumerate();
-    assert_no_std!(result.is_err());
-    assert_eq_no_std!(result.unwrap_err(), "Device not connected");
-    assert_no_std!(!device.is_enumerated);
-    assert_eq_no_std!(device.get_enumeration_failures(), 1);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), "Device not connected");
+    assert!(!device.is_enumerated);
+    assert_eq!(device.get_enumeration_failures(), 1);
     
     // Multiple failed attempts should increment failure counter
     let _ = device.enumerate();
     let _ = device.enumerate();
-    assert_eq_no_std!(device.get_enumeration_failures(), 3);
+    assert_eq!(device.get_enumeration_failures(), 3);
 }
 
 #[test]
@@ -256,19 +256,19 @@ fn test_hid_report_transmission_success() {
     
     // Transmit report
     let result = device.transmit_report(report);
-    assert_no_std!(result.is_ok());
-    assert_eq_no_std!(device.get_transmission_errors(), 0);
+    assert!(result.is_ok());
+    assert_eq!(device.get_transmission_errors(), 0);
     
     // Verify report was transmitted
     let transmitted = device.get_transmitted_reports();
-    assert_eq_no_std!(transmitted.len(), 1);
+    assert_eq!(transmitted.len(), 1);
     
     // Verify report content
     let received_message = transmitted[0].to_log_message().unwrap();
-    assert_eq_no_std!(received_message.timestamp, 12345);
-    assert_eq_no_std!(received_message.level, LogLevel::Info);
-    assert_eq_no_std!(received_message.module_str(), "TEST");
-    assert_eq_no_std!(received_message.message_str(), "Test message");
+    assert_eq!(received_message.timestamp, 12345);
+    assert_eq!(received_message.level, LogLevel::Info);
+    assert_eq!(received_message.module_str(), "TEST");
+    assert_eq!(received_message.message_str(), "Test message");
 }
 
 #[test]
@@ -283,15 +283,15 @@ fn test_hid_report_transmission_failure() {
     
     // Attempt transmission without connection
     let result = device.transmit_report(report.clone());
-    assert_no_std!(result.is_err());
-    assert_eq_no_std!(result.unwrap_err(), "Device not ready for transmission");
-    assert_eq_no_std!(device.get_transmission_errors(), 1);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), "Device not ready for transmission");
+    assert_eq!(device.get_transmission_errors(), 1);
     
     // Connect but don't enumerate
     device.connect();
     let result = device.transmit_report(report);
-    assert_no_std!(result.is_err());
-    assert_eq_no_std!(device.get_transmission_errors(), 2);
+    assert!(result.is_err());
+    assert_eq!(device.get_transmission_errors(), 2);
 }
 
 #[test]
@@ -315,23 +315,23 @@ fn test_multiple_hid_report_transmission() {
     for message in &messages {
         let report = LogReport::from_log_message(message);
         let result = device.transmit_report(report);
-        assert_no_std!(result.is_ok());
+        assert!(result.is_ok());
     }
     
     // Verify all reports were transmitted
     let transmitted = device.get_transmitted_reports();
-    assert_eq_no_std!(transmitted.len(), 4);
-    assert_eq_no_std!(device.get_transmission_errors(), 0);
+    assert_eq!(transmitted.len(), 4);
+    assert_eq!(device.get_transmission_errors(), 0);
     
     // Verify report order and content
     for (i, transmitted_report) in transmitted.iter().enumerate() {
         let received_message = transmitted_report.to_log_message().unwrap();
         let original_message = &messages[i];
         
-        assert_eq_no_std!(received_message.timestamp, original_message.timestamp);
-        assert_eq_no_std!(received_message.level, original_message.level);
-        assert_eq_no_std!(received_message.module_str(), original_message.module_str());
-        assert_eq_no_std!(received_message.message_str(), original_message.message_str());
+        assert_eq!(received_message.timestamp, original_message.timestamp);
+        assert_eq!(received_message.level, original_message.level);
+        assert_eq!(received_message.module_str(), original_message.module_str());
+        assert_eq!(received_message.message_str(), original_message.message_str());
     }
 }
 
@@ -372,24 +372,24 @@ fn test_end_to_end_communication_success() {
     
     // Verify communication success
     let (connection_errors, parsing_errors) = host.get_error_counts();
-    assert_eq_no_std!(connection_errors, 0);
-    assert_eq_no_std!(parsing_errors, 0);
+    assert_eq!(connection_errors, 0);
+    assert_eq!(parsing_errors, 0);
     
     // Verify all messages were received and parsed correctly
     let received_reports = host.get_received_reports();
     let parsed_messages = host.get_parsed_messages();
     
-    assert_eq_no_std!(received_reports.len(), 3);
-    assert_eq_no_std!(parsed_messages.len(), 3);
+    assert_eq!(received_reports.len(), 3);
+    assert_eq!(parsed_messages.len(), 3);
     
     // Verify message content integrity
     for (i, parsed_message) in parsed_messages.iter().enumerate() {
         let original_message = &test_messages[i];
         
-        assert_eq_no_std!(parsed_message.timestamp, original_message.timestamp);
-        assert_eq_no_std!(parsed_message.level, original_message.level);
-        assert_eq_no_std!(parsed_message.module_str(), original_message.module_str());
-        assert_eq_no_std!(parsed_message.message_str(), original_message.message_str());
+        assert_eq!(parsed_message.timestamp, original_message.timestamp);
+        assert_eq!(parsed_message.level, original_message.level);
+        assert_eq!(parsed_message.module_str(), original_message.module_str());
+        assert_eq!(parsed_message.message_str(), original_message.message_str());
     }
 }
 
@@ -413,12 +413,12 @@ fn test_end_to_end_communication_with_host_errors() {
     
     // Host fails to receive due to not being started
     let result = host.receive_report(report);
-    assert_no_std!(result.is_err());
-    assert_eq_no_std!(result.unwrap_err(), "Host utility not running");
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), "Host utility not running");
     
     let (connection_errors, parsing_errors) = host.get_error_counts();
-    assert_eq_no_std!(connection_errors, 1);
-    assert_eq_no_std!(parsing_errors, 0);
+    assert_eq!(connection_errors, 1);
+    assert_eq!(parsing_errors, 0);
 }
 
 #[test]
@@ -442,12 +442,12 @@ fn test_end_to_end_communication_with_parsing_errors() {
     
     // Host receives but fails to parse
     let result = host.receive_report(corrupted_report);
-    assert_no_std!(result.is_err());
-    assert_eq_no_std!(result.unwrap_err(), "Failed to parse log message");
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err(), "Failed to parse log message");
     
     let (connection_errors, parsing_errors) = host.get_error_counts();
-    assert_eq_no_std!(connection_errors, 0);
-    assert_eq_no_std!(parsing_errors, 1);
+    assert_eq!(connection_errors, 0);
+    assert_eq!(parsing_errors, 1);
 }
 
 // ============================================================================
@@ -500,7 +500,7 @@ fn test_usb_logging_performance_impact_on_pemf_timing() {
     
     // Verify performance impact is within acceptable limits
     // Requirements: 7.1 (pEMF pulse timing SHALL remain within ±1% tolerance)
-    assert_no_std!(performance_impact_percent < 1.0, 
+    assert!(performance_impact_percent < 1.0, 
             "USB logging impact on pEMF timing exceeds 1%: {:.2}%", performance_impact_percent);
 }
 
@@ -519,8 +519,8 @@ fn test_memory_usage_impact_with_usb_logging() {
     let large_size = std::mem::size_of_val(&large_queue);
     
     // Verify memory usage scales reasonably with queue size
-    assert_no_std!(medium_size > small_size);
-    assert_no_std!(large_size > medium_size);
+    assert!(medium_size > small_size);
+    assert!(large_size > medium_size);
     
     // Test that queue doesn't leak memory during operation
     let mut test_queue: LogQueue<16> = LogQueue::new();
@@ -546,9 +546,9 @@ fn test_memory_usage_impact_with_usb_logging() {
     let final_stats = test_queue.stats();
     
     // Verify queue handled overflow correctly
-    assert_eq_no_std!(final_stats.messages_sent, 200); // 10 cycles * 20 messages
-    assert_no_std!(final_stats.messages_dropped > 0); // Should have dropped some due to overflow
-    assert_eq_no_std!(test_queue.len(), 0); // Queue should be empty
+    assert_eq!(final_stats.messages_sent, 200); // 10 cycles * 20 messages
+    assert!(final_stats.messages_dropped > 0); // Should have dropped some due to overflow
+    assert_eq!(test_queue.len(), 0); // Queue should be empty
 }
 
 // ============================================================================
@@ -578,23 +578,23 @@ fn test_usb_disconnection_recovery() {
     device.disconnect();
     
     // Verify device state after disconnection
-    assert_no_std!(!device.is_connected);
-    assert_no_std!(!device.is_enumerated);
+    assert!(!device.is_connected);
+    assert!(!device.is_enumerated);
     
     // Attempt transmission during disconnection (should fail gracefully)
     let message2 = LogMessage::new(2000, LogLevel::Warn, "TEST", "During disconnect");
     let report2 = LogReport::from_log_message(&message2);
     let result = device.transmit_report(report2);
-    assert_no_std!(result.is_err());
-    assert_eq_no_std!(device.get_transmission_errors(), 1);
+    assert!(result.is_err());
+    assert_eq!(device.get_transmission_errors(), 1);
     
     // Simulate USB reconnection
     device.connect();
     device.enumerate().unwrap();
     
     // Verify device state after reconnection
-    assert_no_std!(device.is_connected);
-    assert_no_std!(device.is_enumerated);
+    assert!(device.is_connected);
+    assert!(device.is_enumerated);
     
     // Resume normal operation
     let message3 = LogMessage::new(3000, LogLevel::Info, "TEST", "After reconnect");
@@ -604,16 +604,16 @@ fn test_usb_disconnection_recovery() {
     
     // Verify connection history
     let connection_history = device.get_connection_history();
-    assert_eq_no_std!(connection_history, vec![true, false, true]); // connect, disconnect, reconnect
+    assert_eq!(connection_history, vec![true, false, true]); // connect, disconnect, reconnect
     
     // Verify final state
     let transmitted = device.get_transmitted_reports();
-    assert_eq_no_std!(transmitted.len(), 2); // Only successful transmissions
+    assert_eq!(transmitted.len(), 2); // Only successful transmissions
     
     let parsed_messages = host.get_parsed_messages();
-    assert_eq_no_std!(parsed_messages.len(), 2);
-    assert_eq_no_std!(parsed_messages[0].message_str(), "Before disconnect");
-    assert_eq_no_std!(parsed_messages[1].message_str(), "After reconnect");
+    assert_eq!(parsed_messages.len(), 2);
+    assert_eq!(parsed_messages[0].message_str(), "Before disconnect");
+    assert_eq!(parsed_messages[1].message_str(), "After reconnect");
 }
 
 #[test]
@@ -631,9 +631,9 @@ fn test_queue_overflow_recovery_during_usb_errors() {
     }
     
     let stats_after_fill = queue.stats();
-    assert_eq_no_std!(stats_after_fill.messages_sent, 16);
-    assert_eq_no_std!(stats_after_fill.messages_dropped, 8); // 16 - 8 capacity
-    assert_eq_no_std!(queue.len(), 8); // Queue should be full
+    assert_eq!(stats_after_fill.messages_sent, 16);
+    assert_eq!(stats_after_fill.messages_dropped, 8); // 16 - 8 capacity
+    assert_eq!(queue.len(), 8); // Queue should be full
     
     // Connect USB and attempt to drain queue
     device.connect();
@@ -654,16 +654,16 @@ fn test_queue_overflow_recovery_during_usb_errors() {
     }
     
     // Verify queue was drained successfully
-    assert_eq_no_std!(transmitted_count, 8); // All remaining messages transmitted
-    assert_eq_no_std!(transmission_errors, 0);
-    assert_eq_no_std!(queue.len(), 0); // Queue should be empty
+    assert_eq!(transmitted_count, 8); // All remaining messages transmitted
+    assert_eq!(transmission_errors, 0);
+    assert_eq!(queue.len(), 0); // Queue should be empty
     
     // Verify queue can continue normal operation
     let new_message = LogMessage::new(100, LogLevel::Info, "RECOVERY", "After recovery");
     queue.enqueue(new_message);
-    assert_eq_no_std!(queue.len(), 1);
+    assert_eq!(queue.len(), 1);
     
     let recovered_message = queue.dequeue().unwrap();
-    assert_eq_no_std!(recovered_message.timestamp, 100);
-    assert_eq_no_std!(recovered_message.message_str(), "After recovery");
+    assert_eq!(recovered_message.timestamp, 100);
+    assert_eq!(recovered_message.message_str(), "After recovery");
 }

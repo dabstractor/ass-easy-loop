@@ -26,10 +26,10 @@ fn test_pemf_logging_initialization() {
         "pEMF pulse generation initialized"
     );
     
-    assert_eq_no_std!(message.timestamp, 1000);
-    assert_eq_no_std!(message.level, LogLevel::Info);
-    assert_no_std!(message.module_str().contains("pemf_pulse_task"));
-    assert_eq_no_std!(message.message_str(), "pEMF pulse generation initialized");
+    assert_eq!(message.timestamp, 1000);
+    assert_eq!(message.level, LogLevel::Info);
+    assert!(message.module_str().contains("pemf_pulse_task"));
+    assert_eq!(message.message_str(), "pEMF pulse generation initialized");
 }
 
 #[test]
@@ -42,9 +42,9 @@ fn test_pemf_timing_validation_logging() {
         "HIGH phase timing deviation: 1ms (expected: 2ms, actual: 3ms, tolerance: ±5ms)"
     );
     
-    assert_eq_no_std!(timing_deviation_message.level, LogLevel::Warn);
-    assert_no_std!(timing_deviation_message.message_str().contains("timing deviation"));
-    assert_no_std!(timing_deviation_message.message_str().contains("HIGH phase"));
+    assert_eq!(timing_deviation_message.level, LogLevel::Warn);
+    assert!(timing_deviation_message.message_str().contains("timing deviation"));
+    assert!(timing_deviation_message.message_str().contains("HIGH phase"));
 }
 
 #[test]
@@ -57,9 +57,9 @@ fn test_pemf_error_logging() {
         "Failed to set MOSFET pin HIGH - GPIO error in cycle 42"
     );
     
-    assert_eq_no_std!(error_message.level, LogLevel::Error);
-    assert_no_std!(error_message.message_str().contains("Failed to set MOSFET pin"));
-    assert_no_std!(error_message.message_str().contains("GPIO error"));
+    assert_eq!(error_message.level, LogLevel::Error);
+    assert!(error_message.message_str().contains("Failed to set MOSFET pin"));
+    assert!(error_message.message_str().contains("GPIO error"));
 }
 
 #[test]
@@ -72,9 +72,9 @@ fn test_pemf_statistics_logging() {
         "pEMF pulse statistics (cycles: 120)"
     );
     
-    assert_eq_no_std!(stats_message.level, LogLevel::Info);
-    assert_no_std!(stats_message.message_str().contains("pulse statistics"));
-    assert_no_std!(stats_message.message_str().contains("cycles: 120"));
+    assert_eq!(stats_message.level, LogLevel::Info);
+    assert!(stats_message.message_str().contains("pulse statistics"));
+    assert!(stats_message.message_str().contains("cycles: 120"));
 }
 
 #[test]
@@ -87,9 +87,9 @@ fn test_pemf_timing_conflict_detection() {
         "Timing conflict detected: cycle started 450ms after previous (expected: 500ms)"
     );
     
-    assert_eq_no_std!(conflict_message.level, LogLevel::Error);
-    assert_no_std!(conflict_message.message_str().contains("Timing conflict detected"));
-    assert_no_std!(conflict_message.message_str().contains("cycle started"));
+    assert_eq!(conflict_message.level, LogLevel::Error);
+    assert!(conflict_message.message_str().contains("Timing conflict detected"));
+    assert!(conflict_message.message_str().contains("cycle started"));
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn test_pemf_logging_queue_integration() {
         "pemf",
         "pEMF pulse generation initialized"
     );
-    assert_no_std!(queue.enqueue(init_msg));
+    assert!(queue.enqueue(init_msg));
     
     // Simulate timing validation logging
     let timing_msg = LogMessage::new(
@@ -113,7 +113,7 @@ fn test_pemf_logging_queue_integration() {
         "pemf",
         "HIGH phase timing deviation: 1ms"
     );
-    assert_no_std!(queue.enqueue(timing_msg));
+    assert!(queue.enqueue(timing_msg));
     
     // Simulate error logging
     let error_msg = LogMessage::new(
@@ -122,7 +122,7 @@ fn test_pemf_logging_queue_integration() {
         "pemf",
         "Failed to set MOSFET pin HIGH"
     );
-    assert_no_std!(queue.enqueue(error_msg));
+    assert!(queue.enqueue(error_msg));
     
     // Simulate statistics logging
     let stats_msg = LogMessage::new(
@@ -131,29 +131,29 @@ fn test_pemf_logging_queue_integration() {
         "pemf",
         "pEMF pulse statistics (cycles: 120)"
     );
-    assert_no_std!(queue.enqueue(stats_msg));
+    assert!(queue.enqueue(stats_msg));
     
     // Verify all messages were queued
-    assert_eq_no_std!(queue.len(), 4);
+    assert_eq!(queue.len(), 4);
     
     // Verify messages can be dequeued in order
     let msg1 = queue.dequeue().unwrap();
-    assert_eq_no_std!(msg1.timestamp, 0);
-    assert_no_std!(msg1.message_str().contains("initialized"));
+    assert_eq!(msg1.timestamp, 0);
+    assert!(msg1.message_str().contains("initialized"));
     
     let msg2 = queue.dequeue().unwrap();
-    assert_eq_no_std!(msg2.timestamp, 5000);
-    assert_no_std!(msg2.message_str().contains("timing deviation"));
+    assert_eq!(msg2.timestamp, 5000);
+    assert!(msg2.message_str().contains("timing deviation"));
     
     let msg3 = queue.dequeue().unwrap();
-    assert_eq_no_std!(msg3.timestamp, 10000);
-    assert_no_std!(msg3.message_str().contains("Failed to set"));
+    assert_eq!(msg3.timestamp, 10000);
+    assert!(msg3.message_str().contains("Failed to set"));
     
     let msg4 = queue.dequeue().unwrap();
-    assert_eq_no_std!(msg4.timestamp, 60000);
-    assert_no_std!(msg4.message_str().contains("statistics"));
+    assert_eq!(msg4.timestamp, 60000);
+    assert!(msg4.message_str().contains("statistics"));
     
-    assert_no_std!(queue.is_empty());
+    assert!(queue.is_empty());
 }
 
 #[test]
@@ -176,7 +176,7 @@ fn test_pemf_logging_performance_impact() {
                 "pemf",
                 "Timing validation check"
             );
-            assert_no_std!(queue.enqueue(msg));
+            assert!(queue.enqueue(msg));
         }
         
         // Log statistics every 120 cycles (like the actual implementation)
@@ -187,14 +187,14 @@ fn test_pemf_logging_performance_impact() {
                 "pemf",
                 "pEMF pulse statistics"
             );
-            assert_no_std!(queue.enqueue(msg));
+            assert!(queue.enqueue(msg));
         }
     }
     
     // Verify reasonable number of messages were generated
     let stats = queue.stats();
-    assert_no_std!(stats.messages_sent <= 20); // Should be much less than 100 cycles
-    assert_no_std!(stats.current_utilization_percent < 50); // Should not fill the queue
+    assert!(stats.messages_sent <= 20); // Should be much less than 100 cycles
+    assert!(stats.current_utilization_percent < 50); // Should not fill the queue
 }
 
 #[test]
@@ -206,17 +206,17 @@ fn test_pemf_timing_constants_validation() {
     const TIMING_TOLERANCE_PERCENT: f32 = 0.01;
     
     // Verify timing constants are correct for 2Hz operation
-    assert_eq_no_std!(EXPECTED_TOTAL_PERIOD_MS, 500);
-    assert_eq_no_std!(PULSE_HIGH_DURATION_MS, 2);
-    assert_eq_no_std!(PULSE_LOW_DURATION_MS, 498);
+    assert_eq!(EXPECTED_TOTAL_PERIOD_MS, 500);
+    assert_eq!(PULSE_HIGH_DURATION_MS, 2);
+    assert_eq!(PULSE_LOW_DURATION_MS, 498);
     
     // Verify tolerance calculation
     let max_deviation = ((EXPECTED_TOTAL_PERIOD_MS as f32) * TIMING_TOLERANCE_PERCENT) as u64;
-    assert_eq_no_std!(max_deviation, 5); // ±5ms for ±1% of 500ms
+    assert_eq!(max_deviation, 5); // ±5ms for ±1% of 500ms
     
     // Verify frequency calculation
     let frequency_hz = 1000.0 / (EXPECTED_TOTAL_PERIOD_MS as f32);
-    assert_no_std!((frequency_hz - 2.0).abs() < 0.001);
+    assert!((frequency_hz - 2.0).abs() < 0.001);
 }
 
 #[test]
@@ -232,9 +232,9 @@ fn test_pemf_logging_message_truncation() {
     );
     
     // Verify message was truncated to fit
-    assert_no_std!(msg.message_str().len() <= 48);
-    assert_no_std!(msg.module_str().len() <= 8);
+    assert!(msg.message_str().len() <= 48);
+    assert!(msg.module_str().len() <= 8);
     
     // Verify essential information is preserved
-    assert_no_std!(msg.message_str().contains("very long"));
+    assert!(msg.message_str().contains("very long"));
 }

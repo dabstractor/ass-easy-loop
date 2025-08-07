@@ -1,5 +1,5 @@
 //! No-std test framework for embedded unit testing
-//! 
+//!
 //! This module provides a custom test framework that works in no_std environments,
 //! specifically designed for the thumbv6m-none-eabi target. It includes:
 //! - Custom test runner with result collection
@@ -7,10 +7,10 @@
 //! - Test registration system using const arrays
 //! - Integration with USB HID for result reporting
 
-use heapless::{Vec, String};
-use core::option::Option::{self, Some, None};
-use core::result::Result::{self, Ok, Err};
 use core::default::Default;
+use core::option::Option::{self, None, Some};
+use core::result::Result::{self};
+use heapless::{String, Vec};
 
 /// Maximum number of tests that can be registered in a single test suite
 pub const MAX_TESTS_PER_SUITE: usize = 64;
@@ -232,7 +232,11 @@ impl TestRunner {
     }
 
     /// Register a test case with the runner
-    pub fn register_test(&mut self, name: &str, test_fn: fn() -> TestResult) -> Result<(), &'static str> {
+    pub fn register_test(
+        &mut self,
+        name: &str,
+        test_fn: fn() -> TestResult,
+    ) -> Result<(), &'static str> {
         let test_case = TestCase::new(name, test_fn);
         self.tests.push(test_case).map_err(|_| "Test registry full")
     }
@@ -293,7 +297,8 @@ macro_rules! assert_no_std {
     ($cond:expr) => {
         if !($cond) {
             return $crate::test_framework::TestResult::fail(concat!(
-                "Assertion failed: ", stringify!($cond)
+                "Assertion failed: ",
+                stringify!($cond)
             ));
         }
     };
@@ -312,7 +317,10 @@ macro_rules! assert_eq_no_std {
         let right_val = $right;
         if left_val != right_val {
             return $crate::test_framework::TestResult::fail(concat!(
-                "Assertion failed: ", stringify!($left), " == ", stringify!($right)
+                "Assertion failed: ",
+                stringify!($left),
+                " == ",
+                stringify!($right)
             ));
         }
     };
@@ -333,7 +341,10 @@ macro_rules! assert_ne_no_std {
         let right_val = $right;
         if left_val == right_val {
             return $crate::test_framework::TestResult::fail(concat!(
-                "Assertion failed: ", stringify!($left), " != ", stringify!($right)
+                "Assertion failed: ",
+                stringify!($left),
+                " != ",
+                stringify!($right)
             ));
         }
     };
@@ -358,24 +369,21 @@ macro_rules! test_case {
 }
 
 /// Utility function to create a test runner and register tests from a const array
-pub fn create_test_suite(
-    suite_name: &str,
-    tests: &[(&str, fn() -> TestResult)]
-) -> TestRunner {
+pub fn create_test_suite(suite_name: &str, tests: &[(&str, fn() -> TestResult)]) -> TestRunner {
     let mut runner = TestRunner::new(suite_name);
-    
+
     for (name, test_fn) in tests {
         let _ = runner.register_test(name, *test_fn);
     }
-    
+
     runner
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::option::Option::{Some, None};
-    use core::result::Result::{Ok, Err};
+    use core::option::Option::{None, Some};
+    use core::result::Result::{Err, Ok};
 
     fn sample_passing_test() -> TestResult {
         TestResult::pass()
@@ -392,62 +400,68 @@ mod tests {
     #[test]
     fn test_result_creation() {
         let pass = TestResult::pass();
-        assert_no_std!(pass.is_success());
-        assert_no_std!(!pass.is_failure());
-        assert_no_std!(!pass.is_skipped());
+        assert!(pass.is_success());
+        assert!(!pass.is_failure());
+        assert!(!pass.is_skipped());
 
         let fail = TestResult::fail("error");
-        assert_no_std!(!fail.is_success());
-        assert_no_std!(fail.is_failure());
-        assert_no_std!(!fail.is_skipped());
+        assert!(!fail.is_success());
+        assert!(fail.is_failure());
+        assert!(!fail.is_skipped());
 
         let skip = TestResult::skip("reason");
-        assert_no_std!(!skip.is_success());
-        assert_no_std!(!skip.is_failure());
-        assert_no_std!(skip.is_skipped());
+        assert!(!skip.is_success());
+        assert!(!skip.is_failure());
+        assert!(skip.is_skipped());
     }
 
     #[test]
     fn test_case_creation_and_execution() {
         let test_case = TestCase::new("sample_test", sample_passing_test);
-        assert_eq_no_std!(test_case.name.as_str(), "sample_test");
-        
+        assert_eq!(test_case.name.as_str(), "sample_test");
+
         let result = test_case.run();
-        assert_no_std!(result.is_success());
+        assert!(result.is_success());
     }
 
     #[test]
     fn test_runner_registration_and_execution() {
         let mut runner = TestRunner::new("test_suite");
-        
-        assert_no_std!(runner.register_test("pass_test", sample_passing_test).is_ok());
-        assert_no_std!(runner.register_test("fail_test", sample_failing_test).is_ok());
-        assert_no_std!(runner.register_test("skip_test", sample_skipped_test).is_ok());
-        
-        assert_eq_no_std!(runner.test_count(), 3);
-        
+
+        assert!(runner
+            .register_test("pass_test", sample_passing_test)
+            .is_ok());
+        assert!(runner
+            .register_test("fail_test", sample_failing_test)
+            .is_ok());
+        assert!(runner
+            .register_test("skip_test", sample_skipped_test)
+            .is_ok());
+
+        assert_eq!(runner.test_count(), 3);
+
         let results = runner.run_all();
-        assert_eq_no_std!(results.stats.total_tests, 3);
-        assert_eq_no_std!(results.stats.passed, 1);
-        assert_eq_no_std!(results.stats.failed, 1);
-        assert_eq_no_std!(results.stats.skipped, 1);
+        assert_eq!(results.stats.total_tests, 3);
+        assert_eq!(results.stats.passed, 1);
+        assert_eq!(results.stats.failed, 1);
+        assert_eq!(results.stats.skipped, 1);
     }
 
     #[test]
     fn test_suite_stats() {
         let mut stats = TestSuiteStats::new();
-        
+
         stats.update(&TestResult::pass());
         stats.update(&TestResult::fail("error"));
         stats.update(&TestResult::skip("reason"));
-        
-        assert_eq_no_std!(stats.total_tests, 3);
-        assert_eq_no_std!(stats.passed, 1);
-        assert_eq_no_std!(stats.failed, 1);
-        assert_eq_no_std!(stats.skipped, 1);
-        assert_no_std!(!stats.all_passed());
-        assert_no_std!(stats.has_failures());
-        assert_eq_no_std!(stats.success_rate(), 33); // 1/3 * 100 = 33%
+
+        assert_eq!(stats.total_tests, 3);
+        assert_eq!(stats.passed, 1);
+        assert_eq!(stats.failed, 1);
+        assert_eq!(stats.skipped, 1);
+        assert!(!stats.all_passed());
+        assert!(stats.has_failures());
+        assert_eq!(stats.success_rate(), 33); // 1/3 * 100 = 33%
     }
 
     #[test]
@@ -456,13 +470,14 @@ mod tests {
             ("pass_test", sample_passing_test as fn() -> TestResult),
             ("fail_test", sample_failing_test as fn() -> TestResult),
         ];
-        
+
         let runner = create_test_suite("utility_suite", &tests);
-        assert_eq_no_std!(runner.test_count(), 2);
-        
+        assert_eq!(runner.test_count(), 2);
+
         let results = runner.run_all();
-        assert_eq_no_std!(results.stats.total_tests, 2);
-        assert_eq_no_std!(results.stats.passed, 1);
-        assert_eq_no_std!(results.stats.failed, 1);
+        assert_eq!(results.stats.total_tests, 2);
+        assert_eq!(results.stats.passed, 1);
+        assert_eq!(results.stats.failed, 1);
     }
 }
+

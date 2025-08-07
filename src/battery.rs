@@ -53,6 +53,12 @@ impl BatteryState {
             None
         }
     }
+
+    /// Check if a state transition is valid based on ADC reading
+    pub fn is_valid_transition(&self, to_state: BatteryState, adc_value: u16) -> bool {
+        let expected_state = BatteryState::from_adc_reading(adc_value);
+        expected_state == to_state
+    }
 }
 
 /// Validation function to verify battery state machine logic

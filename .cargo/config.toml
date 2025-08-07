@@ -5,8 +5,8 @@ rustflags = [
   "-C", "link-arg=--nmagic",
 ]
 
-[build]
-target = "thumbv6m-none-eabi"
+# Only set embedded target for the binary, not for tests
+# Tests should run on host with std support
 
 [env]
 DEFMT_LOG = "debug"

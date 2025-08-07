@@ -31,31 +31,31 @@ fn test_queue_logger_with_config() {
     
     // Should have 3 messages (or 2 if debug is filtered out at compile time)
     #[cfg(debug_assertions)]
-    assert_eq_no_std!(queue.len(), 3);
+    assert_eq!(queue.len(), 3);
     #[cfg(not(debug_assertions))]
-    assert_eq_no_std!(queue.len(), 2); // Debug message filtered out
+    assert_eq!(queue.len(), 2); // Debug message filtered out
     
     // Test message content
     if let Some(msg) = queue.dequeue() {
-        assert_eq_no_std!(msg.level, LogLevel::Info);
-        assert_eq_no_std!(msg.module_str(), "TEST");
-        assert_eq_no_std!(msg.message_str(), "Test message");
-        assert_eq_no_std!(msg.timestamp, 12345);
+        assert_eq!(msg.level, LogLevel::Info);
+        assert_eq!(msg.module_str(), "TEST");
+        assert_eq!(msg.message_str(), "Test message");
+        assert_eq!(msg.timestamp, 12345);
     }
     
     if let Some(msg) = queue.dequeue() {
-        assert_eq_no_std!(msg.level, LogLevel::Error);
-        assert_eq_no_std!(msg.module_str(), "TEST");
-        assert_eq_no_std!(msg.message_str(), "Error message");
+        assert_eq!(msg.level, LogLevel::Error);
+        assert_eq!(msg.module_str(), "TEST");
+        assert_eq!(msg.message_str(), "Error message");
     }
     
     // Check if debug message exists (depends on compile-time configuration)
     #[cfg(debug_assertions)]
     {
         if let Some(msg) = queue.dequeue() {
-            assert_eq_no_std!(msg.level, LogLevel::Debug);
-            assert_eq_no_std!(msg.module_str(), "TEST");
-            assert_eq_no_std!(msg.message_str(), "Debug message");
+            assert_eq!(msg.level, LogLevel::Debug);
+            assert_eq!(msg.module_str(), "TEST");
+            assert_eq!(msg.message_str(), "Debug message");
         }
     }
 }
@@ -74,14 +74,14 @@ fn test_log_message_serialization_with_config() {
     
     // Test serialization
     let serialized = message.serialize();
-    assert_eq_no_std!(serialized.len(), 64);
+    assert_eq!(serialized.len(), 64);
     
     // Test deserialization
     let deserialized = LogMessage::deserialize(&serialized).unwrap();
-    assert_eq_no_std!(message.timestamp, deserialized.timestamp);
-    assert_eq_no_std!(message.level, deserialized.level);
-    assert_eq_no_std!(message.module_str(), deserialized.module_str());
-    assert_eq_no_std!(message.message_str(), deserialized.message_str());
+    assert_eq!(message.timestamp, deserialized.timestamp);
+    assert_eq!(message.level, deserialized.level);
+    assert_eq!(message.module_str(), deserialized.module_str());
+    assert_eq!(message.message_str(), deserialized.message_str());
 }
 
 #[test]
@@ -90,21 +90,21 @@ fn test_configuration_affects_logging() {
     let mut config = LogConfig::new();
     
     // Test initial configuration allows info messages
-    assert_no_std!(config.should_log(LogLevel::Info, LogCategory::General));
-    assert_no_std!(config.should_log(LogLevel::Error, LogCategory::General));
+    assert!(config.should_log(LogLevel::Info, LogCategory::General));
+    assert!(config.should_log(LogLevel::Error, LogCategory::General));
     
     // Change to more restrictive level
     config.set_max_level(LogLevel::Error).unwrap();
-    assert_no_std!(!config.should_log(LogLevel::Info, LogCategory::General));
-    assert_no_std!(!config.should_log(LogLevel::Warn, LogCategory::General));
-    assert_no_std!(config.should_log(LogLevel::Error, LogCategory::General));
+    assert!(!config.should_log(LogLevel::Info, LogCategory::General));
+    assert!(!config.should_log(LogLevel::Warn, LogCategory::General));
+    assert!(config.should_log(LogLevel::Error, LogCategory::General));
     
     // Test category-specific filtering
     config.set_battery_logs(false).unwrap();
     config.set_system_logs(true).unwrap();
     
-    assert_no_std!(!config.should_log(LogLevel::Error, LogCategory::Battery));
-    assert_eq_no_std!(config.should_log(LogLevel::Error, LogCategory::System),
+    assert!(!config.should_log(LogLevel::Error, LogCategory::Battery));
+    assert_eq!(config.should_log(LogLevel::Error, LogCategory::System),
                config.enable_system_logs && ass_easy_loop::config::logging::ENABLE_SYSTEM_LOGS);
 }
 
@@ -114,20 +114,20 @@ fn test_queue_behavior_with_different_configs() {
     let small_config = LogConfig::minimal_config();
     let large_config = LogConfig::debug_config();
     
-    assert_eq_no_std!(small_config.queue_size, 16);
-    assert_eq_no_std!(large_config.queue_size, 128);
+    assert_eq!(small_config.queue_size, 16);
+    assert_eq!(large_config.queue_size, 128);
     
     // Test that configurations are valid
-    assert_no_std!(small_config.validate().is_ok());
-    assert_no_std!(large_config.validate().is_ok());
+    assert!(small_config.validate().is_ok());
+    assert!(large_config.validate().is_ok());
     
     // Test timeout differences
-    assert_eq_no_std!(small_config.transmission_timeout_ms, 50);
-    assert_eq_no_std!(large_config.transmission_timeout_ms, 100);
+    assert_eq!(small_config.transmission_timeout_ms, 50);
+    assert_eq!(large_config.transmission_timeout_ms, 100);
     
     // Test retry attempt differences
-    assert_eq_no_std!(small_config.max_retry_attempts, 1);
-    assert_eq_no_std!(large_config.max_retry_attempts, 3);
+    assert_eq!(small_config.max_retry_attempts, 1);
+    assert_eq!(large_config.max_retry_attempts, 3);
 }
 
 #[test]
@@ -136,39 +136,39 @@ fn test_config_validation_edge_cases() {
     
     // Test boundary values for queue size
     config.queue_size = 1; // Minimum valid size
-    assert_no_std!(config.validate().is_ok());
+    assert!(config.validate().is_ok());
     
     config.queue_size = 128; // Maximum valid size
-    assert_no_std!(config.validate().is_ok());
+    assert!(config.validate().is_ok());
     
     config.queue_size = 129; // Just over maximum
-    assert_eq_no_std!(config.validate(), Err(ConfigError::InvalidQueueSize));
+    assert_eq!(config.validate(), Err(ConfigError::InvalidQueueSize));
     
     // Reset to valid
     config.queue_size = 32;
     
     // Test boundary values for timeout
     config.transmission_timeout_ms = 1; // Minimum valid timeout
-    assert_no_std!(config.validate().is_ok());
+    assert!(config.validate().is_ok());
     
     config.transmission_timeout_ms = 10000; // Maximum valid timeout
-    assert_no_std!(config.validate().is_ok());
+    assert!(config.validate().is_ok());
     
     config.transmission_timeout_ms = 10001; // Just over maximum
-    assert_eq_no_std!(config.validate(), Err(ConfigError::InvalidTimeout));
+    assert_eq!(config.validate(), Err(ConfigError::InvalidTimeout));
     
     // Reset to valid
     config.transmission_timeout_ms = 100;
     
     // Test boundary values for retry attempts
     config.max_retry_attempts = 1; // Minimum valid attempts
-    assert_no_std!(config.validate().is_ok());
+    assert!(config.validate().is_ok());
     
     config.max_retry_attempts = 10; // Maximum valid attempts
-    assert_no_std!(config.validate().is_ok());
+    assert!(config.validate().is_ok());
     
     config.max_retry_attempts = 11; // Just over maximum
-    assert_eq_no_std!(config.validate(), Err(ConfigError::InvalidRetryCount));
+    assert_eq!(config.validate(), Err(ConfigError::InvalidRetryCount));
 }
 
 #[test]
@@ -179,30 +179,30 @@ fn test_compile_time_vs_runtime_filtering() {
     #[cfg(not(debug_assertions))]
     {
         // In release mode, debug level should not be allowed
-        assert_eq_no_std!(config.set_max_level(LogLevel::Debug), Err(ConfigError::InvalidLogLevel));
+        assert_eq!(config.set_max_level(LogLevel::Debug), Err(ConfigError::InvalidLogLevel));
         
         // But info level should be allowed
-        assert_no_std!(config.set_max_level(LogLevel::Info).is_ok());
+        assert!(config.set_max_level(LogLevel::Info).is_ok());
     }
     
     #[cfg(debug_assertions)]
     {
         // In debug mode, debug level should be allowed
-        assert_no_std!(config.set_max_level(LogLevel::Debug).is_ok());
+        assert!(config.set_max_level(LogLevel::Debug).is_ok());
     }
     
     // Test category compile-time vs runtime interaction
     #[cfg(not(feature = "battery-logs"))]
     {
         // If battery logs are disabled at compile time, runtime enable should fail
-        assert_eq_no_std!(config.set_battery_logs(true), Err(ConfigError::CategoryDisabledAtCompileTime));
+        assert_eq!(config.set_battery_logs(true), Err(ConfigError::CategoryDisabledAtCompileTime));
     }
     
     #[cfg(feature = "battery-logs")]
     {
         // If battery logs are enabled at compile time, runtime control should work
-        assert_no_std!(config.set_battery_logs(true).is_ok());
-        assert_no_std!(config.set_battery_logs(false).is_ok());
+        assert!(config.set_battery_logs(true).is_ok());
+        assert!(config.set_battery_logs(false).is_ok());
     }
 }
 
@@ -220,19 +220,19 @@ fn test_configuration_persistence() {
     
     // Verify changes persisted
     assert_ne!(config.max_level, original_level);
-    assert_eq_no_std!(config.max_level, LogLevel::Error);
-    assert_no_std!(!config.enable_battery_logs);
-    assert_eq_no_std!(config.transmission_timeout_ms, 200);
-    assert_eq_no_std!(config.max_retry_attempts, 5);
+    assert_eq!(config.max_level, LogLevel::Error);
+    assert!(!config.enable_battery_logs);
+    assert_eq!(config.transmission_timeout_ms, 200);
+    assert_eq!(config.max_retry_attempts, 5);
     
     // Test serialization preserves changes
     let serialized = config.serialize();
     let deserialized = LogConfig::deserialize(&serialized).unwrap();
     
-    assert_eq_no_std!(config.max_level, deserialized.max_level);
-    assert_eq_no_std!(config.enable_battery_logs, deserialized.enable_battery_logs);
-    assert_eq_no_std!(config.transmission_timeout_ms, deserialized.transmission_timeout_ms);
-    assert_eq_no_std!(config.max_retry_attempts, deserialized.max_retry_attempts);
+    assert_eq!(config.max_level, deserialized.max_level);
+    assert_eq!(config.enable_battery_logs, deserialized.enable_battery_logs);
+    assert_eq!(config.transmission_timeout_ms, deserialized.transmission_timeout_ms);
+    assert_eq!(config.max_retry_attempts, deserialized.max_retry_attempts);
 }
 
 #[test]
@@ -242,22 +242,22 @@ fn test_error_recovery() {
     
     // Introduce an invalid configuration
     config.queue_size = 0; // Invalid
-    assert_eq_no_std!(config.validate(), Err(ConfigError::InvalidQueueSize));
+    assert_eq!(config.validate(), Err(ConfigError::InvalidQueueSize));
     
     // Reset to default should fix the error
     config = LogConfig::new();
-    assert_no_std!(config.validate().is_ok());
+    assert!(config.validate().is_ok());
     
     // Test recovery from serialization errors
     let mut invalid_data = [0u8; 16];
     invalid_data[0] = 255; // Invalid log level
     
-    assert_eq_no_std!(LogConfig::deserialize(&invalid_data), Err(ConfigError::InvalidLogLevel));
+    assert_eq!(LogConfig::deserialize(&invalid_data), Err(ConfigError::InvalidLogLevel));
     
     // But valid data should still work
     let valid_config = LogConfig::new();
     let valid_data = valid_config.serialize();
-    assert_no_std!(LogConfig::deserialize(&valid_data).is_ok());
+    assert!(LogConfig::deserialize(&valid_data).is_ok());
 }
 
 #[test]
@@ -266,13 +266,13 @@ fn test_feature_flag_consistency() {
     let config = LogConfig::new();
     
     // Runtime flags should not exceed compile-time capabilities
-    assert_eq_no_std!(config.enable_battery_logs, 
+    assert_eq!(config.enable_battery_logs, 
                config.enable_battery_logs && ass_easy_loop::config::logging::ENABLE_BATTERY_LOGS);
-    assert_eq_no_std!(config.enable_pemf_logs,
+    assert_eq!(config.enable_pemf_logs,
                config.enable_pemf_logs && ass_easy_loop::config::logging::ENABLE_PEMF_LOGS);
-    assert_eq_no_std!(config.enable_system_logs,
+    assert_eq!(config.enable_system_logs,
                config.enable_system_logs && ass_easy_loop::config::logging::ENABLE_SYSTEM_LOGS);
-    assert_eq_no_std!(config.enable_usb_logs,
+    assert_eq!(config.enable_usb_logs,
                config.enable_usb_logs && ass_easy_loop::config::logging::ENABLE_USB_LOGS);
 }
 
@@ -283,25 +283,25 @@ fn test_configuration_defaults() {
     let new_config = LogConfig::new();
     
     // Default and new should be identical
-    assert_eq_no_std!(default_config.max_level, new_config.max_level);
-    assert_eq_no_std!(default_config.queue_size, new_config.queue_size);
-    assert_eq_no_std!(default_config.usb_vid, new_config.usb_vid);
-    assert_eq_no_std!(default_config.usb_pid, new_config.usb_pid);
-    assert_eq_no_std!(default_config.enable_battery_logs, new_config.enable_battery_logs);
-    assert_eq_no_std!(default_config.enable_pemf_logs, new_config.enable_pemf_logs);
-    assert_eq_no_std!(default_config.enable_system_logs, new_config.enable_system_logs);
-    assert_eq_no_std!(default_config.enable_usb_logs, new_config.enable_usb_logs);
+    assert_eq!(default_config.max_level, new_config.max_level);
+    assert_eq!(default_config.queue_size, new_config.queue_size);
+    assert_eq!(default_config.usb_vid, new_config.usb_vid);
+    assert_eq!(default_config.usb_pid, new_config.usb_pid);
+    assert_eq!(default_config.enable_battery_logs, new_config.enable_battery_logs);
+    assert_eq!(default_config.enable_pemf_logs, new_config.enable_pemf_logs);
+    assert_eq!(default_config.enable_system_logs, new_config.enable_system_logs);
+    assert_eq!(default_config.enable_usb_logs, new_config.enable_usb_logs);
     
     // Default configuration should be valid
-    assert_no_std!(default_config.validate().is_ok());
+    assert!(default_config.validate().is_ok());
     
     // Default configuration should have reasonable values
-    assert_no_std!(default_config.queue_size > 0);
-    assert_no_std!(default_config.queue_size <= 128);
-    assert_no_std!(default_config.transmission_timeout_ms > 0);
-    assert_no_std!(default_config.transmission_timeout_ms <= 10000);
-    assert_no_std!(default_config.max_retry_attempts > 0);
-    assert_no_std!(default_config.max_retry_attempts <= 10);
+    assert!(default_config.queue_size > 0);
+    assert!(default_config.queue_size <= 128);
+    assert!(default_config.transmission_timeout_ms > 0);
+    assert!(default_config.transmission_timeout_ms <= 10000);
+    assert!(default_config.max_retry_attempts > 0);
+    assert!(default_config.max_retry_attempts <= 10);
     assert_ne!(default_config.usb_vid, 0);
     assert_ne!(default_config.usb_pid, 0);
 }

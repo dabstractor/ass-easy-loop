@@ -34,27 +34,27 @@ mod tests {
             stress_pattern: StressPattern::Constant,
             performance_threshold_percent: 80,
         };
-        assert_no_std!(valid_params.validate().is_ok());
+        assert!(valid_params.validate().is_ok());
 
         // Test invalid duration (too long)
         let mut invalid_params = valid_params;
         invalid_params.duration_ms = 400_000; // 400 seconds - too long
-        assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::InvalidDuration));
+        assert_eq!(invalid_params.validate(), Err(TestParameterError::InvalidDuration));
 
         // Test invalid load level (over 100%)
         invalid_params = valid_params;
         invalid_params.load_level = 150;
-        assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
+        assert_eq!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
 
         // Test invalid concurrent operations (too many)
         invalid_params = valid_params;
         invalid_params.concurrent_operations = 20;
-        assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
+        assert_eq!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
 
         // Test invalid performance threshold (over 100%)
         invalid_params = valid_params;
         invalid_params.performance_threshold_percent = 150;
-        assert_eq_no_std!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
+        assert_eq!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
     }
 
     /// Test stress test parameter parsing from payload
@@ -88,18 +88,18 @@ mod tests {
         // Parse parameters
         let parsed_params = StressTestParameters::from_payload(&payload).unwrap();
         
-        assert_eq_no_std!(parsed_params.duration_ms, 15000);
-        assert_eq_no_std!(parsed_params.load_level, 60);
-        assert_no_std!(parsed_params.memory_stress_enabled);
-        assert_no_std!(parsed_params.cpu_stress_enabled);
-        assert_no_std!(!parsed_params.io_stress_enabled);
-        assert_eq_no_std!(parsed_params.concurrent_operations, 6);
-        assert_eq_no_std!(parsed_params.performance_threshold_percent, 85);
-        assert_eq_no_std!(parsed_params.stress_pattern, StressPattern::Ramp);
+        assert_eq!(parsed_params.duration_ms, 15000);
+        assert_eq!(parsed_params.load_level, 60);
+        assert!(parsed_params.memory_stress_enabled);
+        assert!(parsed_params.cpu_stress_enabled);
+        assert!(!parsed_params.io_stress_enabled);
+        assert_eq!(parsed_params.concurrent_operations, 6);
+        assert_eq!(parsed_params.performance_threshold_percent, 85);
+        assert_eq!(parsed_params.stress_pattern, StressPattern::Ramp);
 
         // Test payload too short
         let short_payload = [1, 2, 3]; // Only 3 bytes
-        assert_eq_no_std!(
+        assert_eq!(
             StressTestParameters::from_payload(&short_payload),
             Err(TestParameterError::PayloadTooShort)
         );
@@ -123,29 +123,29 @@ mod tests {
         let serialized = params.serialize();
         
         // Verify serialized data contains expected values
-        assert_no_std!(serialized.len() >= 9);
+        assert!(serialized.len() >= 9);
         
         // Check duration (first 4 bytes)
         let duration = u32::from_le_bytes([serialized[0], serialized[1], serialized[2], serialized[3]]);
-        assert_eq_no_std!(duration, 20000);
+        assert_eq!(duration, 20000);
         
         // Check load level (next byte)
-        assert_eq_no_std!(serialized[4], 80);
+        assert_eq!(serialized[4], 80);
         
         // Check flags (next byte) - memory and io enabled, cpu disabled
         let flags = serialized[5];
-        assert_eq_no_std!(flags & 0x01, 0x01); // memory enabled
-        assert_eq_no_std!(flags & 0x02, 0x00); // cpu disabled
-        assert_eq_no_std!(flags & 0x04, 0x04); // io enabled
+        assert_eq!(flags & 0x01, 0x01); // memory enabled
+        assert_eq!(flags & 0x02, 0x00); // cpu disabled
+        assert_eq!(flags & 0x04, 0x04); // io enabled
         
         // Check concurrent operations (next byte)
-        assert_eq_no_std!(serialized[6], 8);
+        assert_eq!(serialized[6], 8);
         
         // Check performance threshold (next byte)
-        assert_eq_no_std!(serialized[7], 70);
+        assert_eq!(serialized[7], 70);
         
         // Check stress pattern (next byte)
-        assert_eq_no_std!(serialized[8], StressPattern::Burst as u8);
+        assert_eq!(serialized[8], StressPattern::Burst as u8);
     }
 
     /// Test stress test execution and basic functionality
@@ -169,17 +169,17 @@ mod tests {
         
         // Execute stress test
         let test_id = processor.execute_stress_test(stress_params, timestamp).unwrap();
-        assert_eq_no_std!(test_id, 1);
+        assert_eq!(test_id, 1);
         
         // Verify test is active
         let active_info = processor.get_active_test_info().unwrap();
-        assert_eq_no_std!(active_info.0, TestType::SystemStressTest);
-        assert_eq_no_std!(active_info.1, TestStatus::Running);
-        assert_eq_no_std!(active_info.2, test_id);
+        assert_eq!(active_info.0, TestType::SystemStressTest);
+        assert_eq!(active_info.1, TestStatus::Running);
+        assert_eq!(active_info.2, test_id);
         
         // Try to start another stress test (should fail)
         let result = processor.execute_stress_test(stress_params, timestamp);
-        assert_eq_no_std!(result, Err(TestExecutionError::TestAborted));
+        assert_eq!(result, Err(TestExecutionError::TestAborted));
     }
 
     /// Test stress test measurements and monitoring
@@ -211,17 +211,17 @@ mod tests {
         let stats = processor.get_stress_test_statistics().unwrap();
         
         // Verify statistics capture the measurements
-        assert_eq_no_std!(stats.peak_cpu_usage_percent, 90);
-        assert_eq_no_std!(stats.peak_memory_usage_bytes, 12288);
-        assert_eq_no_std!(stats.operations_completed, 5); // 5 successful operations
-        assert_eq_no_std!(stats.operations_failed, 2); // 2 failed operations
-        assert_no_std!(stats.max_response_time_us >= 8000); // Should capture the 8ms response time
-        assert_no_std!(stats.performance_degradation_events > 0); // Should detect degradation events
-        assert_no_std!(stats.system_stability_score < 100); // Should be reduced due to failures
+        assert_eq!(stats.peak_cpu_usage_percent, 90);
+        assert_eq!(stats.peak_memory_usage_bytes, 12288);
+        assert_eq!(stats.operations_completed, 5); // 5 successful operations
+        assert_eq!(stats.operations_failed, 2); // 2 failed operations
+        assert!(stats.max_response_time_us >= 8000); // Should capture the 8ms response time
+        assert!(stats.performance_degradation_events > 0); // Should detect degradation events
+        assert!(stats.system_stability_score < 100); // Should be reduced due to failures
         
         // Test success rate calculation
         let success_rate = stats.success_rate_percent();
-        assert_no_std!((success_rate - 71.43).abs() < 0.1); // ~71.43% success rate (5/7)
+        assert!((success_rate - 71.43).abs() < 0.1); // ~71.43% success rate (5/7)
     }
 
     /// Test memory usage monitoring during stress conditions
@@ -233,42 +233,42 @@ mod tests {
         
         // Set baseline memory usage
         monitor.set_baseline(2048, timestamp);
-        assert_eq_no_std!(monitor.baseline_usage_bytes, 2048);
-        assert_eq_no_std!(monitor.current_usage_bytes, 2048);
-        assert_eq_no_std!(monitor.peak_usage_bytes, 2048);
+        assert_eq!(monitor.baseline_usage_bytes, 2048);
+        assert_eq!(monitor.current_usage_bytes, 2048);
+        assert_eq!(monitor.peak_usage_bytes, 2048);
         
         // Update with increasing memory usage
         monitor.update(3072, timestamp + 100); // 1KB increase
-        assert_eq_no_std!(monitor.current_usage_bytes, 3072);
-        assert_eq_no_std!(monitor.peak_usage_bytes, 3072);
-        assert_eq_no_std!(monitor.usage_increase_bytes(), 1024);
-        assert_no_std!((monitor.usage_increase_percent() - 50.0).abs() < 0.1); // 50% increase
+        assert_eq!(monitor.current_usage_bytes, 3072);
+        assert_eq!(monitor.peak_usage_bytes, 3072);
+        assert_eq!(monitor.usage_increase_bytes(), 1024);
+        assert!((monitor.usage_increase_percent() - 50.0).abs() < 0.1); // 50% increase
         
         // Record memory allocations
         monitor.record_allocation(512, true); // Successful allocation
-        assert_eq_no_std!(monitor.current_usage_bytes, 3584);
-        assert_eq_no_std!(monitor.peak_usage_bytes, 3584);
-        assert_eq_no_std!(monitor.allocation_count, 1);
+        assert_eq!(monitor.current_usage_bytes, 3584);
+        assert_eq!(monitor.peak_usage_bytes, 3584);
+        assert_eq!(monitor.allocation_count, 1);
         
         monitor.record_allocation(1024, false); // Failed allocation
-        assert_eq_no_std!(monitor.allocation_failures, 1);
-        assert_eq_no_std!(monitor.current_usage_bytes, 3584); // No change on failed allocation
+        assert_eq!(monitor.allocation_failures, 1);
+        assert_eq!(monitor.current_usage_bytes, 3584); // No change on failed allocation
         
         // Record memory deallocation
         monitor.record_deallocation(256);
-        assert_eq_no_std!(monitor.current_usage_bytes, 3328);
-        assert_eq_no_std!(monitor.deallocation_count, 1);
+        assert_eq!(monitor.current_usage_bytes, 3328);
+        assert_eq!(monitor.deallocation_count, 1);
         
         // Test critical usage detection
-        assert_no_std!(!monitor.is_critical_usage(4000)); // Below threshold
-        assert_no_std!(monitor.is_critical_usage(3000)); // Above threshold
-        assert_no_std!(monitor.is_critical_usage(1000)); // Has allocation failures
+        assert!(!monitor.is_critical_usage(4000)); // Below threshold
+        assert!(monitor.is_critical_usage(3000)); // Above threshold
+        assert!(monitor.is_critical_usage(1000)); // Has allocation failures
         
         // Test statistics generation
         let stats = monitor.get_statistics();
-        assert_eq_no_std!(stats.total_ram_usage_bytes, 3328);
-        assert_eq_no_std!(stats.peak_ram_usage_bytes, 3584);
-        assert_no_std!(stats.memory_fragmentation_percent >= 0);
+        assert_eq!(stats.total_ram_usage_bytes, 3328);
+        assert_eq!(stats.peak_ram_usage_bytes, 3584);
+        assert!(stats.memory_fragmentation_percent >= 0);
     }
 
     /// Test performance degradation detection
@@ -317,23 +317,23 @@ mod tests {
         let stats = processor.get_stress_test_statistics().unwrap();
         
         // Should detect performance degradation events
-        assert_no_std!(stats.performance_degradation_events > 0);
+        assert!(stats.performance_degradation_events > 0);
         
         // Should show reduced minimum performance
-        assert_no_std!(stats.min_performance_percent < 100);
+        assert!(stats.min_performance_percent < 100);
         
         // Should show high maximum response time
-        assert_no_std!(stats.max_response_time_us > 3000);
+        assert!(stats.max_response_time_us > 3000);
         
         // Should show some failed operations
-        assert_no_std!(stats.operations_failed > 0);
+        assert!(stats.operations_failed > 0);
         
         // System stability score should be reduced
-        assert_no_std!(stats.system_stability_score < 90);
+        assert!(stats.system_stability_score < 90);
         
         // Test performance criteria checking
-        assert_no_std!(!stats.meets_performance_criteria(90, 0)); // Should not meet strict criteria
-        assert_no_std!(stats.meets_performance_criteria(50, 10)); // Should meet lenient criteria
+        assert!(!stats.meets_performance_criteria(90, 0)); // Should not meet strict criteria
+        assert!(stats.meets_performance_criteria(50, 10)); // Should meet lenient criteria
     }
 
     /// Test different stress patterns
@@ -344,38 +344,38 @@ mod tests {
         let constant_params = TestCommandProcessor::create_stress_test_with_pattern(
             5000, 60, StressPattern::Constant, 80
         ).unwrap();
-        assert_eq_no_std!(constant_params.stress_pattern, StressPattern::Constant);
-        assert_eq_no_std!(constant_params.load_level, 60);
-        assert_eq_no_std!(constant_params.concurrent_operations, 4);
-        assert_no_std!(constant_params.memory_stress_enabled);
-        assert_no_std!(constant_params.cpu_stress_enabled);
-        assert_no_std!(constant_params.io_stress_enabled);
+        assert_eq!(constant_params.stress_pattern, StressPattern::Constant);
+        assert_eq!(constant_params.load_level, 60);
+        assert_eq!(constant_params.concurrent_operations, 4);
+        assert!(constant_params.memory_stress_enabled);
+        assert!(constant_params.cpu_stress_enabled);
+        assert!(constant_params.io_stress_enabled);
         
         // Test ramp pattern
         let ramp_params = TestCommandProcessor::create_stress_test_with_pattern(
             10000, 80, StressPattern::Ramp, 70
         ).unwrap();
-        assert_eq_no_std!(ramp_params.stress_pattern, StressPattern::Ramp);
-        assert_eq_no_std!(ramp_params.concurrent_operations, 2); // Lower concurrency for ramp
-        assert_no_std!(!ramp_params.io_stress_enabled); // IO stress disabled for ramp
+        assert_eq!(ramp_params.stress_pattern, StressPattern::Ramp);
+        assert_eq!(ramp_params.concurrent_operations, 2); // Lower concurrency for ramp
+        assert!(!ramp_params.io_stress_enabled); // IO stress disabled for ramp
         
         // Test burst pattern
         let burst_params = TestCommandProcessor::create_stress_test_with_pattern(
             3000, 90, StressPattern::Burst, 60
         ).unwrap();
-        assert_eq_no_std!(burst_params.stress_pattern, StressPattern::Burst);
-        assert_eq_no_std!(burst_params.concurrent_operations, 8); // High concurrency for bursts
-        assert_no_std!(!burst_params.memory_stress_enabled); // Memory stress disabled for burst
+        assert_eq!(burst_params.stress_pattern, StressPattern::Burst);
+        assert_eq!(burst_params.concurrent_operations, 8); // High concurrency for bursts
+        assert!(!burst_params.memory_stress_enabled); // Memory stress disabled for burst
         
         // Test random pattern
         let random_params = TestCommandProcessor::create_stress_test_with_pattern(
             8000, 70, StressPattern::Random, 75
         ).unwrap();
-        assert_eq_no_std!(random_params.stress_pattern, StressPattern::Random);
-        assert_eq_no_std!(random_params.concurrent_operations, 6);
-        assert_no_std!(random_params.memory_stress_enabled);
-        assert_no_std!(random_params.cpu_stress_enabled);
-        assert_no_std!(random_params.io_stress_enabled);
+        assert_eq!(random_params.stress_pattern, StressPattern::Random);
+        assert_eq!(random_params.concurrent_operations, 6);
+        assert!(random_params.memory_stress_enabled);
+        assert!(random_params.cpu_stress_enabled);
+        assert!(random_params.io_stress_enabled);
     }
 
     /// Test stress test statistics serialization
@@ -401,34 +401,34 @@ mod tests {
         let serialized = stats.serialize();
         
         // Verify serialized data contains expected values
-        assert_no_std!(serialized.len() >= 40); // Should have at least 40 bytes of data
+        assert!(serialized.len() >= 40); // Should have at least 40 bytes of data
         
         // Check test duration (first 4 bytes)
         let duration = u32::from_le_bytes([serialized[0], serialized[1], serialized[2], serialized[3]]);
-        assert_eq_no_std!(duration, 15000);
+        assert_eq!(duration, 15000);
         
         // Check CPU usage stats (next 2 bytes)
-        assert_eq_no_std!(serialized[4], 85); // peak CPU usage
-        assert_eq_no_std!(serialized[5], 65); // average CPU usage
+        assert_eq!(serialized[4], 85); // peak CPU usage
+        assert_eq!(serialized[5], 65); // average CPU usage
         
         // Check peak memory usage (next 4 bytes)
         let peak_memory = u32::from_le_bytes([serialized[6], serialized[7], serialized[8], serialized[9]]);
-        assert_eq_no_std!(peak_memory, 16384);
+        assert_eq!(peak_memory, 16384);
         
         // Check average memory usage (next 4 bytes)
         let avg_memory = u32::from_le_bytes([serialized[10], serialized[11], serialized[12], serialized[13]]);
-        assert_eq_no_std!(avg_memory, 12288);
+        assert_eq!(avg_memory, 12288);
         
         // Check allocation failures (next 4 bytes)
         let alloc_failures = u32::from_le_bytes([serialized[14], serialized[15], serialized[16], serialized[17]]);
-        assert_eq_no_std!(alloc_failures, 3);
+        assert_eq!(alloc_failures, 3);
         
         // Check performance degradation events (next 4 bytes)
         let perf_events = u32::from_le_bytes([serialized[18], serialized[19], serialized[20], serialized[21]]);
-        assert_eq_no_std!(perf_events, 7);
+        assert_eq!(perf_events, 7);
         
         // Check minimum performance (next byte)
-        assert_eq_no_std!(serialized[22], 72);
+        assert_eq!(serialized[22], 72);
     }
 
     /// Test stress test command processing integration
@@ -460,18 +460,18 @@ mod tests {
         let response = processor.process_test_command(&command, timestamp).unwrap();
         
         // Check response
-        assert_eq_no_std!(response.command_type, TestResponse::TestResult as u8);
-        assert_eq_no_std!(response.command_id, 42);
-        assert_no_std!(response.payload.len() >= 3);
+        assert_eq!(response.command_type, TestResponse::TestResult as u8);
+        assert_eq!(response.command_id, 42);
+        assert!(response.payload.len() >= 3);
         
         // Check response payload
-        assert_eq_no_std!(response.payload[0], TestType::SystemStressTest as u8);
-        assert_eq_no_std!(response.payload[2], TestStatus::Running as u8);
+        assert_eq!(response.payload[0], TestType::SystemStressTest as u8);
+        assert_eq!(response.payload[2], TestStatus::Running as u8);
         
         // Verify test is now active
         let active_info = processor.get_active_test_info().unwrap();
-        assert_eq_no_std!(active_info.0, TestType::SystemStressTest);
-        assert_eq_no_std!(active_info.1, TestStatus::Running);
+        assert_eq!(active_info.0, TestType::SystemStressTest);
+        assert_eq!(active_info.1, TestStatus::Running);
     }
 
     /// Test stress test timeout and completion
@@ -497,7 +497,7 @@ mod tests {
         
         // Update before completion (should not complete)
         let result = processor.update_active_test(start_timestamp + 1000);
-        assert_no_std!(result.is_none());
+        assert!(result.is_none());
         
         // Add some measurements during the test
         processor.update_stress_test_measurements(45, 6144, 1200, true, start_timestamp + 500).unwrap();
@@ -506,18 +506,18 @@ mod tests {
         
         // Update after normal completion time (should complete)
         let result = processor.update_active_test(start_timestamp + 2100);
-        assert_no_std!(result.is_some());
+        assert!(result.is_some());
         let completed_result = result.unwrap();
-        assert_eq_no_std!(completed_result.status, TestStatus::Completed);
-        assert_eq_no_std!(completed_result.test_id, test_id);
-        assert_eq_no_std!(completed_result.test_type, TestType::SystemStressTest);
+        assert_eq!(completed_result.status, TestStatus::Completed);
+        assert_eq!(completed_result.test_id, test_id);
+        assert_eq!(completed_result.test_type, TestType::SystemStressTest);
         
         // Check that active test is cleared
-        assert_no_std!(processor.get_active_test_info().is_none());
+        assert!(processor.get_active_test_info().is_none());
         
         // Verify measurements were collected
-        assert_no_std!(completed_result.measurements.timing_measurements.len() > 0);
-        assert_no_std!(completed_result.measurements.resource_usage.memory_usage_bytes > 0);
+        assert!(completed_result.measurements.timing_measurements.len() > 0);
+        assert!(completed_result.measurements.resource_usage.memory_usage_bytes > 0);
     }
 
     /// Test error handling for invalid stress test parameters
@@ -540,7 +540,7 @@ mod tests {
         };
         
         let result = processor.execute_stress_test(invalid_params, timestamp);
-        assert_eq_no_std!(result, Err(TestExecutionError::ValidationFailed));
+        assert_eq!(result, Err(TestExecutionError::ValidationFailed));
         
         // Test invalid load level (over 100%)
         let invalid_params2 = StressTestParameters {
@@ -555,14 +555,14 @@ mod tests {
         };
         
         let result2 = processor.execute_stress_test(invalid_params2, timestamp);
-        assert_eq_no_std!(result2, Err(TestExecutionError::ValidationFailed));
+        assert_eq!(result2, Err(TestExecutionError::ValidationFailed));
         
         // Test updating measurements when no stress test is active
         let result3 = processor.update_stress_test_measurements(50, 4096, 1000, true, timestamp);
-        assert_no_std!(result3.is_ok()); // Should not error, but should have no effect
+        assert!(result3.is_ok()); // Should not error, but should have no effect
         
         // Verify no test is active
-        assert_no_std!(processor.get_active_test_info().is_none());
+        assert!(processor.get_active_test_info().is_none());
     }
 
     /// Test comprehensive stress testing scenario
@@ -638,31 +638,31 @@ mod tests {
         let stats = processor.get_stress_test_statistics().unwrap();
         
         // Verify comprehensive statistics
-        assert_no_std!(stats.peak_cpu_usage_percent >= 85);
-        assert_no_std!(stats.peak_memory_usage_bytes >= 15000);
-        assert_no_std!(stats.operations_completed > 20);
-        assert_no_std!(stats.operations_failed > 0);
-        assert_no_std!(stats.performance_degradation_events > 0);
-        assert_no_std!(stats.max_response_time_us > 4000);
-        assert_no_std!(stats.system_stability_score < 100);
+        assert!(stats.peak_cpu_usage_percent >= 85);
+        assert!(stats.peak_memory_usage_bytes >= 15000);
+        assert!(stats.operations_completed > 20);
+        assert!(stats.operations_failed > 0);
+        assert!(stats.performance_degradation_events > 0);
+        assert!(stats.max_response_time_us > 4000);
+        assert!(stats.system_stability_score < 100);
         
         // Test performance criteria evaluation
         let meets_strict_criteria = stats.meets_performance_criteria(90, 0);
         let meets_moderate_criteria = stats.meets_performance_criteria(70, 10);
         
-        assert_no_std!(!meets_strict_criteria); // Should not meet strict criteria due to stress
+        assert!(!meets_strict_criteria); // Should not meet strict criteria due to stress
         // meets_moderate_criteria result depends on actual measurements
         
         // Complete the test
         let result = processor.update_active_test(timestamp + 5000);
-        assert_no_std!(result.is_some());
+        assert!(result.is_some());
         let completed_result = result.unwrap();
-        assert_eq_no_std!(completed_result.status, TestStatus::Completed);
-        assert_eq_no_std!(completed_result.test_type, TestType::SystemStressTest);
+        assert_eq!(completed_result.status, TestStatus::Completed);
+        assert_eq!(completed_result.test_type, TestType::SystemStressTest);
         
         // Verify final statistics are preserved in the result
-        assert_no_std!(completed_result.measurements.timing_measurements.len() > 30);
-        assert_no_std!(completed_result.measurements.error_count > 0);
-        assert_no_std!(completed_result.measurements.resource_usage.peak_memory_usage_bytes > 10000);
+        assert!(completed_result.measurements.timing_measurements.len() > 30);
+        assert!(completed_result.measurements.error_count > 0);
+        assert!(completed_result.measurements.resource_usage.peak_memory_usage_bytes > 10000);
     }
 }

@@ -59,19 +59,19 @@ fn test_command_queue_bootloader_integration() -> TestResult {
     // Create a bootloader entry command
     let bootloader_command = CommandReport::new(0x80, 1, &[0x00, 0x00, 0x10, 0x00]).unwrap(); // 4096ms timeout
     let queued = system.command_queue.enqueue(bootloader_command, timestamp_ms, 5000);
-    assert_no_std!(queued, "Failed to queue bootloader command");
+    assert!(queued, "Failed to queue bootloader command");
 
     // Verify command was enqueued successfully
     let queue_length = system.command_queue.len();
-    assert_no_std!(queue_length > 0, "Command queue is empty after enqueue");
+    assert!(queue_length > 0, "Command queue is empty after enqueue");
 
     // Test command dequeuing
     let dequeued_command = system.command_queue.dequeue();
-    assert_no_std!(dequeued_command.is_some(), "Failed to dequeue bootloader command");
+    assert!(dequeued_command.is_some(), "Failed to dequeue bootloader command");
 
     if let Some(cmd) = dequeued_command {
-        assert_eq_no_std!(cmd.command.command_type, 0x80, "Wrong command type dequeued");
-        assert_eq_no_std!(cmd.command.command_id, 1, "Wrong command ID dequeued");
+        assert_eq!(cmd.command.command_type, 0x80, "Wrong command type dequeued");
+        assert_eq!(cmd.command.command_id, 1, "Wrong command ID dequeued");
     }
 
     TestResult::Pass
@@ -85,11 +85,11 @@ fn test_bootloader_state_management_integration() -> TestResult {
     
     // Test initial bootloader state
     let initial_state = system.bootloader_manager.get_entry_state();
-    assert_eq_no_std!(initial_state, ass_easy_loop::bootloader::BootloaderEntryState::Normal, "Bootloader not in normal state initially");
+    assert_eq!(initial_state, ass_easy_loop::bootloader::BootloaderEntryState::Normal, "Bootloader not in normal state initially");
 
     // Test bootloader entry request
     let entry_result = system.bootloader_manager.request_bootloader_entry(2000, timestamp_ms);
-    assert_no_std!(entry_result.is_ok(), "Failed to request bootloader entry");
+    assert!(entry_result.is_ok(), "Failed to request bootloader entry");
 
     // Test hardware state validation
     let hardware_state = ass_easy_loop::bootloader::HardwareState {
@@ -101,7 +101,7 @@ fn test_bootloader_state_management_integration() -> TestResult {
     };
     
     let validation_result = system.bootloader_manager.update_entry_progress(&hardware_state, timestamp_ms + 100);
-    assert_no_std!(validation_result.is_ok(), "Hardware state validation failed");
+    assert!(validation_result.is_ok(), "Hardware state validation failed");
 
     TestResult::Pass
 }
@@ -132,13 +132,13 @@ fn test_command_parsing_bootloader_integration() -> TestResult {
     let parse_result = system.command_parser.parse_command(&report_buffer);
     let parsing_success = matches!(parse_result, ass_easy_loop::command::parsing::ParseResult::Valid(_));
     
-    assert_no_std!(parsing_success, "Bootloader command parsing failed");
+    assert!(parsing_success, "Bootloader command parsing failed");
 
     // Verify parsed command details
     if let ass_easy_loop::command::parsing::ParseResult::Valid(command) = parse_result {
-        assert_eq_no_std!(command.command_type, 0x80, "Wrong command type parsed");
-        assert_eq_no_std!(command.command_id, 1, "Wrong command ID parsed");
-        assert_eq_no_std!(command.payload_length, 4, "Wrong payload length parsed");
+        assert_eq!(command.command_type, 0x80, "Wrong command type parsed");
+        assert_eq!(command.command_id, 1, "Wrong command ID parsed");
+        assert_eq!(command.payload_length, 4, "Wrong payload length parsed");
     }
 
     TestResult::Pass
@@ -155,14 +155,14 @@ fn test_response_queue_bootloader_integration() -> TestResult {
 
     // Test response enqueueing
     let enqueue_success = system.response_queue.enqueue(bootloader_response, 1, timestamp_ms);
-    assert_no_std!(enqueue_success, "Failed to enqueue bootloader response");
+    assert!(enqueue_success, "Failed to enqueue bootloader response");
 
     // Test response dequeuing
     let dequeued_response = system.response_queue.dequeue();
-    assert_no_std!(dequeued_response.is_some(), "Failed to dequeue bootloader response");
+    assert!(dequeued_response.is_some(), "Failed to dequeue bootloader response");
 
     if let Some(response) = dequeued_response {
-        assert_eq_no_std!(response.command.command_id, 1, "Wrong response command ID");
+        assert_eq!(response.command.command_id, 1, "Wrong response command ID");
     }
 
     TestResult::Pass
@@ -192,26 +192,26 @@ fn test_end_to_end_bootloader_workflow() -> TestResult {
     report_buffer[3] = checksum;
 
     let parse_result = system.command_parser.parse_command(&report_buffer);
-    assert_no_std!(matches!(parse_result, ass_easy_loop::command::parsing::ParseResult::Valid(_)), "Command parsing failed");
+    assert!(matches!(parse_result, ass_easy_loop::command::parsing::ParseResult::Valid(_)), "Command parsing failed");
 
     // Step 2: Queue the parsed command
     if let ass_easy_loop::command::parsing::ParseResult::Valid(command) = parse_result {
         let queued = system.command_queue.enqueue(command, timestamp_ms, 5000);
-        assert_no_std!(queued, "Failed to queue parsed command");
+        assert!(queued, "Failed to queue parsed command");
     }
 
     // Step 3: Process the command (simulate command handler)
     let queued_command = system.command_queue.dequeue();
-    assert_no_std!(queued_command.is_some(), "Failed to dequeue command for processing");
+    assert!(queued_command.is_some(), "Failed to dequeue command for processing");
 
     // Step 4: Request bootloader entry
     let entry_result = system.bootloader_manager.request_bootloader_entry(2000, timestamp_ms);
-    assert_no_std!(entry_result.is_ok(), "Failed to request bootloader entry");
+    assert!(entry_result.is_ok(), "Failed to request bootloader entry");
 
     // Step 5: Generate response
     let response = CommandReport::success_response(1, &[0x80]).unwrap();
     let response_queued = system.response_queue.enqueue(response, 1, timestamp_ms);
-    assert_no_std!(response_queued, "Failed to queue response");
+    assert!(response_queued, "Failed to queue response");
 
     TestResult::Pass
 }
@@ -259,9 +259,4 @@ pub extern "C" fn run_bootloader_command_integration_tests() -> u32 {
     results.failed_count as u32
 }
 
-// Mock panic handler for tests
-#[cfg(test)]
-#[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
+// Panic handler removed - conflicts with std in test mode

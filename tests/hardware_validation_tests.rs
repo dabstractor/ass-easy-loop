@@ -13,6 +13,8 @@
 
 use std::process::Command;
 use std::thread;
+use std::vec::Vec;
+use std::string::String;
 use std::time::{Duration, Instant};
 use std::fs;
 use std::path::Path;
@@ -29,11 +31,11 @@ const TIMING_TOLERANCE_PERCENT: f32 = 1.0; // ±1% as per requirements
 /// Test result structure for hardware validation
 #[derive(Debug, Clone)]
 pub struct HardwareTestResult {
-    pub test_name: String,
+    pub test_name: std::string::String,
     pub passed: bool,
     pub duration_ms: u64,
-    pub error_message: Option<String>,
-    pub measurements: Vec<f64>,
+    pub error_message: std::option::Option<std::string::String>,
+    pub measurements: std::vec::Vec<f64>,
 }
 
 impl HardwareTestResult {
@@ -42,8 +44,8 @@ impl HardwareTestResult {
             test_name: test_name.to_string(),
             passed: false,
             duration_ms: 0,
-            error_message: None,
-            measurements: Vec::new(),
+            error_message: std::option::Option::None,
+            measurements: std::vec::Vec::new(),
         }
     }
 
@@ -56,11 +58,11 @@ impl HardwareTestResult {
     pub fn failure(mut self, duration_ms: u64, error: &str) -> Self {
         self.passed = false;
         self.duration_ms = duration_ms;
-        self.error_message = Some(error.to_string());
+        self.error_message = std::option::Option::Some(error.to_string());
         self
     }
 
-    pub fn with_measurements(mut self, measurements: Vec<f64>) -> Self {
+    pub fn with_measurements(mut self, measurements: std::vec::Vec<f64>) -> Self {
         self.measurements = measurements;
         self
     }
@@ -1012,7 +1014,7 @@ fn test_hardware_device_connection() {
         return;
     }
     
-    assert_no_std!(connected, "RP2040 device should be connected and accessible");
+    assert!(connected, "RP2040 device should be connected and accessible");
 }
 
 #[test]
@@ -1025,7 +1027,7 @@ fn test_hardware_usb_hid_communication() {
     }
     
     let success = test_suite.test_usb_hid_communication();
-    assert_no_std!(success, "USB HID communication should work with real hardware");
+    assert!(success, "USB HID communication should work with real hardware");
 }
 
 #[test]
@@ -1038,7 +1040,7 @@ fn test_hardware_pemf_timing() {
     }
     
     let success = test_suite.test_pemf_timing_accuracy();
-    assert_no_std!(success, "pEMF timing should be accurate with USB logging active");
+    assert!(success, "pEMF timing should be accurate with USB logging active");
 }
 
 #[test]
@@ -1051,7 +1053,7 @@ fn test_hardware_battery_monitoring() {
     }
     
     let success = test_suite.test_battery_monitoring_integration();
-    assert_no_std!(success, "Battery monitoring should work with actual ADC readings");
+    assert!(success, "Battery monitoring should work with actual ADC readings");
 }
 
 #[test]
@@ -1064,7 +1066,7 @@ fn test_hardware_system_integration() {
     }
     
     let success = test_suite.test_system_integration();
-    assert_no_std!(success, "Complete system should integrate properly");
+    assert!(success, "Complete system should integrate properly");
 }
 
 #[test]
@@ -1078,5 +1080,5 @@ fn test_hardware_full_validation_suite() {
     
     let all_passed = test_suite.run_all_tests();
     
-    assert_no_std!(all_passed, "All hardware validation tests should pass");
+    assert!(all_passed, "All hardware validation tests should pass");
 }

@@ -511,9 +511,4 @@ pub extern "C" fn run_system_validation_tests() -> u32 {
     results.stats.failed as u32
 }
 
-// Mock panic handler for tests
-#[cfg(test)]
-#[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
+// Panic handler removed - conflicts with std in test mode

@@ -90,22 +90,22 @@ mod battery_state_machine_tests {
     #[test]
     fn test_battery_state_from_adc_reading() {
         // Test Low battery state (ADC ≤ 1425)
-        assert_eq_no_std!(BatteryState::from_adc_reading(0), BatteryState::Low);
-        assert_eq_no_std!(BatteryState::from_adc_reading(500), BatteryState::Low);
-        assert_eq_no_std!(BatteryState::from_adc_reading(1000), BatteryState::Low);
-        assert_eq_no_std!(BatteryState::from_adc_reading(1425), BatteryState::Low);
+        assert_eq!(BatteryState::from_adc_reading(0), BatteryState::Low);
+        assert_eq!(BatteryState::from_adc_reading(500), BatteryState::Low);
+        assert_eq!(BatteryState::from_adc_reading(1000), BatteryState::Low);
+        assert_eq!(BatteryState::from_adc_reading(1425), BatteryState::Low);
 
         // Test Normal battery state (1425 < ADC < 1675)
-        assert_eq_no_std!(BatteryState::from_adc_reading(1426), BatteryState::Normal);
-        assert_eq_no_std!(BatteryState::from_adc_reading(1500), BatteryState::Normal);
-        assert_eq_no_std!(BatteryState::from_adc_reading(1600), BatteryState::Normal);
-        assert_eq_no_std!(BatteryState::from_adc_reading(1674), BatteryState::Normal);
+        assert_eq!(BatteryState::from_adc_reading(1426), BatteryState::Normal);
+        assert_eq!(BatteryState::from_adc_reading(1500), BatteryState::Normal);
+        assert_eq!(BatteryState::from_adc_reading(1600), BatteryState::Normal);
+        assert_eq!(BatteryState::from_adc_reading(1674), BatteryState::Normal);
 
         // Test Charging battery state (ADC ≥ 1675)
-        assert_eq_no_std!(BatteryState::from_adc_reading(1675), BatteryState::Charging);
-        assert_eq_no_std!(BatteryState::from_adc_reading(1800), BatteryState::Charging);
-        assert_eq_no_std!(BatteryState::from_adc_reading(2000), BatteryState::Charging);
-        assert_eq_no_std!(BatteryState::from_adc_reading(4095), BatteryState::Charging);
+        assert_eq!(BatteryState::from_adc_reading(1675), BatteryState::Charging);
+        assert_eq!(BatteryState::from_adc_reading(1800), BatteryState::Charging);
+        assert_eq!(BatteryState::from_adc_reading(2000), BatteryState::Charging);
+        assert_eq!(BatteryState::from_adc_reading(4095), BatteryState::Charging);
     }
 
     /// Test boundary conditions for battery state thresholds
@@ -113,18 +113,18 @@ mod battery_state_machine_tests {
     #[test]
     fn test_battery_state_boundary_conditions() {
         // Test exact boundary values
-        assert_eq_no_std!(BatteryState::from_adc_reading(1425), BatteryState::Low, 
+        assert_eq!(BatteryState::from_adc_reading(1425), BatteryState::Low, 
                    "ADC 1425 should be Low state (≤ threshold)");
-        assert_eq_no_std!(BatteryState::from_adc_reading(1426), BatteryState::Normal, 
+        assert_eq!(BatteryState::from_adc_reading(1426), BatteryState::Normal, 
                    "ADC 1426 should be Normal state (> low threshold)");
-        assert_eq_no_std!(BatteryState::from_adc_reading(1674), BatteryState::Normal, 
+        assert_eq!(BatteryState::from_adc_reading(1674), BatteryState::Normal, 
                    "ADC 1674 should be Normal state (< charging threshold)");
-        assert_eq_no_std!(BatteryState::from_adc_reading(1675), BatteryState::Charging, 
+        assert_eq!(BatteryState::from_adc_reading(1675), BatteryState::Charging, 
                    "ADC 1675 should be Charging state (≥ threshold)");
 
         // Test edge cases
-        assert_eq_no_std!(BatteryState::from_adc_reading(u16::MIN), BatteryState::Low);
-        assert_eq_no_std!(BatteryState::from_adc_reading(u16::MAX), BatteryState::Charging);
+        assert_eq!(BatteryState::from_adc_reading(u16::MIN), BatteryState::Low);
+        assert_eq!(BatteryState::from_adc_reading(u16::MAX), BatteryState::Charging);
     }
 
     /// Test battery state threshold values
@@ -133,18 +133,18 @@ mod battery_state_machine_tests {
     fn test_battery_state_thresholds() {
         let low_state = BatteryState::Low;
         let (low_min, low_max) = low_state.get_thresholds();
-        assert_eq_no_std!(low_min, 0, "Low state minimum threshold should be 0");
-        assert_eq_no_std!(low_max, 1425, "Low state maximum threshold should be 1425");
+        assert_eq!(low_min, 0, "Low state minimum threshold should be 0");
+        assert_eq!(low_max, 1425, "Low state maximum threshold should be 1425");
 
         let normal_state = BatteryState::Normal;
         let (normal_min, normal_max) = normal_state.get_thresholds();
-        assert_eq_no_std!(normal_min, 1425, "Normal state minimum threshold should be 1425");
-        assert_eq_no_std!(normal_max, 1675, "Normal state maximum threshold should be 1675");
+        assert_eq!(normal_min, 1425, "Normal state minimum threshold should be 1425");
+        assert_eq!(normal_max, 1675, "Normal state maximum threshold should be 1675");
 
         let charging_state = BatteryState::Charging;
         let (charging_min, charging_max) = charging_state.get_thresholds();
-        assert_eq_no_std!(charging_min, 1675, "Charging state minimum threshold should be 1675");
-        assert_eq_no_std!(charging_max, u16::MAX, "Charging state maximum threshold should be u16::MAX");
+        assert_eq!(charging_min, 1675, "Charging state minimum threshold should be 1675");
+        assert_eq!(charging_max, u16::MAX, "Charging state maximum threshold should be u16::MAX");
     }
 
     /// Test state transition logic
@@ -155,54 +155,54 @@ mod battery_state_machine_tests {
         let normal_state = BatteryState::Normal;
         
         // Transition to Low
-        assert_eq_no_std!(normal_state.should_transition_to(1400), Some(BatteryState::Low));
-        assert_eq_no_std!(normal_state.should_transition_to(1425), Some(BatteryState::Low));
+        assert_eq!(normal_state.should_transition_to(1400), Some(BatteryState::Low));
+        assert_eq!(normal_state.should_transition_to(1425), Some(BatteryState::Low));
         
         // Transition to Charging
-        assert_eq_no_std!(normal_state.should_transition_to(1675), Some(BatteryState::Charging));
-        assert_eq_no_std!(normal_state.should_transition_to(1800), Some(BatteryState::Charging));
+        assert_eq!(normal_state.should_transition_to(1675), Some(BatteryState::Charging));
+        assert_eq!(normal_state.should_transition_to(1800), Some(BatteryState::Charging));
         
         // No transition (stay in Normal)
-        assert_eq_no_std!(normal_state.should_transition_to(1500), None);
-        assert_eq_no_std!(normal_state.should_transition_to(1600), None);
+        assert_eq!(normal_state.should_transition_to(1500), None);
+        assert_eq!(normal_state.should_transition_to(1600), None);
 
         // Test transitions from Low state
         let low_state = BatteryState::Low;
         
         // Transition to Normal
-        assert_eq_no_std!(low_state.should_transition_to(1426), Some(BatteryState::Normal));
-        assert_eq_no_std!(low_state.should_transition_to(1500), Some(BatteryState::Normal));
+        assert_eq!(low_state.should_transition_to(1426), Some(BatteryState::Normal));
+        assert_eq!(low_state.should_transition_to(1500), Some(BatteryState::Normal));
         
         // Transition to Charging (direct jump)
-        assert_eq_no_std!(low_state.should_transition_to(1675), Some(BatteryState::Charging));
-        assert_eq_no_std!(low_state.should_transition_to(1800), Some(BatteryState::Charging));
+        assert_eq!(low_state.should_transition_to(1675), Some(BatteryState::Charging));
+        assert_eq!(low_state.should_transition_to(1800), Some(BatteryState::Charging));
         
         // No transition (stay in Low)
-        assert_eq_no_std!(low_state.should_transition_to(1000), None);
-        assert_eq_no_std!(low_state.should_transition_to(1425), None);
+        assert_eq!(low_state.should_transition_to(1000), None);
+        assert_eq!(low_state.should_transition_to(1425), None);
 
         // Test transitions from Charging state
         let charging_state = BatteryState::Charging;
         
         // Transition to Normal
-        assert_eq_no_std!(charging_state.should_transition_to(1674), Some(BatteryState::Normal));
-        assert_eq_no_std!(charging_state.should_transition_to(1500), Some(BatteryState::Normal));
+        assert_eq!(charging_state.should_transition_to(1674), Some(BatteryState::Normal));
+        assert_eq!(charging_state.should_transition_to(1500), Some(BatteryState::Normal));
         
         // Transition to Low (direct jump)
-        assert_eq_no_std!(charging_state.should_transition_to(1425), Some(BatteryState::Low));
-        assert_eq_no_std!(charging_state.should_transition_to(1000), Some(BatteryState::Low));
+        assert_eq!(charging_state.should_transition_to(1425), Some(BatteryState::Low));
+        assert_eq!(charging_state.should_transition_to(1000), Some(BatteryState::Low));
         
         // No transition (stay in Charging)
-        assert_eq_no_std!(charging_state.should_transition_to(1675), None);
-        assert_eq_no_std!(charging_state.should_transition_to(2000), None);
+        assert_eq!(charging_state.should_transition_to(1675), None);
+        assert_eq!(charging_state.should_transition_to(2000), None);
     }
 
     /// Test battery state equality and comparison
     #[test]
     fn test_battery_state_equality() {
-        assert_eq_no_std!(BatteryState::Low, BatteryState::Low);
-        assert_eq_no_std!(BatteryState::Normal, BatteryState::Normal);
-        assert_eq_no_std!(BatteryState::Charging, BatteryState::Charging);
+        assert_eq!(BatteryState::Low, BatteryState::Low);
+        assert_eq!(BatteryState::Normal, BatteryState::Normal);
+        assert_eq!(BatteryState::Charging, BatteryState::Charging);
 
         assert_ne!(BatteryState::Low, BatteryState::Normal);
         assert_ne!(BatteryState::Normal, BatteryState::Charging);
@@ -229,25 +229,25 @@ mod adc_conversion_tests {
         // Battery voltage = adc_value * 3300 / (4095 * 0.337) ≈ adc_value * 2.386
 
         // Test zero point
-        assert_eq_no_std!(BatteryMonitor::adc_to_battery_voltage(0), 0);
+        assert_eq!(BatteryMonitor::adc_to_battery_voltage(0), 0);
 
         // Test threshold points with tolerance
         let low_threshold_voltage = BatteryMonitor::adc_to_battery_voltage(1425);
-        assert_no_std!(low_threshold_voltage >= 3000 && low_threshold_voltage <= 3200, 
+        assert!(low_threshold_voltage >= 3000 && low_threshold_voltage <= 3200, 
                 "Low threshold (ADC 1425) should be ~3100mV, got {}mV", low_threshold_voltage);
 
         let charging_threshold_voltage = BatteryMonitor::adc_to_battery_voltage(1675);
-        assert_no_std!(charging_threshold_voltage >= 3500 && charging_threshold_voltage <= 3700, 
+        assert!(charging_threshold_voltage >= 3500 && charging_threshold_voltage <= 3700, 
                 "Charging threshold (ADC 1675) should be ~3600mV, got {}mV", charging_threshold_voltage);
 
         // Test maximum ADC value
         let max_voltage = BatteryMonitor::adc_to_battery_voltage(4095);
-        assert_no_std!(max_voltage >= 9700 && max_voltage <= 9800, 
+        assert!(max_voltage >= 9700 && max_voltage <= 9800, 
                 "Max ADC (4095) should be ~9770mV, got {}mV", max_voltage);
 
         // Test mid-range values
         let mid_voltage = BatteryMonitor::adc_to_battery_voltage(2048); // ~50% of ADC range
-        assert_no_std!(mid_voltage >= 4800 && mid_voltage <= 5000, 
+        assert!(mid_voltage >= 4800 && mid_voltage <= 5000, 
                 "Mid ADC (2048) should be ~4900mV, got {}mV", mid_voltage);
     }
 
@@ -256,29 +256,29 @@ mod adc_conversion_tests {
     #[test]
     fn test_battery_voltage_to_adc_conversion() {
         // Test known voltage points
-        assert_eq_no_std!(BatteryMonitor::battery_voltage_to_adc(0), 0);
+        assert_eq!(BatteryMonitor::battery_voltage_to_adc(0), 0);
 
         // Test threshold voltages with tolerance
         let low_threshold_adc = BatteryMonitor::battery_voltage_to_adc(3100);
-        assert_no_std!(low_threshold_adc >= 1400 && low_threshold_adc <= 1450, 
+        assert!(low_threshold_adc >= 1400 && low_threshold_adc <= 1450, 
                 "3100mV should convert to ~1425 ADC, got {}", low_threshold_adc);
 
         let charging_threshold_adc = BatteryMonitor::battery_voltage_to_adc(3600);
-        assert_no_std!(charging_threshold_adc >= 1650 && charging_threshold_adc <= 1700, 
+        assert!(charging_threshold_adc >= 1650 && charging_threshold_adc <= 1700, 
                 "3600mV should convert to ~1675 ADC, got {}", charging_threshold_adc);
 
         // Test maximum voltage (should clamp to 4095)
         let max_adc = BatteryMonitor::battery_voltage_to_adc(15000); // Very high voltage
-        assert_eq_no_std!(max_adc, 4095, "High voltage should clamp to maximum ADC value");
+        assert_eq!(max_adc, 4095, "High voltage should clamp to maximum ADC value");
 
         // Test typical battery voltages
         let typical_low_adc = BatteryMonitor::battery_voltage_to_adc(3000);
         let typical_normal_adc = BatteryMonitor::battery_voltage_to_adc(3700);
         let typical_charging_adc = BatteryMonitor::battery_voltage_to_adc(4200);
 
-        assert_no_std!(typical_low_adc <= 1425, "3000mV should be in Low range");
-        assert_no_std!(typical_normal_adc > 1425 && typical_normal_adc < 1675, "3700mV should be in Normal range");
-        assert_no_std!(typical_charging_adc >= 1675, "4200mV should be in Charging range");
+        assert!(typical_low_adc <= 1425, "3000mV should be in Low range");
+        assert!(typical_normal_adc > 1425 && typical_normal_adc < 1675, "3700mV should be in Normal range");
+        assert!(typical_charging_adc >= 1675, "4200mV should be in Charging range");
     }
 
     /// Test round-trip conversion accuracy
@@ -298,7 +298,7 @@ mod adc_conversion_tests {
                 adc_value - converted_back
             };
 
-            assert_no_std!(error <= 2, 
+            assert!(error <= 2, 
                     "Round-trip conversion error too large: ADC {} -> {}mV -> ADC {} (error: {})", 
                     adc_value, voltage, converted_back, error);
         }
@@ -322,7 +322,7 @@ mod adc_conversion_tests {
 
         for (adc_value, expected_state) in test_cases {
             let detected_state = BatteryState::from_adc_reading(adc_value);
-            assert_eq_no_std!(detected_state, expected_state, 
+            assert_eq!(detected_state, expected_state, 
                       "ADC {} should be detected as {:?}, got {:?}", 
                       adc_value, expected_state, detected_state);
         }
@@ -341,7 +341,7 @@ mod adc_conversion_tests {
         const EXPECTED_RATIO: f32 = R2_KOHM / (R1_KOHM + R2_KOHM);
         
         // The ratio should be approximately 0.337
-        assert_no_std!((EXPECTED_RATIO - 0.337).abs() < 0.001, 
+        assert!((EXPECTED_RATIO - 0.337).abs() < 0.001, 
                 "Voltage divider ratio should be ~0.337, calculated: {:.3}", EXPECTED_RATIO);
 
         // Test that our conversion constant matches the expected calculation
@@ -353,7 +353,7 @@ mod adc_conversion_tests {
         // Our implementation uses integer math: (adc_value * 2386) / 1000
         const IMPLEMENTATION_FACTOR: f32 = 2386.0 / 1000.0;
         
-        assert_no_std!((EXPECTED_CONVERSION_FACTOR - IMPLEMENTATION_FACTOR).abs() < 0.01, 
+        assert!((EXPECTED_CONVERSION_FACTOR - IMPLEMENTATION_FACTOR).abs() < 0.01, 
                 "Conversion factor mismatch: expected {:.3}, implementation {:.3}", 
                 EXPECTED_CONVERSION_FACTOR, IMPLEMENTATION_FACTOR);
     }
@@ -377,18 +377,18 @@ mod timing_calculation_tests {
         const TOTAL_PERIOD_MS: u64 = PULSE_HIGH_DURATION_MS + PULSE_LOW_DURATION_MS;
 
         // Verify total period equals 500ms for 2Hz frequency
-        assert_eq_no_std!(TOTAL_PERIOD_MS, 500, "Total period should be 500ms for 2Hz");
+        assert_eq!(TOTAL_PERIOD_MS, 500, "Total period should be 500ms for 2Hz");
 
         // Verify frequency calculation: f = 1/T, where T = 0.5s
         let frequency_hz = 1000.0 / TOTAL_PERIOD_MS as f32;
-        assert_no_std!((frequency_hz - 2.0).abs() < 0.001, 
+        assert!((frequency_hz - 2.0).abs() < 0.001, 
                 "Frequency should be 2Hz, calculated: {:.3}Hz", frequency_hz);
 
         // Verify pulse width is exactly 2ms as required
-        assert_eq_no_std!(PULSE_HIGH_DURATION_MS, 2, "Pulse HIGH duration must be exactly 2ms");
+        assert_eq!(PULSE_HIGH_DURATION_MS, 2, "Pulse HIGH duration must be exactly 2ms");
 
         // Verify low phase duration
-        assert_eq_no_std!(PULSE_LOW_DURATION_MS, 498, "Pulse LOW duration must be exactly 498ms");
+        assert_eq!(PULSE_LOW_DURATION_MS, 498, "Pulse LOW duration must be exactly 498ms");
     }
 
     /// Test timing accuracy requirements (±1% tolerance)
@@ -406,16 +406,16 @@ mod timing_calculation_tests {
         let low_max = PULSE_LOW_DURATION_MS as f32 * (1.0 + TOLERANCE_PERCENT);
 
         // Verify timing values are within tolerance
-        assert_no_std!(high_min <= 2.0 && 2.0 <= high_max, 
+        assert!(high_min <= 2.0 && 2.0 <= high_max, 
                 "HIGH pulse timing within ±1% tolerance: {:.3}ms - {:.3}ms", high_min, high_max);
-        assert_no_std!(low_min <= 498.0 && 498.0 <= low_max, 
+        assert!(low_min <= 498.0 && 498.0 <= low_max, 
                 "LOW pulse timing within ±1% tolerance: {:.3}ms - {:.3}ms", low_min, low_max);
 
         // Verify total period accuracy
         let total_period = PULSE_HIGH_DURATION_MS + PULSE_LOW_DURATION_MS;
         let period_min = 500.0 * (1.0 - TOLERANCE_PERCENT);
         let period_max = 500.0 * (1.0 + TOLERANCE_PERCENT);
-        assert_no_std!(period_min <= total_period as f32 && total_period as f32 <= period_max, 
+        assert!(period_min <= total_period as f32 && total_period as f32 <= period_max, 
                 "Total period within ±1% tolerance: {:.3}ms - {:.3}ms", period_min, period_max);
     }
 
@@ -428,19 +428,19 @@ mod timing_calculation_tests {
         // Simulate pulse cycle state changes
         // Start of HIGH phase
         pulse_active = true;
-        assert_no_std!(pulse_active, "pulse_active should be true during HIGH phase");
+        assert!(pulse_active, "pulse_active should be true during HIGH phase");
 
         // Start of LOW phase
         pulse_active = false;
-        assert_no_std!(!pulse_active, "pulse_active should be false during LOW phase");
+        assert!(!pulse_active, "pulse_active should be false during LOW phase");
 
         // Verify state alternation over multiple cycles
         for cycle in 0..10 {
             pulse_active = true;  // HIGH phase
-            assert_no_std!(pulse_active, "pulse_active should be true during HIGH phase of cycle {}", cycle);
+            assert!(pulse_active, "pulse_active should be true during HIGH phase of cycle {}", cycle);
 
             pulse_active = false; // LOW phase
-            assert_no_std!(!pulse_active, "pulse_active should be false during LOW phase of cycle {}", cycle);
+            assert!(!pulse_active, "pulse_active should be false during LOW phase of cycle {}", cycle);
         }
     }
 
@@ -457,13 +457,13 @@ mod timing_calculation_tests {
         let calculated_frequency = 1.0 / period_s;
 
         // Verify calculated frequency matches requirement
-        assert_no_std!((calculated_frequency - 2.0).abs() < 0.001, 
+        assert!((calculated_frequency - 2.0).abs() < 0.001, 
                 "Calculated frequency should be 2Hz, got {:.3}Hz", calculated_frequency);
 
         // Verify duty cycle calculation
         let duty_cycle = (PULSE_HIGH_DURATION_MS as f32 / period_ms as f32) * 100.0;
         let expected_duty_cycle = 0.4; // 2ms / 500ms = 0.4%
-        assert_no_std!((duty_cycle - expected_duty_cycle).abs() < 0.01, 
+        assert!((duty_cycle - expected_duty_cycle).abs() < 0.01, 
                 "Duty cycle should be 0.4%, got {:.2}%", duty_cycle);
     }
 
@@ -481,15 +481,15 @@ mod timing_calculation_tests {
         let low_max_deviation = PULSE_LOW_DURATION_MS as f32 * REQUIRED_PRECISION_PERCENT / 100.0;
 
         // Verify deviations are reasonable for hardware timer precision
-        assert_no_std!(high_max_deviation >= 0.02, 
+        assert!(high_max_deviation >= 0.02, 
                 "HIGH pulse precision tolerance should be at least 0.02ms, got {:.3}ms", high_max_deviation);
-        assert_no_std!(low_max_deviation >= 4.98, 
+        assert!(low_max_deviation >= 4.98, 
                 "LOW pulse precision tolerance should be at least 4.98ms, got {:.3}ms", low_max_deviation);
 
         // Verify total period precision
         let total_period = PULSE_HIGH_DURATION_MS + PULSE_LOW_DURATION_MS;
         let total_max_deviation = total_period as f32 * REQUIRED_PRECISION_PERCENT / 100.0;
-        assert_no_std!(total_max_deviation >= 5.0, 
+        assert!(total_max_deviation >= 5.0, 
                 "Total period precision tolerance should be at least 5ms, got {:.3}ms", total_max_deviation);
     }
 
@@ -509,9 +509,9 @@ mod timing_calculation_tests {
         let effective_high_time = PULSE_HIGH_DURATION_MS as f32 - GPIO_OVERHEAD_MS;
         let effective_low_time = PULSE_LOW_DURATION_MS as f32 - GPIO_OVERHEAD_MS;
 
-        assert_no_std!(effective_high_time > 1.9, 
+        assert!(effective_high_time > 1.9, 
                 "HIGH pulse should have sufficient time after GPIO overhead: {:.3}ms", effective_high_time);
-        assert_no_std!(effective_low_time > 497.9, 
+        assert!(effective_low_time > 497.9, 
                 "LOW pulse should have sufficient time after GPIO overhead: {:.3}ms", effective_low_time);
     }
 
@@ -536,20 +536,20 @@ mod timing_calculation_tests {
 
             // Verify cycle timing
             let expected_time = (cycle + 1) * TOTAL_PERIOD_MS;
-            assert_eq_no_std!(total_time, expected_time, 
+            assert_eq!(total_time, expected_time, 
                       "Cycle {} timing mismatch: expected {}ms, got {}ms", 
                       cycle + 1, expected_time, total_time);
         }
 
         // Verify total time for all cycles
         let expected_total_time = num_cycles * TOTAL_PERIOD_MS;
-        assert_eq_no_std!(total_time, expected_total_time, 
+        assert_eq!(total_time, expected_total_time, 
                   "Total time for {} cycles should be {}ms, got {}ms", 
                   num_cycles, expected_total_time, total_time);
 
         // Verify average frequency
         let average_frequency = (num_cycles as f32 * 1000.0) / total_time as f32;
-        assert_no_std!((average_frequency - 2.0).abs() < 0.001, 
+        assert!((average_frequency - 2.0).abs() < 0.001, 
                 "Average frequency over {} cycles should be 2Hz, got {:.3}Hz", 
                 num_cycles, average_frequency);
     }
@@ -590,7 +590,7 @@ mod core_integration_tests {
             // Convert back to voltage for verification
             let converted_voltage = BatteryMonitor::adc_to_battery_voltage(adc_value);
             
-            assert_eq_no_std!(detected_state, expected_state, 
+            assert_eq!(detected_state, expected_state, 
                       "{}: {}mV -> ADC {} -> {:?} (expected {:?})", 
                       description, voltage_mv, adc_value, detected_state, expected_state);
             
@@ -601,7 +601,7 @@ mod core_integration_tests {
                 voltage_mv - converted_voltage
             };
             
-            assert_no_std!(voltage_error <= 50, 
+            assert!(voltage_error <= 50, 
                    "{}: Voltage conversion error too large: {}mV -> {}mV (error: {}mV)", 
                    description, voltage_mv, converted_voltage, voltage_error);
         }
@@ -617,16 +617,16 @@ mod core_integration_tests {
         
         // Calculate timing relationships
         let samples_per_pemf_cycle = PEMF_PERIOD_MS / BATTERY_SAMPLE_INTERVAL_MS;
-        assert_eq_no_std!(samples_per_pemf_cycle, 5, 
+        assert_eq!(samples_per_pemf_cycle, 5, 
                   "Should have exactly 5 battery samples per pEMF cycle");
         
         // Verify no timing conflicts
-        assert_no_std!(PEMF_PERIOD_MS % BATTERY_SAMPLE_INTERVAL_MS == 0, 
+        assert!(PEMF_PERIOD_MS % BATTERY_SAMPLE_INTERVAL_MS == 0, 
                "Battery sampling should align with pEMF cycles");
         
         // Verify battery monitoring can complete within its time slice
         const MAX_BATTERY_PROCESSING_TIME_MS: u64 = 10;  // Assumed processing time
-        assert_no_std!(MAX_BATTERY_PROCESSING_TIME_MS < BATTERY_SAMPLE_INTERVAL_MS, 
+        assert!(MAX_BATTERY_PROCESSING_TIME_MS < BATTERY_SAMPLE_INTERVAL_MS, 
                "Battery processing should complete within sampling interval");
     }
 
@@ -647,11 +647,11 @@ mod core_integration_tests {
             
             // Verify state is consistent with voltage
             match current_state {
-                BatteryState::Low => assert_no_std!(voltage <= 3200, 
+                BatteryState::Low => assert!(voltage <= 3200, 
                     "Low state voltage should be ≤3200mV, got {}mV", voltage),
-                BatteryState::Normal => assert_no_std!(voltage > 3000 && voltage < 3800, 
+                BatteryState::Normal => assert!(voltage > 3000 && voltage < 3800, 
                     "Normal state voltage should be 3000-3800mV, got {}mV", voltage),
-                BatteryState::Charging => assert_no_std!(voltage >= 3500, 
+                BatteryState::Charging => assert!(voltage >= 3500, 
                     "Charging state voltage should be ≥3500mV, got {}mV", voltage),
             }
             
@@ -666,7 +666,7 @@ mod core_integration_tests {
         }
         
         // Verify we detected state changes
-        assert_no_std!(state_changes >= 2, "Should detect multiple state changes, got {}", state_changes);
+        assert!(state_changes >= 2, "Should detect multiple state changes, got {}", state_changes);
         
         // 2. Test timing calculations
         const PULSE_HIGH_MS: u64 = 2;
@@ -674,14 +674,14 @@ mod core_integration_tests {
         const TOTAL_PERIOD_MS: u64 = PULSE_HIGH_MS + PULSE_LOW_MS;
         
         let frequency = 1000.0 / TOTAL_PERIOD_MS as f32;
-        assert_no_std!((frequency - 2.0).abs() < 0.001, "Frequency should be 2Hz");
+        assert!((frequency - 2.0).abs() < 0.001, "Frequency should be 2Hz");
         
         let duty_cycle = (PULSE_HIGH_MS as f32 / TOTAL_PERIOD_MS as f32) * 100.0;
-        assert_no_std!((duty_cycle - 0.4).abs() < 0.01, "Duty cycle should be 0.4%");
+        assert!((duty_cycle - 0.4).abs() < 0.01, "Duty cycle should be 0.4%");
         
         // 3. Test integration between timing and battery monitoring
         // Battery monitoring at 10Hz should not interfere with 2Hz pEMF
         let battery_samples_per_pulse = TOTAL_PERIOD_MS / 100; // 100ms battery interval
-        assert_eq_no_std!(battery_samples_per_pulse, 5, "Should have 5 battery samples per pulse cycle");
+        assert_eq!(battery_samples_per_pulse, 5, "Should have 5 battery samples per pulse cycle");
     }
 }

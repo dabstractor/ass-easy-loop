@@ -29,6 +29,9 @@ use config::usb as usb_config;
 mod error_handling;
 use error_handling::{SystemError, SystemResult, ErrorRecovery};
 
+// Import the assert_no_std macro
+use ass_easy_loop::assert_no_std;
+
 mod resource_management;
 use resource_management::{ResourceValidator, ResourceLeakDetector};
 
@@ -98,6 +101,7 @@ static mut GLOBAL_PERFORMANCE_STATS: logging::PerformanceStats = logging::Perfor
 /// Enhanced panic handler with USB logging capability and system diagnostics
 /// Attempts to log panic information via USB before system halt
 /// Requirements: 7.1 (panic-halt for unrecoverable errors), 7.5 (error logging for debugging)
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     use core::fmt::Write;
@@ -279,11 +283,11 @@ mod app {
     const USB_POLL_PRIORITY: u8 = 1;  // Lowest priority - non-critical
     
     // Compile-time assertions to verify priority hierarchy
-    const _: () = assert_no_std!(PEMF_PULSE_PRIORITY > BATTERY_MONITOR_PRIORITY, "pEMF pulse must have higher priority than battery monitoring");
-    const _: () = assert_no_std!(PEMF_PULSE_PRIORITY > LED_CONTROL_PRIORITY, "pEMF pulse must have higher priority than LED control");
-    const _: () = assert_no_std!(BATTERY_MONITOR_PRIORITY > LED_CONTROL_PRIORITY, "Battery monitoring must have higher priority than LED control");
-    const _: () = assert_no_std!(PEMF_PULSE_PRIORITY > USB_HID_PRIORITY, "pEMF pulse must have higher priority than USB HID");
-    const _: () = assert_no_std!(PEMF_PULSE_PRIORITY > USB_POLL_PRIORITY, "pEMF pulse must have higher priority than USB polling");
+    const _: () = assert!(PEMF_PULSE_PRIORITY > BATTERY_MONITOR_PRIORITY, "pEMF pulse must have higher priority than battery monitoring");
+    const _: () = assert!(PEMF_PULSE_PRIORITY > LED_CONTROL_PRIORITY, "pEMF pulse must have higher priority than LED control");
+    const _: () = assert!(BATTERY_MONITOR_PRIORITY > LED_CONTROL_PRIORITY, "Battery monitoring must have higher priority than LED control");
+    const _: () = assert!(PEMF_PULSE_PRIORITY > USB_HID_PRIORITY, "pEMF pulse must have higher priority than USB HID");
+    const _: () = assert!(PEMF_PULSE_PRIORITY > USB_POLL_PRIORITY, "pEMF pulse must have higher priority than USB polling");
 
     #[shared]
     struct Shared {

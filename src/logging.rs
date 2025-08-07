@@ -25,8 +25,7 @@ pub const DEFAULT_QUEUE_SIZE: usize = 32;
 
 
 /// Log severity levels
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "system-logs"), derive(Debug))]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u8)]
 pub enum LogLevel {
     Debug = 0,
@@ -48,8 +47,7 @@ impl LogLevel {
 }
 
 /// Internal log message representation
-#[derive(Clone)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone, Debug)]
 pub struct LogMessage {
     pub timestamp: u32,                           // Milliseconds since boot
     pub level: LogLevel,                          // Debug/Info/Warn/Error
@@ -239,6 +237,19 @@ impl core::convert::TryFrom<[u8; 64]> for LogReport {
 
     fn try_from(bytes: [u8; 64]) -> Result<Self, Self::Error> {
         Ok(Self { data: bytes })
+    }
+}
+
+#[cfg(test)]
+impl serde::Serialize for LogReport {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeStruct;
+        let mut state = serializer.serialize_struct("LogReport", 1)?;
+        state.serialize_field("data", &self.data.as_slice())?;
+        state.end()
     }
 }
 

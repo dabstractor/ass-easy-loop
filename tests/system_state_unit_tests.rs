@@ -6,14 +6,11 @@
 //! This test file has been converted to no_std compatibility as part of task 3
 //! from the comprehensive-unit-test-validation spec.
 
-#![no_std]
-#![no_main]
+// Test file - uses std for host-side testing
 
-use panic_halt as _; // Panic handler for no_std environment
-
-// Import the test framework and assertion macros
-use ass_easy_loop::test_framework::{TestResult, create_test_suite};
-use ass_easy_loop::{assert_eq_no_std, assert_no_std};
+#[cfg(test)]
+mod tests {
+    use super::*;
 
 // Import only the specific types we need for testing
 use ass_easy_loop::battery::BatteryState;
@@ -22,13 +19,13 @@ use ass_easy_loop::config::LogConfig;
 // Test basic enum functionality
 fn test_battery_state_basic() -> TestResult {
     let state = BatteryState::Normal;
-    assert_eq_no_std!(state, BatteryState::Normal);
+    assert_eq!(state, BatteryState::Normal);
     
     let low_state = BatteryState::Low;
-    assert_eq_no_std!(low_state, BatteryState::Low);
+    assert_eq!(low_state, BatteryState::Low);
     
     let charging_state = BatteryState::Charging;
-    assert_eq_no_std!(charging_state, BatteryState::Charging);
+    assert_eq!(charging_state, BatteryState::Charging);
     
     TestResult::pass()
 }
@@ -36,20 +33,20 @@ fn test_battery_state_basic() -> TestResult {
 fn test_log_config_basic() -> TestResult {
     let config = LogConfig::new();
     // Test that we can create a LogConfig without errors
-    assert_eq_no_std!(config.usb_vid, 0x1234); // From config.rs
-    assert_eq_no_std!(config.usb_pid, 0x5678); // From config.rs
+    assert_eq!(config.usb_vid, 0x1234); // From config.rs
+    assert_eq!(config.usb_pid, 0x5678); // From config.rs
     
     TestResult::pass()
 }
 
 fn test_battery_state_from_adc() -> TestResult {
     // Test the battery state logic
-    assert_eq_no_std!(BatteryState::from_adc_reading(1000), BatteryState::Low);
-    assert_eq_no_std!(BatteryState::from_adc_reading(1425), BatteryState::Low);
-    assert_eq_no_std!(BatteryState::from_adc_reading(1500), BatteryState::Normal);
-    assert_eq_no_std!(BatteryState::from_adc_reading(1674), BatteryState::Normal);
-    assert_eq_no_std!(BatteryState::from_adc_reading(1675), BatteryState::Charging);
-    assert_eq_no_std!(BatteryState::from_adc_reading(2000), BatteryState::Charging);
+    assert_eq!(BatteryState::from_adc_reading(1000), BatteryState::Low);
+    assert_eq!(BatteryState::from_adc_reading(1425), BatteryState::Low);
+    assert_eq!(BatteryState::from_adc_reading(1500), BatteryState::Normal);
+    assert_eq!(BatteryState::from_adc_reading(1674), BatteryState::Normal);
+    assert_eq!(BatteryState::from_adc_reading(1675), BatteryState::Charging);
+    assert_eq!(BatteryState::from_adc_reading(2000), BatteryState::Charging);
     
     TestResult::pass()
 }
@@ -57,18 +54,18 @@ fn test_battery_state_from_adc() -> TestResult {
 fn test_battery_state_thresholds() -> TestResult {
     let low_state = BatteryState::Low;
     let (min, max) = low_state.get_thresholds();
-    assert_eq_no_std!(min, 0);
-    assert_eq_no_std!(max, 1425);
+    assert_eq!(min, 0);
+    assert_eq!(max, 1425);
 
     let normal_state = BatteryState::Normal;
     let (min, max) = normal_state.get_thresholds();
-    assert_eq_no_std!(min, 1425);
-    assert_eq_no_std!(max, 1675);
+    assert_eq!(min, 1425);
+    assert_eq!(max, 1675);
 
     let charging_state = BatteryState::Charging;
     let (min, max) = charging_state.get_thresholds();
-    assert_eq_no_std!(min, 1675);
-    assert_eq_no_std!(max, u16::MAX);
+    assert_eq!(min, 1675);
+    assert_eq!(max, u16::MAX);
     
     TestResult::pass()
 }
@@ -78,7 +75,7 @@ fn test_battery_state_transitions() -> TestResult {
     
     // Test transition to Low
     let transition = current_state.should_transition_to(1400);
-    assert_no_std!(transition.is_some());
+    assert!(transition.is_some());
     match transition {
         Some(state) => {
             if state != BatteryState::Low {
@@ -90,7 +87,7 @@ fn test_battery_state_transitions() -> TestResult {
     
     // Test transition to Charging
     let transition = current_state.should_transition_to(1700);
-    assert_no_std!(transition.is_some());
+    assert!(transition.is_some());
     match transition {
         Some(state) => {
             if state != BatteryState::Charging {
@@ -102,7 +99,7 @@ fn test_battery_state_transitions() -> TestResult {
     
     // Test no transition (staying in same state)
     let transition = current_state.should_transition_to(1500);
-    assert_no_std!(transition.is_none());
+    assert!(transition.is_none());
     
     TestResult::pass()
 }
@@ -112,17 +109,17 @@ fn test_log_config_serialization() -> TestResult {
     let serialized = config.serialize();
     
     // Test that serialization produces expected length
-    assert_eq_no_std!(serialized.len(), 16);
+    assert_eq!(serialized.len(), 16);
     
     // Test that we can deserialize back
     let deserialized = LogConfig::deserialize(&serialized);
-    assert_no_std!(deserialized.is_ok());
+    assert!(deserialized.is_ok());
     
     // Use match instead of unwrap to avoid Debug requirement
     match deserialized {
         Ok(deserialized_config) => {
-            assert_eq_no_std!(deserialized_config.usb_vid, config.usb_vid);
-            assert_eq_no_std!(deserialized_config.usb_pid, config.usb_pid);
+            assert_eq!(deserialized_config.usb_vid, config.usb_vid);
+            assert_eq!(deserialized_config.usb_pid, config.usb_pid);
         }
         Err(_) => {
             return TestResult::fail("Failed to deserialize config");
@@ -135,17 +132,17 @@ fn test_log_config_serialization() -> TestResult {
 fn test_log_config_validation() -> TestResult {
     let config = LogConfig::new();
     let validation_result = config.validate();
-    assert_no_std!(validation_result.is_ok());
+    assert!(validation_result.is_ok());
     
     // Test debug config
     let debug_config = LogConfig::debug_config();
     let validation_result = debug_config.validate();
-    assert_no_std!(validation_result.is_ok());
+    assert!(validation_result.is_ok());
     
     // Test minimal config
     let minimal_config = LogConfig::minimal_config();
     let validation_result = minimal_config.validate();
-    assert_no_std!(validation_result.is_ok());
+    assert!(validation_result.is_ok());
     
     TestResult::pass()
 }
@@ -154,8 +151,8 @@ fn test_data_structure_sizes() -> TestResult {
     use core::mem::size_of;
     
     // Verify that basic data structures are reasonably sized
-    assert_no_std!(size_of::<BatteryState>() <= 4);
-    assert_no_std!(size_of::<LogConfig>() <= 32);
+    assert!(size_of::<BatteryState>() <= 4);
+    assert!(size_of::<LogConfig>() <= 32);
     
     // Test that we can create instances without issues
     let _battery_state = BatteryState::Normal;
@@ -170,16 +167,16 @@ fn test_basic_functionality() -> TestResult {
     
     // Test battery state functionality
     let battery_state = BatteryState::from_adc_reading(1500);
-    assert_eq_no_std!(battery_state, BatteryState::Normal);
+    assert_eq!(battery_state, BatteryState::Normal);
     
     // Test log config functionality
     let log_config = LogConfig::new();
-    assert_no_std!(log_config.validate().is_ok());
+    assert!(log_config.validate().is_ok());
     
     // Test serialization round-trip
     let serialized = log_config.serialize();
     let deserialized = LogConfig::deserialize(&serialized);
-    assert_no_std!(deserialized.is_ok());
+    assert!(deserialized.is_ok());
     
     TestResult::pass()
 }

@@ -12,17 +12,17 @@ mod timing_tests {
         const TOTAL_PERIOD_MS: u64 = PULSE_HIGH_DURATION_MS + PULSE_LOW_DURATION_MS;
         
         // Verify total period equals 500ms for 2Hz frequency
-        assert_eq_no_std!(TOTAL_PERIOD_MS, 500, "Total period should be 500ms for 2Hz");
+        assert_eq!(TOTAL_PERIOD_MS, 500, "Total period should be 500ms for 2Hz");
         
         // Verify frequency calculation: f = 1/T, where T = 0.5s
         let frequency_hz = 1000.0 / TOTAL_PERIOD_MS as f32;
-        assert_no_std!((frequency_hz - 2.0).abs() < 0.001, "Frequency should be 2Hz");
+        assert!((frequency_hz - 2.0).abs() < 0.001, "Frequency should be 2Hz");
         
         // Verify pulse width is exactly 2ms as required
-        assert_eq_no_std!(PULSE_HIGH_DURATION_MS, 2, "Pulse HIGH duration must be exactly 2ms");
+        assert_eq!(PULSE_HIGH_DURATION_MS, 2, "Pulse HIGH duration must be exactly 2ms");
         
         // Verify low phase duration
-        assert_eq_no_std!(PULSE_LOW_DURATION_MS, 498, "Pulse LOW duration must be exactly 498ms");
+        assert_eq!(PULSE_LOW_DURATION_MS, 498, "Pulse LOW duration must be exactly 498ms");
     }
 
     /// Test timing accuracy requirements (±1% tolerance)
@@ -39,14 +39,14 @@ mod timing_tests {
         let low_max = PULSE_LOW_DURATION_MS as f32 * (1.0 + TOLERANCE_PERCENT);
         
         // Verify timing values are within tolerance
-        assert_no_std!(high_min <= 2.0 && 2.0 <= high_max, "HIGH pulse timing within ±1% tolerance");
-        assert_no_std!(low_min <= 498.0 && 498.0 <= low_max, "LOW pulse timing within ±1% tolerance");
+        assert!(high_min <= 2.0 && 2.0 <= high_max, "HIGH pulse timing within ±1% tolerance");
+        assert!(low_min <= 498.0 && 498.0 <= low_max, "LOW pulse timing within ±1% tolerance");
         
         // Verify total period accuracy
         let total_period = PULSE_HIGH_DURATION_MS + PULSE_LOW_DURATION_MS;
         let period_min = 500.0 * (1.0 - TOLERANCE_PERCENT);
         let period_max = 500.0 * (1.0 + TOLERANCE_PERCENT);
-        assert_no_std!(period_min <= total_period as f32 && total_period as f32 <= period_max, 
+        assert!(period_min <= total_period as f32 && total_period as f32 <= period_max, 
                 "Total period within ±1% tolerance");
     }
 
@@ -58,19 +58,19 @@ mod timing_tests {
         // Simulate pulse cycle state changes
         // Start of HIGH phase
         pulse_active = true;
-        assert_no_std!(pulse_active, "pulse_active should be true during HIGH phase");
+        assert!(pulse_active, "pulse_active should be true during HIGH phase");
         
         // Start of LOW phase
         pulse_active = false;
-        assert_no_std!(!pulse_active, "pulse_active should be false during LOW phase");
+        assert!(!pulse_active, "pulse_active should be false during LOW phase");
         
         // Verify state alternation
         for _cycle in 0..5 {
             pulse_active = true;  // HIGH phase
-            assert_no_std!(pulse_active, "pulse_active should be true during HIGH phase");
+            assert!(pulse_active, "pulse_active should be true during HIGH phase");
             
             pulse_active = false; // LOW phase
-            assert_no_std!(!pulse_active, "pulse_active should be false during LOW phase");
+            assert!(!pulse_active, "pulse_active should be false during LOW phase");
         }
     }
 
@@ -86,13 +86,13 @@ mod timing_tests {
         let calculated_frequency = 1.0 / period_s;
         
         // Verify calculated frequency matches requirement
-        assert_no_std!((calculated_frequency - 2.0).abs() < 0.001, 
+        assert!((calculated_frequency - 2.0).abs() < 0.001, 
                 "Calculated frequency should be 2Hz");
         
         // Verify duty cycle calculation
         let duty_cycle = (PULSE_HIGH_DURATION_MS as f32 / period_ms as f32) * 100.0;
         let expected_duty_cycle = 0.4; // 2ms / 500ms = 0.4%
-        assert_no_std!((duty_cycle - expected_duty_cycle).abs() < 0.01, 
+        assert!((duty_cycle - expected_duty_cycle).abs() < 0.01, 
                 "Duty cycle should be 0.4%");
     }
 
@@ -113,8 +113,8 @@ mod timing_tests {
         let effective_high_time = PULSE_HIGH_DURATION_MS as f32 - GPIO_OVERHEAD_MS;
         let effective_low_time = PULSE_LOW_DURATION_MS as f32 - GPIO_OVERHEAD_MS;
         
-        assert_no_std!(effective_high_time > 1.9, "HIGH pulse should have sufficient time after GPIO overhead");
-        assert_no_std!(effective_low_time > 497.9, "LOW pulse should have sufficient time after GPIO overhead");
+        assert!(effective_high_time > 1.9, "HIGH pulse should have sufficient time after GPIO overhead");
+        assert!(effective_low_time > 497.9, "LOW pulse should have sufficient time after GPIO overhead");
     }
 
     /// Test timing precision requirements
@@ -130,12 +130,12 @@ mod timing_tests {
         let low_max_deviation = (PULSE_LOW_DURATION_MS as f32 * REQUIRED_PRECISION_PERCENT / 100.0);
         
         // Verify deviations are reasonable for hardware timer precision
-        assert_no_std!(high_max_deviation >= 0.02, "HIGH pulse precision tolerance should be at least 0.02ms");
-        assert_no_std!(low_max_deviation >= 4.98, "LOW pulse precision tolerance should be at least 4.98ms");
+        assert!(high_max_deviation >= 0.02, "HIGH pulse precision tolerance should be at least 0.02ms");
+        assert!(low_max_deviation >= 4.98, "LOW pulse precision tolerance should be at least 4.98ms");
         
         // Verify total period precision
         let total_period = PULSE_HIGH_DURATION_MS + PULSE_LOW_DURATION_MS;
         let total_max_deviation = (total_period as f32 * REQUIRED_PRECISION_PERCENT / 100.0);
-        assert_no_std!(total_max_deviation >= 5.0, "Total period precision tolerance should be at least 5ms");
+        assert!(total_max_deviation >= 5.0, "Total period precision tolerance should be at least 5ms");
     }
 }

@@ -358,9 +358,4 @@ pub extern "C" fn validate_panic_handler() -> bool {
     run_panic_handler_validation()
 }
 
-// Dummy panic handler for testing (not used in actual panic scenarios)
-#[cfg(test)]
-#[panic_handler]
-fn test_panic(_info: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
+// Panic handler removed - conflicts with std in test mode

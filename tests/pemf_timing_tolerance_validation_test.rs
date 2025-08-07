@@ -245,10 +245,10 @@ fn test_pemf_timing_baseline_accuracy() {
     let results = timing_system.analyze_results();
 
     // Validate baseline timing accuracy
-    assert_no_std!(results.test_passed, "Baseline pEMF timing should be within ±1% tolerance");
-    assert_no_std!(results.tolerance_compliance_percent >= 99.0, 
+    assert!(results.test_passed, "Baseline pEMF timing should be within ±1% tolerance");
+    assert!(results.tolerance_compliance_percent >= 99.0, 
             "Baseline compliance: {:.1}%", results.tolerance_compliance_percent);
-    assert_no_std!(results.max_deviation_ms <= MAX_ACCEPTABLE_DEVIATION_MS,
+    assert!(results.max_deviation_ms <= MAX_ACCEPTABLE_DEVIATION_MS,
             "Max deviation: {}ms, limit: {}ms", results.max_deviation_ms, MAX_ACCEPTABLE_DEVIATION_MS);
 
     // Log baseline results
@@ -302,10 +302,10 @@ fn test_pemf_timing_during_test_processing() {
     let results = timing_system.analyze_results();
 
     // Validate timing accuracy during test processing
-    assert_no_std!(results.test_passed, "pEMF timing should remain within ±1% tolerance during testing");
-    assert_no_std!(results.tolerance_compliance_percent >= 99.0,
+    assert!(results.test_passed, "pEMF timing should remain within ±1% tolerance during testing");
+    assert!(results.tolerance_compliance_percent >= 99.0,
             "Compliance during testing: {:.1}%", results.tolerance_compliance_percent);
-    assert_no_std!(results.max_deviation_ms <= MAX_ACCEPTABLE_DEVIATION_MS,
+    assert!(results.max_deviation_ms <= MAX_ACCEPTABLE_DEVIATION_MS,
             "Max deviation during testing: {}ms, limit: {}ms", 
             results.max_deviation_ms, MAX_ACCEPTABLE_DEVIATION_MS);
 
@@ -346,9 +346,9 @@ fn test_pemf_timing_with_different_test_types() {
         let results = timing_system.analyze_results();
 
         // Each test type should maintain timing accuracy
-        assert_no_std!(results.tolerance_compliance_percent >= 95.0,
+        assert!(results.tolerance_compliance_percent >= 95.0,
                 "Test type {:?} compliance: {:.1}%", test_type, results.tolerance_compliance_percent);
-        assert_no_std!(results.max_deviation_ms <= MAX_ACCEPTABLE_DEVIATION_MS * 2, // Allow 2x tolerance for individual tests
+        assert!(results.max_deviation_ms <= MAX_ACCEPTABLE_DEVIATION_MS * 2, // Allow 2x tolerance for individual tests
                 "Test type {:?} max deviation: {}ms", test_type, results.max_deviation_ms);
 
         println!("Test type {:?}: {:.1}% compliance, max deviation: {}ms", 
@@ -383,9 +383,9 @@ fn test_pemf_timing_under_maximum_load() {
     let results = timing_system.analyze_results();
 
     // Even under maximum load, timing should be maintained
-    assert_no_std!(results.tolerance_compliance_percent >= 95.0,
+    assert!(results.tolerance_compliance_percent >= 95.0,
             "Maximum load compliance: {:.1}%", results.tolerance_compliance_percent);
-    assert_no_std!(results.max_deviation_ms <= MAX_ACCEPTABLE_DEVIATION_MS * 3, // Allow 3x tolerance under max load
+    assert!(results.max_deviation_ms <= MAX_ACCEPTABLE_DEVIATION_MS * 3, // Allow 3x tolerance under max load
             "Maximum load max deviation: {}ms", results.max_deviation_ms);
 
     println!("=== pEMF TIMING UNDER MAXIMUM LOAD ===");
@@ -420,9 +420,4 @@ fn test_comprehensive_pemf_timing_validation() {
     println!("✓ pEMF timing remains within ±1% tolerance during all testing scenarios");
 }
 
-// Mock panic handler for tests
-#[cfg(test)]
-#[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
+// Panic handler removed - conflicts with std in test mode

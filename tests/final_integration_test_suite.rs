@@ -201,7 +201,7 @@ fn test_bootloader_integration() -> TestResult {
     // Test bootloader command processing
     let bootloader_command = CommandReport::new(0x80, 1, &[0x00, 0x00, 0x10, 0x00]).unwrap(); // 4096ms timeout
     let queued = system.command_queue.enqueue(bootloader_command, timestamp_ms, 5000);
-    assert_no_std!(queued, "Failed to queue bootloader command");
+    assert!(queued, "Failed to queue bootloader command");
 
     // Process the command
     if system.update(timestamp_ms).is_err() {
@@ -225,7 +225,7 @@ fn test_bootloader_integration() -> TestResult {
     let validation_result = system.bootloader_manager.update_entry_progress(&hardware_state, timestamp_ms);
     
     // Verify response was generated
-    assert_no_std!(system.response_queue.len() > 0, "No response generated for bootloader command");
+    assert!(system.response_queue.len() > 0, "No response generated for bootloader command");
 
     TestResult::Pass
 }
@@ -252,7 +252,7 @@ fn test_command_processing_integration() -> TestResult {
         // Create and queue command
         let command = CommandReport::new(*command_type, commands_processed + 1, &[0x01, 0x02, 0x03]).unwrap();
         let queued = system.command_queue.enqueue(command, timestamp_ms, 5000);
-        assert_no_std!(queued, "Failed to queue command");
+        assert!(queued, "Failed to queue command");
 
         // Process command
         if system.update(timestamp_ms).is_err() {
@@ -269,8 +269,8 @@ fn test_command_processing_integration() -> TestResult {
     }
 
     // Verify all commands were processed
-    assert_eq_no_std!(commands_processed as usize, test_commands.len(), "Not all commands were processed");
-    assert_no_std!(responses_generated > 0, "No responses were generated");
+    assert_eq!(commands_processed as usize, test_commands.len(), "Not all commands were processed");
+    assert!(responses_generated > 0, "No responses were generated");
 
     TestResult::Pass
 }
@@ -315,7 +315,7 @@ fn test_execution_integration() -> TestResult {
         timestamp_ms += 500; // Wait between tests
     }
     
-    assert_no_std!(tests_started > 0, "No tests were started");
+    assert!(tests_started > 0, "No tests were started");
     TestResult::Pass
 }
 
@@ -345,8 +345,8 @@ fn test_system_monitoring_integration() -> TestResult {
     }
 
     // Verify monitoring effectiveness
-    assert_eq_no_std!(monitoring_cycles, 50, "Incorrect number of monitoring cycles");
-    assert_no_std!(battery_samples >= 50, "Insufficient battery samples");
+    assert_eq!(monitoring_cycles, 50, "Incorrect number of monitoring cycles");
+    assert!(battery_samples >= 50, "Insufficient battery samples");
 
     TestResult::Pass
 }
@@ -390,7 +390,7 @@ fn test_error_recovery_integration() -> TestResult {
     }
 
     let recovery_rate = (errors_recovered as f32 / errors_injected as f32) * 100.0;
-    assert_no_std!(recovery_rate >= 50.0, "Error recovery rate too low");
+    assert!(recovery_rate >= 50.0, "Error recovery rate too low");
 
     TestResult::Pass
 }
@@ -431,7 +431,7 @@ fn test_performance_integration() -> TestResult {
     // Performance requirements (relaxed for embedded environment)
     const MIN_AVG_OPS_PER_SEC: f32 = 10.0;
 
-    assert_no_std!(avg_ops_per_second >= MIN_AVG_OPS_PER_SEC, "Average performance too low");
+    assert!(avg_ops_per_second >= MIN_AVG_OPS_PER_SEC, "Average performance too low");
 
     TestResult::Pass
 }
@@ -452,7 +452,7 @@ fn test_end_to_end_workflow_integration() -> TestResult {
         // Step 2: Command processing
         let test_command = CommandReport::new(0x85, workflow as u8 + 1, &[0x04, 0x00, 0x00, 0x10]).unwrap();
         let queued = system.command_queue.enqueue(test_command, timestamp_ms, 5000);
-        assert_no_std!(queued, "Failed to queue command in workflow");
+        assert!(queued, "Failed to queue command in workflow");
 
         // Step 3: Process command and generate response
         if system.update(timestamp_ms).is_err() {
@@ -476,10 +476,10 @@ fn test_end_to_end_workflow_integration() -> TestResult {
     }
 
     // Verify workflow completion
-    assert_eq_no_std!(workflows_completed, FULL_WORKFLOW_CYCLES, "Not all workflows completed");
+    assert_eq!(workflows_completed, FULL_WORKFLOW_CYCLES, "Not all workflows completed");
     
     let workflow_efficiency = (workflows_completed as f32 / FULL_WORKFLOW_CYCLES as f32) * 100.0;
-    assert_no_std!(workflow_efficiency >= 100.0, "Workflow efficiency below 100%");
+    assert!(workflow_efficiency >= 100.0, "Workflow efficiency below 100%");
 
     TestResult::Pass
 }
@@ -532,9 +532,4 @@ pub extern "C" fn run_bootloader_integration_tests() -> u32 {
     results.stats.failed as u32
 }
 
-// Mock panic handler for tests
-#[cfg(test)]
-#[panic_handler]
-fn panic(_info: &core::panic::PanicInfo) -> ! {
-    loop {}
-}
+// Panic handler removed - conflicts with std in test mode

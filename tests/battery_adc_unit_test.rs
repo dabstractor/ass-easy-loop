@@ -11,26 +11,26 @@ mod tests {
     #[test]
     fn test_battery_state_transitions() {
         // Test state determination from ADC values
-        assert_eq_no_std!(battery_state_from_adc(1000), 0); // Low
-        assert_eq_no_std!(battery_state_from_adc(1425), 0); // Low (at threshold)
-        assert_eq_no_std!(battery_state_from_adc(1426), 1); // Normal
-        assert_eq_no_std!(battery_state_from_adc(1500), 1); // Normal
-        assert_eq_no_std!(battery_state_from_adc(1674), 1); // Normal
-        assert_eq_no_std!(battery_state_from_adc(1675), 2); // Charging (at threshold)
-        assert_eq_no_std!(battery_state_from_adc(2000), 2); // Charging
+        assert_eq!(battery_state_from_adc(1000), 0); // Low
+        assert_eq!(battery_state_from_adc(1425), 0); // Low (at threshold)
+        assert_eq!(battery_state_from_adc(1426), 1); // Normal
+        assert_eq!(battery_state_from_adc(1500), 1); // Normal
+        assert_eq!(battery_state_from_adc(1674), 1); // Normal
+        assert_eq!(battery_state_from_adc(1675), 2); // Charging (at threshold)
+        assert_eq!(battery_state_from_adc(2000), 2); // Charging
         
         // Test valid transitions
-        assert_no_std!(is_valid_transition(0, 1, 1500)); // Low -> Normal with appropriate ADC
-        assert_no_std!(is_valid_transition(1, 0, 1400)); // Normal -> Low with appropriate ADC
-        assert_no_std!(is_valid_transition(1, 2, 1700)); // Normal -> Charging with appropriate ADC
-        assert_no_std!(is_valid_transition(2, 1, 1600)); // Charging -> Normal with appropriate ADC
-        assert_no_std!(is_valid_transition(0, 2, 1800)); // Low -> Charging with appropriate ADC
-        assert_no_std!(is_valid_transition(2, 0, 1200)); // Charging -> Low with appropriate ADC
+        assert!(is_valid_transition(0, 1, 1500)); // Low -> Normal with appropriate ADC
+        assert!(is_valid_transition(1, 0, 1400)); // Normal -> Low with appropriate ADC
+        assert!(is_valid_transition(1, 2, 1700)); // Normal -> Charging with appropriate ADC
+        assert!(is_valid_transition(2, 1, 1600)); // Charging -> Normal with appropriate ADC
+        assert!(is_valid_transition(0, 2, 1800)); // Low -> Charging with appropriate ADC
+        assert!(is_valid_transition(2, 0, 1200)); // Charging -> Low with appropriate ADC
         
         // Test invalid transitions
-        assert_no_std!(!is_valid_transition(0, 1, 1300)); // Low -> Normal with ADC too low
-        assert_no_std!(!is_valid_transition(1, 2, 1600)); // Normal -> Charging with ADC too low
-        assert_no_std!(!is_valid_transition(2, 0, 1700)); // Charging -> Low with ADC too high
+        assert!(!is_valid_transition(0, 1, 1300)); // Low -> Normal with ADC too low
+        assert!(!is_valid_transition(1, 2, 1600)); // Normal -> Charging with ADC too low
+        assert!(!is_valid_transition(2, 0, 1700)); // Charging -> Low with ADC too high
     }
 
     #[test]
@@ -38,58 +38,58 @@ mod tests {
         // Test voltage conversion calculations
         // ADC 1425 should be approximately 3100mV (3.1V)
         let voltage_1425 = adc_to_battery_voltage(1425);
-        assert_no_std!(voltage_1425 >= 3000 && voltage_1425 <= 3200);
+        assert!(voltage_1425 >= 3000 && voltage_1425 <= 3200);
         
         // ADC 1675 should be approximately 3600mV (3.6V)  
         let voltage_1675 = adc_to_battery_voltage(1675);
-        assert_no_std!(voltage_1675 >= 3500 && voltage_1675 <= 3700);
+        assert!(voltage_1675 >= 3500 && voltage_1675 <= 3700);
         
         // Test reverse conversion
         let adc_from_3100mv = battery_voltage_to_adc(3100);
-        assert_no_std!(adc_from_3100mv >= 1400 && adc_from_3100mv <= 1450);
+        assert!(adc_from_3100mv >= 1400 && adc_from_3100mv <= 1450);
         
         let adc_from_3600mv = battery_voltage_to_adc(3600);
-        assert_no_std!(adc_from_3600mv >= 1650 && adc_from_3600mv <= 1700);
+        assert!(adc_from_3600mv >= 1650 && adc_from_3600mv <= 1700);
         
         // Test boundary conditions
         let voltage_0 = adc_to_battery_voltage(0);
-        assert_eq_no_std!(voltage_0, 0);
+        assert_eq!(voltage_0, 0);
         
         let voltage_4095 = adc_to_battery_voltage(4095);
-        assert_no_std!(voltage_4095 >= 9700 && voltage_4095 <= 9800); // Should be ~9.77V
+        assert!(voltage_4095 >= 9700 && voltage_4095 <= 9800); // Should be ~9.77V
     }
 
     #[test]
     fn test_battery_adc_parameter_validation() {
         // Test valid parameters
-        assert_no_std!(validate_adc_parameters(5000, 3300, 2.0, 50, 1500));
+        assert!(validate_adc_parameters(5000, 3300, 2.0, 50, 1500));
         
         // Test invalid duration (too short)
-        assert_no_std!(!validate_adc_parameters(0, 3300, 2.0, 50, 1500));
+        assert!(!validate_adc_parameters(0, 3300, 2.0, 50, 1500));
         
         // Test invalid duration (too long)
-        assert_no_std!(!validate_adc_parameters(70_000, 3300, 2.0, 50, 1500));
+        assert!(!validate_adc_parameters(70_000, 3300, 2.0, 50, 1500));
         
         // Test invalid reference voltage (too low)
-        assert_no_std!(!validate_adc_parameters(5000, 500, 2.0, 50, 1500));
+        assert!(!validate_adc_parameters(5000, 500, 2.0, 50, 1500));
         
         // Test invalid reference voltage (too high)
-        assert_no_std!(!validate_adc_parameters(5000, 6000, 2.0, 50, 1500));
+        assert!(!validate_adc_parameters(5000, 6000, 2.0, 50, 1500));
         
         // Test invalid tolerance (too low)
-        assert_no_std!(!validate_adc_parameters(5000, 3300, 0.05, 50, 1500));
+        assert!(!validate_adc_parameters(5000, 3300, 0.05, 50, 1500));
         
         // Test invalid tolerance (too high)
-        assert_no_std!(!validate_adc_parameters(5000, 3300, 25.0, 50, 1500));
+        assert!(!validate_adc_parameters(5000, 3300, 25.0, 50, 1500));
         
         // Test invalid sample count (zero)
-        assert_no_std!(!validate_adc_parameters(5000, 3300, 2.0, 0, 1500));
+        assert!(!validate_adc_parameters(5000, 3300, 2.0, 0, 1500));
         
         // Test invalid sample count (too high)
-        assert_no_std!(!validate_adc_parameters(5000, 3300, 2.0, 2000, 1500));
+        assert!(!validate_adc_parameters(5000, 3300, 2.0, 2000, 1500));
         
         // Test invalid expected ADC value
-        assert_no_std!(!validate_adc_parameters(5000, 3300, 2.0, 50, 5000)); // Above 12-bit ADC range
+        assert!(!validate_adc_parameters(5000, 3300, 2.0, 50, 5000)); // Above 12-bit ADC range
     }
 
     #[test]
@@ -97,28 +97,28 @@ mod tests {
         let mut measurements = create_adc_measurements();
         
         // Test initial state
-        assert_eq_no_std!(get_total_samples(&measurements), 0);
-        assert_eq_no_std!(get_average_adc_value(&measurements), 0);
-        assert_eq_no_std!(get_voltage_accuracy(&measurements), 0.0);
+        assert_eq!(get_total_samples(&measurements), 0);
+        assert_eq!(get_average_adc_value(&measurements), 0);
+        assert_eq!(get_voltage_accuracy(&measurements), 0.0);
         
         // Add samples and test calculations
         add_adc_sample(&mut measurements, 1450);
         add_adc_sample(&mut measurements, 1500);
         add_adc_sample(&mut measurements, 1550);
         
-        assert_eq_no_std!(get_total_samples(&measurements), 3);
-        assert_eq_no_std!(get_average_adc_value(&measurements), 1500); // Average of 1450, 1500, 1550
+        assert_eq!(get_total_samples(&measurements), 3);
+        assert_eq!(get_average_adc_value(&measurements), 1500); // Average of 1450, 1500, 1550
         
         // Test voltage accuracy calculation
         let accuracy = calculate_voltage_accuracy(&mut measurements, 3600); // 3.6V reference
-        assert_no_std!(accuracy > 95.0); // Should be very accurate
+        assert!(accuracy > 95.0); // Should be very accurate
         
         // Test calibration error calculation
         let cal_error = calculate_calibration_error(&measurements, 1500); // Perfect match
-        assert_eq_no_std!(cal_error, 0.0);
+        assert_eq!(cal_error, 0.0);
         
         let cal_error_2 = calculate_calibration_error(&measurements, 1450); // 50 ADC units off
-        assert_no_std!((cal_error_2 - 3.45).abs() < 0.5); // ~3.45% error with some tolerance
+        assert!((cal_error_2 - 3.45).abs() < 0.5); // ~3.45% error with some tolerance
     }
 
     #[test]
@@ -135,7 +135,7 @@ mod tests {
         add_test_transition(&mut result, 0, 1, 1480); // Low -> Normal with valid ADC
         
         complete_test(&mut result);
-        assert_no_std!(test_passed(&result));
+        assert!(test_passed(&result));
         
         // Test failed test case with errors
         let mut result_fail = create_test_result(3300, 1.0, 1500); // Strict 1% tolerance
@@ -149,7 +149,7 @@ mod tests {
         add_test_transition(&mut result_fail, 0, 2, 1300); // Low -> Charging with invalid ADC
         
         complete_test(&mut result_fail);
-        assert_no_std!(!test_passed(&result_fail));
+        assert!(!test_passed(&result_fail));
     }
 
     // Helper functions that simulate the battery ADC validation logic

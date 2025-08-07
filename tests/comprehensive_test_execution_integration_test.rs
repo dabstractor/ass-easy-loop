@@ -24,11 +24,11 @@ test_case!(test_comprehensive_executor_creation, {
     let mut executor = ComprehensiveTestExecutor::new();
     
     // Test that executor can be created
-    assert_no_std!(true); // Executor created successfully
+    assert!(true); // Executor created successfully
     
     // Test registering a test suite
     let result = executor.register_test_suite("test_suite", create_sample_test_suite);
-    assert_no_std!(result.is_ok());
+    assert!(result.is_ok());
 });
 
 /// Test comprehensive test integration functionality
@@ -36,15 +36,15 @@ test_case!(test_comprehensive_integration, {
     let mut integration = ComprehensiveTestIntegration::new();
     
     // Test that integration can be created
-    assert_no_std!(true); // Integration created successfully
+    assert!(true); // Integration created successfully
     
     // Test getting active contexts (should be empty initially)
     let active_contexts = integration.get_active_contexts();
-    assert_eq_no_std!(active_contexts.len(), 0);
+    assert_eq!(active_contexts.len(), 0);
     
     // Test getting integration statistics
     let stats = integration.get_integration_stats();
-    assert_eq_no_std!(stats.total_executions, 0);
+    assert_eq!(stats.total_executions, 0);
 });
 
 /// Test comprehensive test validator functionality
@@ -52,15 +52,15 @@ test_case!(test_comprehensive_validator, {
     let validator = ComprehensiveTestValidator::new();
     
     // Test that validator can be created
-    assert_no_std!(true); // Validator created successfully
+    assert!(true); // Validator created successfully
     
     // Test getting registry statistics
     let stats = validator.get_registry_stats();
-    assert_no_std!(stats.total_registered > 0);
+    assert!(stats.total_registered > 0);
     
     // Test getting available test suites
     let suites = validator.get_available_suites();
-    assert_no_std!(suites.len() > 0);
+    assert!(suites.len() > 0);
 });
 
 /// Test test suite registry functionality
@@ -69,16 +69,16 @@ test_case!(test_suite_registry, {
     
     // Test that registry is initialized with test suites
     let stats = registry.get_stats();
-    assert_no_std!(stats.total_registered > 0);
-    assert_eq_no_std!(stats.enabled_count, stats.total_registered);
+    assert!(stats.total_registered > 0);
+    assert_eq!(stats.enabled_count, stats.total_registered);
     
     // Test getting suite names
     let suite_names = registry.get_suite_names();
-    assert_no_std!(suite_names.len() > 0);
+    assert!(suite_names.len() > 0);
     
     // Test getting enabled suites
     let enabled_suites = registry.get_enabled_suites();
-    assert_no_std!(enabled_suites.len() > 0);
+    assert!(enabled_suites.len() > 0);
 });
 
 /// Test comprehensive test execution timeout handling
@@ -87,11 +87,11 @@ test_case!(test_timeout_handling, {
     
     // Test timeout processing (should not crash)
     let timeout_count = executor.process_timeouts(1000);
-    assert_no_std!(timeout_count == 0); // No timeouts initially
+    assert!(timeout_count == 0); // No timeouts initially
     
     // Test resource monitoring update
     executor.update_resource_monitoring(1024, 50);
-    assert_no_std!(true); // Resource monitoring updated successfully
+    assert!(true); // Resource monitoring updated successfully
 });
 
 /// Test comprehensive test validation with mock data
@@ -103,10 +103,10 @@ test_case!(test_validation_functionality, {
     
     // The result should be valid (either pass, fail, or skip)
     match result {
-        ValidationResult::Pass => assert_no_std!(true),
-        ValidationResult::Fail(_) => assert_no_std!(true), // Acceptable for test
-        ValidationResult::Skip(_) => assert_no_std!(true), // Acceptable for test
-        ValidationResult::Error(_) => assert_no_std!(true), // May occur in test environment
+        ValidationResult::Pass => assert!(true),
+        ValidationResult::Fail(_) => assert!(true), // Acceptable for test
+        ValidationResult::Skip(_) => assert!(true), // Acceptable for test
+        ValidationResult::Error(_) => assert!(true), // May occur in test environment
     }
 });
 
@@ -119,21 +119,21 @@ test_case!(test_resource_monitoring, {
     // Test updating memory usage
     monitor.update_memory_usage(1024);
     let stats = monitor.get_stats();
-    assert_eq_no_std!(stats.peak_memory_usage, 1024);
+    assert_eq!(stats.peak_memory_usage, 1024);
     
     // Test adding CPU usage samples
     monitor.add_cpu_usage_sample(50);
     monitor.add_cpu_usage_sample(75);
     
     let avg_cpu = monitor.get_avg_cpu_usage();
-    assert_no_std!(avg_cpu > 0);
+    assert!(avg_cpu > 0);
     
     let peak_cpu = monitor.get_peak_cpu_usage();
-    assert_eq_no_std!(peak_cpu, 75);
+    assert_eq!(peak_cpu, 75);
     
     // Test resource limit checking
     let within_limits = monitor.check_resource_limits();
-    assert_no_std!(within_limits || !within_limits); // Either result is valid
+    assert!(within_limits || !within_limits); // Either result is valid
 });
 
 /// Test comprehensive results aggregation
@@ -157,16 +157,16 @@ test_case!(test_results_aggregation, {
     results.add_suite_result(&suite_result);
     
     // Verify aggregation
-    assert_eq_no_std!(results.total_suites, 1);
-    assert_eq_no_std!(results.total_tests, 5);
-    assert_eq_no_std!(results.tests_passed, 3);
-    assert_eq_no_std!(results.tests_failed, 1);
-    assert_eq_no_std!(results.tests_skipped, 1);
-    assert_eq_no_std!(results.success_rate, 60); // 3/5 * 100 = 60%
+    assert_eq!(results.total_suites, 1);
+    assert_eq!(results.total_tests, 5);
+    assert_eq!(results.tests_passed, 3);
+    assert_eq!(results.tests_failed, 1);
+    assert_eq!(results.tests_skipped, 1);
+    assert_eq!(results.success_rate, 60); // 3/5 * 100 = 60%
     
     // Test success/failure checks
-    assert_no_std!(!results.all_tests_passed()); // Has failures
-    assert_no_std!(results.has_failures()); // Has failures
+    assert!(!results.all_tests_passed()); // Has failures
+    assert!(results.has_failures()); // Has failures
 });
 
 /// Test test execution session management
@@ -191,11 +191,11 @@ test_case!(test_execution_session_management, {
     };
     
     // Verify context properties
-    assert_eq_no_std!(context.context_id, 1);
-    assert_eq_no_std!(context.execution_type, TestExecutionType::ComprehensiveAll);
-    assert_eq_no_std!(context.status, TestExecutionContextStatus::Completed);
-    assert_eq_no_std!(context.start_time_ms, 1000);
-    assert_eq_no_std!(context.end_time_ms, Some(2000));
+    assert_eq!(context.context_id, 1);
+    assert_eq!(context.execution_type, TestExecutionType::ComprehensiveAll);
+    assert_eq!(context.status, TestExecutionContextStatus::Completed);
+    assert_eq!(context.start_time_ms, 1000);
+    assert_eq!(context.end_time_ms, Some(2000));
 });
 
 /// Test validation error handling
@@ -223,14 +223,14 @@ test_case!(test_validation_error_handling, {
     };
     
     // Verify error properties
-    assert_eq_no_std!(validation_error.severity, ValidationErrorSeverity::Major);
-    assert_no_std!(validation_error.test_name.is_some());
+    assert_eq!(validation_error.severity, ValidationErrorSeverity::Major);
+    assert!(validation_error.test_name.is_some());
     
     // Test validation report
     let mut report = ValidationReport::new();
     report.add_validation_error(validation_error);
     
-    assert_no_std!(report.validation_errors.len() > 0);
+    assert!(report.validation_errors.len() > 0);
 });
 
 /// Test quick validation functionality
@@ -239,7 +239,7 @@ test_case!(test_quick_validation, {
     let result = ass_easy_loop::comprehensive_test_validation::quick_validation_check();
     
     // Result can be true or false depending on test implementations
-    assert_no_std!(result || !result); // Always true, just checking it runs
+    assert!(result || !result); // Always true, just checking it runs
 });
 
 /// Test comprehensive validation integration
@@ -248,9 +248,9 @@ test_case!(test_comprehensive_validation_integration, {
     let report = validate_all_converted_tests(0);
     
     // Verify report structure
-    assert_no_std!(report.total_suites >= 0);
-    assert_no_std!(report.total_tests >= 0);
-    assert_no_std!(report.success_rate <= 100);
+    assert!(report.total_suites >= 0);
+    assert!(report.total_tests >= 0);
+    assert!(report.success_rate <= 100);
 });
 
 /// Helper function to create a sample test suite for testing
@@ -294,9 +294,9 @@ mod tests {
         let results = runner.run_all();
         
         // Verify that the test suite runs
-        assert_no_std!(results.stats.total_tests > 0);
+        assert!(results.stats.total_tests > 0);
         
         // Most tests should pass (some may fail in test environment)
-        assert_no_std!(results.stats.passed > 0);
+        assert!(results.stats.passed > 0);
     }
 }

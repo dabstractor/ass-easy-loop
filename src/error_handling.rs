@@ -260,19 +260,19 @@ mod tests {
 
     #[test]
     fn test_error_severity() {
-        assert_eq_no_std!(SystemError::AdcReadFailed.severity(), LogLevel::Error);
-        assert_eq_no_std!(SystemError::GpioOperationFailed.severity(), LogLevel::Warn);
+        assert_eq!(SystemError::AdcReadFailed.severity(), LogLevel::Error);
+        assert_eq!(SystemError::GpioOperationFailed.severity(), LogLevel::Warn);
     }
 
     #[test]
     fn test_error_criticality() {
-        assert_no_std!(!SystemError::AdcReadFailed.is_critical());
-        assert_no_std!(!SystemError::GpioOperationFailed.is_critical());
+        assert!(!SystemError::AdcReadFailed.is_critical());
+        assert!(!SystemError::GpioOperationFailed.is_critical());
     }
 
     #[test]
     fn test_error_descriptions() {
-        assert_eq_no_std!(SystemError::AdcReadFailed.description(), "ADC read operation failed");
-        assert_eq_no_std!(SystemError::GpioOperationFailed.description(), "GPIO operation failed");
+        assert_eq!(SystemError::AdcReadFailed.description(), "ADC read operation failed");
+        assert_eq!(SystemError::GpioOperationFailed.description(), "GPIO operation failed");
     }
 }

@@ -13,6 +13,9 @@ use std::collections::VecDeque;
 use std::process::Command;
 use std::thread;
 use std::time::{Duration, Instant};
+use std::vec::Vec;
+use std::string::String;
+use std::string::ToString;
 use std::sync::{Arc, Mutex};
 
 /// pEMF timing constants from requirements
@@ -61,7 +64,7 @@ impl TimingMeasurement {
 
 /// pEMF timing validator that analyzes log messages for timing accuracy
 pub struct PemfTimingValidator {
-    pub measurements: Vec<TimingMeasurement>,
+    pub measurements: std::vec::Vec<TimingMeasurement>,
     pub usb_logging_active: bool,
     pub test_duration_seconds: u64,
 }
@@ -106,14 +109,14 @@ impl PemfTimingValidator {
     }
 
     /// Check if RP2040 device is connected and accessible
-    fn check_device_connection(&mut self) -> Result<bool, String> {
+    fn check_device_connection(&mut self) -> std::result::Result<bool, std::string::String> {
         println!("Checking device connection...");
         
         let lsusb_output = Command::new("lsusb")
             .output()
             .map_err(|e| format!("Failed to run lsusb: {}", e))?;
         
-        let output_str = String::from_utf8_lossy(&lsusb_output.stdout);
+        let output_str = std::string::String::from_utf8_lossy(&lsusb_output.stdout);
         let device_found = output_str.contains(&format!("{:04x}:{:04x}", TEST_DEVICE_VID, TEST_DEVICE_PID));
         
         if device_found {
@@ -141,7 +144,7 @@ except Exception as e:
                 println!("✓ HID device accessible");
                 Ok(true)
             } else {
-                let error = String::from_utf8_lossy(&hid_test.stderr);
+                let error = std::string::String::from_utf8_lossy(&hid_test.stderr);
                 Err(format!("HID device not accessible: {}", error))
             }
         } else {
@@ -152,7 +155,7 @@ except Exception as e:
     }
 
     /// Capture pEMF timing data while USB logging is active
-    fn capture_timing_data_with_logging(&mut self) -> Result<(), String> {
+    fn capture_timing_data_with_logging(&mut self) -> std::result::Result<(), std::string::String> {
         println!("Capturing pEMF timing data with USB logging active...");
         
         let capture_script = format!(r#"
@@ -548,12 +551,12 @@ pub struct PerformanceImpactResult {
 #[test]
 fn test_pemf_timing_constants_validation() {
     // Validate that timing constants meet requirements
-    assert_eq_no_std!(PEMF_HIGH_DURATION_MS, 2, "HIGH duration must be exactly 2ms");
-    assert_eq_no_std!(PEMF_LOW_DURATION_MS, 498, "LOW duration must be exactly 498ms");
-    assert_eq_no_std!(PEMF_TOTAL_PERIOD_MS, 500, "Total period must be exactly 500ms");
+    assert_eq!(PEMF_HIGH_DURATION_MS, 2, "HIGH duration must be exactly 2ms");
+    assert_eq!(PEMF_LOW_DURATION_MS, 498, "LOW duration must be exactly 498ms");
+    assert_eq!(PEMF_TOTAL_PERIOD_MS, 500, "Total period must be exactly 500ms");
     
     let calculated_frequency = 1000.0 / PEMF_TOTAL_PERIOD_MS as f32;
-    assert_no_std!((calculated_frequency - PEMF_TARGET_FREQUENCY_HZ).abs() < 0.001, 
+    assert!((calculated_frequency - PEMF_TARGET_FREQUENCY_HZ).abs() < 0.001, 
             "Calculated frequency should be 2Hz");
 }
 
@@ -562,27 +565,27 @@ fn test_timing_measurement_calculations() {
     // Test timing measurement calculations
     let measurement = TimingMeasurement::new(2.0, 498.0, 1000);
     
-    assert_eq_no_std!(measurement.high_duration_ms, 2.0);
-    assert_eq_no_std!(measurement.low_duration_ms, 498.0);
-    assert_eq_no_std!(measurement.total_period_ms, 500.0);
-    assert_no_std!((measurement.frequency_hz - 2.0).abs() < 0.001);
-    assert_no_std!(measurement.timing_error_percent < 0.1); // Should be very small for exact values
-    assert_no_std!(measurement.is_within_tolerance());
+    assert_eq!(measurement.high_duration_ms, 2.0);
+    assert_eq!(measurement.low_duration_ms, 498.0);
+    assert_eq!(measurement.total_period_ms, 500.0);
+    assert!((measurement.frequency_hz - 2.0).abs() < 0.001);
+    assert!(measurement.timing_error_percent < 0.1); // Should be very small for exact values
+    assert!(measurement.is_within_tolerance());
 }
 
 #[test]
 fn test_timing_tolerance_validation() {
     // Test timing tolerance calculations
     let perfect_measurement = TimingMeasurement::new(2.0, 498.0, 1000);
-    assert_no_std!(perfect_measurement.is_within_tolerance());
+    assert!(perfect_measurement.is_within_tolerance());
     
     // Test edge of tolerance (1% error = 5ms total period error)
     let edge_measurement = TimingMeasurement::new(2.0, 503.0, 1000); // 505ms total = 1% error
-    assert_no_std!(edge_measurement.timing_error_percent <= TIMING_TOLERANCE_PERCENT + 0.1); // Allow small rounding
+    assert!(edge_measurement.timing_error_percent <= TIMING_TOLERANCE_PERCENT + 0.1); // Allow small rounding
     
     // Test outside tolerance
     let bad_measurement = TimingMeasurement::new(2.0, 520.0, 1000); // 522ms total = >4% error
-    assert_no_std!(!bad_measurement.is_within_tolerance());
+    assert!(!bad_measurement.is_within_tolerance());
 }
 
 #[test]
@@ -618,7 +621,7 @@ fn test_pemf_timing_comprehensive_validation() {
     
     match validator.run_timing_validation() {
         Ok(success) => {
-            assert_no_std!(success, "Comprehensive pEMF timing validation should pass with hardware");
+            assert!(success, "Comprehensive pEMF timing validation should pass with hardware");
         }
         Err(e) => {
             panic!("Hardware validation failed: {}", e);
@@ -641,8 +644,8 @@ fn test_timing_analysis_with_synthetic_data() {
     
     let analysis = validator.analyze_timing_accuracy();
     
-    assert_no_std!(analysis.measurements_count == 20);
-    assert_no_std!(analysis.within_tolerance_count >= 18); // Most should be within tolerance
-    assert_no_std!((analysis.average_frequency_hz - 2.0).abs() < 0.1);
-    assert_no_std!(analysis.average_timing_error_percent < 1.0);
+    assert!(analysis.measurements_count == 20);
+    assert!(analysis.within_tolerance_count >= 18); // Most should be within tolerance
+    assert!((analysis.average_frequency_hz - 2.0).abs() < 0.1);
+    assert!(analysis.average_timing_error_percent < 1.0);
 }
