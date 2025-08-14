@@ -1,6 +1,6 @@
 # Wiring Guide and Assembly Instructions
 
-This document provides detailed wiring diagrams, component connections, and step-by-step assembly instructions for the pEMF Dual-Function Device.
+This document provides detailed wiring diagrams, component connections, and step-by-step assembly instructions for the Ass-Easy Loop.
 
 ## Overview
 
@@ -12,7 +12,7 @@ The device consists of three main circuit sections:
 ## Complete Wiring Diagram
 
 ```
-                    pEMF Dual-Function Device Wiring Diagram
+                    Ass-Easy Loop Wiring Diagram
                     
     Battery Pack                 Raspberry Pi Pico                    MOSFET Driver
     ┌─────────────┐             ┌─────────────────────┐              ┌─────────────┐
@@ -119,7 +119,7 @@ Battery Positive ──┬── 10kΩ (R1) ──┬── 5.1kΩ (R2) ── G
 
 ### MOSFET Driver Module Connections
 
-**Typical N-Channel MOSFET Driver Module**:
+**Option 1: Pre-built MOSFET Driver Module (Recommended)**
 
 | Driver Pin | Function | Connection |
 |------------|----------|------------|
@@ -129,15 +129,42 @@ Battery Positive ──┬── 10kΩ (R1) ──┬── 5.1kΩ (R2) ── G
 | **OUT+** | Load Positive | To electromagnetic coil positive |
 | **OUT-** | Load Negative | To electromagnetic coil negative |
 
-**Alternative: Discrete MOSFET Circuit**:
-```
-GPIO15 ──┬── 1kΩ ──┬── Gate (MOSFET)
-         │         │
-         └── 10kΩ ──┴── Source (MOSFET) ── GND
-                    
-Drain (MOSFET) ── Load Positive
-Load Negative ── Battery Positive
-```
+**Option 2: Build MOSFET Driver from Scratch**
+
+If you prefer to build the MOSFET driver circuit from discrete components instead of using a pre-built module, you can construct your own using a bare IRF520 MOSFET and supporting components.
+
+⚠️ **Warning**: This approach is significantly more complex and requires additional components, proper thermal management, and careful circuit design. Only attempt if you have experience with power electronics.
+
+**Required Additional Components for Scratch Build**:
+- IRF520 N-Channel MOSFET (TO-220 package)
+- 220Ω resistor (gate current limiting)
+- 10kΩ resistor (gate pull-down)
+- 1N4007 diode (flyback protection)
+- TO-220 heat sink with thermal paste
+- Additional wiring and connections
+
+**For complete scratch-build wiring instructions, see**: [IRF520_BARE_MOSFET_GUIDE.md](IRF520_BARE_MOSFET_GUIDE.md)
+
+This guide covers:
+- Complete circuit diagrams for bare IRF520
+- Component specifications and ratings
+- Thermal management requirements
+- Protection circuit design
+- Step-by-step assembly instructions
+- Troubleshooting bare MOSFET circuits
+
+**Comparison Summary**:
+
+| Aspect | Pre-built Module | Scratch Build |
+|--------|-----------------|---------------|
+| **Difficulty** | Beginner | Advanced |
+| **Components** | 1 module | 5+ discrete parts |
+| **Connections** | 5 simple wires | 10+ connections |
+| **Assembly Time** | 15 minutes | 1-2 hours |
+| **Cost** | $3-5 | $2-3 + time |
+| **Reliability** | High | Depends on implementation |
+
+**Recommendation**: Use the pre-built module unless you have specific requirements that necessitate a custom design.
 
 ## Step-by-Step Assembly Instructions
 
