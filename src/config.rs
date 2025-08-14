@@ -516,6 +516,202 @@ pub enum LogCategory {
     General,
 }
 
+/// pEMF Configuration
+pub mod pemf {
+
+    /// pEMF configuration structure for runtime parameters
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub struct PemfConfig {
+        /// Output frequency in Hz (1-1000 Hz range)
+        pub frequency_hz: u32,
+        /// Duty cycle as a percentage (0.0-1.0, where 1.0 = 100%)
+        pub duty_cycle: f32,
+        /// Waveform type (0.0=sine, 0.5=sawtooth, 1.0=square)
+        pub waveform_type: f32,
+    }
+
+    /// Default pEMF configuration (maintains backward compatibility)
+    pub const DEFAULT_FREQUENCY_HZ: u32 = 2;
+    pub const DEFAULT_DUTY_CYCLE: f32 = 0.004; // 0.4% (2ms HIGH, 498ms LOW for 2Hz)
+    pub const DEFAULT_WAVEFORM_TYPE: f32 = 1.0; // Square wave
+
+    /// Configuration limits
+    pub const MIN_FREQUENCY_HZ: u32 = 1;
+    pub const MAX_FREQUENCY_HZ: u32 = 1000;
+    pub const MIN_DUTY_CYCLE: f32 = 0.001; // 0.1%
+    pub const MAX_DUTY_CYCLE: f32 = 0.99;  // 99%
+    pub const MIN_WAVEFORM_TYPE: f32 = 0.0; // Pure sine
+    pub const MAX_WAVEFORM_TYPE: f32 = 1.0; // Pure square
+
+    impl PemfConfig {
+        /// Create new pEMF configuration with default values
+        pub const fn new() -> Self {
+            Self {
+                frequency_hz: DEFAULT_FREQUENCY_HZ,
+                duty_cycle: DEFAULT_DUTY_CYCLE,
+                waveform_type: DEFAULT_WAVEFORM_TYPE,
+            }
+        }
+
+        /// Create pEMF configuration with custom parameters
+        pub fn new_with_params(frequency_hz: u32, duty_cycle: f32, waveform_type: f32) -> Result<Self, PemfConfigError> {
+            let config = Self {
+                frequency_hz,
+                duty_cycle,
+                waveform_type,
+            };
+            config.validate()?;
+            Ok(config)
+        }
+
+        /// Calculate pulse HIGH duration in milliseconds
+        pub fn high_duration_ms(&self) -> u64 {
+            let period_ms = 1000.0 / self.frequency_hz as f32;
+            (period_ms * self.duty_cycle) as u64
+        }
+
+        /// Calculate pulse LOW duration in milliseconds
+        pub fn low_duration_ms(&self) -> u64 {
+            let period_ms = 1000.0 / self.frequency_hz as f32;
+            (period_ms * (1.0 - self.duty_cycle)) as u64
+        }
+
+        /// Calculate total period in milliseconds
+        pub fn period_ms(&self) -> u64 {
+            1000 / self.frequency_hz as u64
+        }
+
+        /// Validate configuration parameters
+        pub fn validate(&self) -> Result<(), PemfConfigError> {
+            if self.frequency_hz < MIN_FREQUENCY_HZ || self.frequency_hz > MAX_FREQUENCY_HZ {
+                return Err(PemfConfigError::InvalidFrequency);
+            }
+            if self.duty_cycle < MIN_DUTY_CYCLE || self.duty_cycle > MAX_DUTY_CYCLE {
+                return Err(PemfConfigError::InvalidDutyCycle);
+            }
+            if self.waveform_type < MIN_WAVEFORM_TYPE || self.waveform_type > MAX_WAVEFORM_TYPE {
+                return Err(PemfConfigError::InvalidWaveformType);
+            }
+            Ok(())
+        }
+
+        /// Serialize configuration to bytes for USB transmission
+        pub fn serialize(&self) -> [u8; 12] {
+            let mut buffer = [0u8; 12];
+            
+            // Frequency (4 bytes, little-endian)
+            let freq_bytes = self.frequency_hz.to_le_bytes();
+            buffer[0..4].copy_from_slice(&freq_bytes);
+            
+            // Duty cycle (4 bytes, little-endian float)
+            let duty_bytes = self.duty_cycle.to_le_bytes();
+            buffer[4..8].copy_from_slice(&duty_bytes);
+            
+            // Waveform type (4 bytes, little-endian float)
+            let waveform_bytes = self.waveform_type.to_le_bytes();
+            buffer[8..12].copy_from_slice(&waveform_bytes);
+            
+            buffer
+        }
+
+        /// Deserialize configuration from bytes received via USB
+        pub fn deserialize(buffer: &[u8; 12]) -> Result<Self, PemfConfigError> {
+            let mut freq_bytes = [0u8; 4];
+            freq_bytes.copy_from_slice(&buffer[0..4]);
+            let frequency_hz = u32::from_le_bytes(freq_bytes);
+
+            let mut duty_bytes = [0u8; 4];
+            duty_bytes.copy_from_slice(&buffer[4..8]);
+            let duty_cycle = f32::from_le_bytes(duty_bytes);
+
+            let mut waveform_bytes = [0u8; 4];
+            waveform_bytes.copy_from_slice(&buffer[8..12]);
+            let waveform_type = f32::from_le_bytes(waveform_bytes);
+
+            Self::new_with_params(frequency_hz, duty_cycle, waveform_type)
+        }
+
+        /// Get waveform type as an enum for easier pattern matching
+        pub fn get_waveform_type(&self) -> WaveformType {
+            if self.waveform_type <= 0.25 {
+                WaveformType::Sine
+            } else if self.waveform_type <= 0.75 {
+                WaveformType::Sawtooth  
+            } else {
+                WaveformType::Square
+            }
+        }
+
+        /// Calculate the effective duty cycle at a given time position within a pulse
+        /// This enables waveform shaping by modulating the effective duty cycle
+        /// 
+        /// # Arguments
+        /// * `time_position` - Position within the HIGH phase (0.0 to 1.0)
+        /// 
+        /// # Returns
+        /// Effective duty cycle for this time position (0.0 to 1.0)
+        pub fn get_effective_duty_cycle(&self, time_position: f32) -> f32 {
+            let base_duty = self.duty_cycle;
+            
+            match self.get_waveform_type() {
+                WaveformType::Square => {
+                    // Pure square wave - constant duty cycle
+                    base_duty
+                }
+                WaveformType::Sine => {
+                    // Sine wave approximation - sinusoidal modulation of duty cycle
+                    let sine_factor = (time_position * core::f32::consts::PI).sin();
+                    base_duty * (0.5 + 0.5 * sine_factor)
+                }
+                WaveformType::Sawtooth => {
+                    // Sawtooth wave - linear ramp
+                    base_duty * time_position
+                }
+            }
+        }
+    }
+
+    /// Waveform types for pEMF pulse generation
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub enum WaveformType {
+        /// Pure sine wave (waveform_type: 0.0-0.25)
+        Sine,
+        /// Sawtooth wave (waveform_type: 0.25-0.75)  
+        Sawtooth,
+        /// Square wave (waveform_type: 0.75-1.0)
+        Square,
+    }
+
+    impl Default for PemfConfig {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    /// pEMF configuration error types
+    #[derive(Clone, Copy, PartialEq, Debug)]
+    pub enum PemfConfigError {
+        InvalidFrequency,
+        InvalidDutyCycle,
+        InvalidWaveformType,
+        SerializationError,
+        DeserializationError,
+    }
+
+    impl PemfConfigError {
+        /// Get a human-readable error message
+        pub fn as_str(&self) -> &'static str {
+            match self {
+                PemfConfigError::InvalidFrequency => "Frequency must be between 1-1000 Hz",
+                PemfConfigError::InvalidDutyCycle => "Duty cycle must be between 0.1%-99%",
+                PemfConfigError::InvalidWaveformType => "Waveform type must be between 0.0-1.0",
+                PemfConfigError::SerializationError => "pEMF configuration serialization failed",
+                PemfConfigError::DeserializationError => "pEMF configuration deserialization failed",
+            }
+        }
+    }
+}
+
 /// Configuration error types
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ConfigError {
@@ -527,6 +723,7 @@ pub enum ConfigError {
     CategoryDisabledAtCompileTime,
     SerializationError,
     DeserializationError,
+    PemfConfigError(pemf::PemfConfigError),
 }
 
 impl ConfigError {
@@ -541,6 +738,7 @@ impl ConfigError {
             ConfigError::CategoryDisabledAtCompileTime => "Category disabled at compile time",
             ConfigError::SerializationError => "Configuration serialization failed",
             ConfigError::DeserializationError => "Configuration deserialization failed",
+            ConfigError::PemfConfigError(err) => err.as_str(),
         }
     }
 }
@@ -755,5 +953,120 @@ mod tests {
         assert!(features::ENABLE_USB_HID_LOGGING);
         assert!(features::ENABLE_LOG_TIMESTAMPS);
         assert!(features::ENABLE_LOG_MODULE_NAMES);
+    }
+
+    #[test]
+    fn test_pemf_config_defaults() {
+        let config = pemf::PemfConfig::new();
+        assert_eq!(config.frequency_hz, pemf::DEFAULT_FREQUENCY_HZ);
+        assert_eq!(config.duty_cycle, pemf::DEFAULT_DUTY_CYCLE);
+        assert_eq!(config.waveform_type, pemf::DEFAULT_WAVEFORM_TYPE);
+    }
+
+    #[test]
+    fn test_pemf_config_validation() {
+        // Valid configuration
+        let valid_config = pemf::PemfConfig::new_with_params(10, 0.5, 0.75);
+        assert!(valid_config.is_ok());
+
+        // Invalid frequency (too low)
+        let invalid_freq_low = pemf::PemfConfig::new_with_params(0, 0.5, 0.5);
+        assert!(invalid_freq_low.is_err());
+
+        // Invalid frequency (too high)
+        let invalid_freq_high = pemf::PemfConfig::new_with_params(1001, 0.5, 0.5);
+        assert!(invalid_freq_high.is_err());
+
+        // Invalid duty cycle (too low)
+        let invalid_duty_low = pemf::PemfConfig::new_with_params(10, 0.0, 0.5);
+        assert!(invalid_duty_low.is_err());
+
+        // Invalid duty cycle (too high)
+        let invalid_duty_high = pemf::PemfConfig::new_with_params(10, 1.0, 0.5);
+        assert!(invalid_duty_high.is_err());
+
+        // Invalid waveform type (too low)
+        let invalid_wave_low = pemf::PemfConfig::new_with_params(10, 0.5, -0.1);
+        assert!(invalid_wave_low.is_err());
+
+        // Invalid waveform type (too high)
+        let invalid_wave_high = pemf::PemfConfig::new_with_params(10, 0.5, 1.1);
+        assert!(invalid_wave_high.is_err());
+    }
+
+    #[test]
+    fn test_pemf_config_calculations() {
+        let config = pemf::PemfConfig::new_with_params(10, 0.5, 1.0).unwrap(); // 10Hz, 50% duty cycle
+        
+        // 10Hz = 100ms period, 50% duty cycle = 50ms HIGH, 50ms LOW
+        assert_eq!(config.period_ms(), 100);
+        assert_eq!(config.high_duration_ms(), 50);
+        assert_eq!(config.low_duration_ms(), 50);
+
+        // Test default 2Hz configuration
+        let default_config = pemf::PemfConfig::new();
+        assert_eq!(default_config.period_ms(), 500);
+        assert_eq!(default_config.high_duration_ms(), 2);
+        assert_eq!(default_config.low_duration_ms(), 498);
+    }
+
+    #[test]
+    fn test_pemf_config_serialization() {
+        let config = pemf::PemfConfig::new_with_params(100, 0.25, 0.75).unwrap();
+        let serialized = config.serialize();
+        let deserialized = pemf::PemfConfig::deserialize(&serialized).unwrap();
+        
+        assert_eq!(config.frequency_hz, deserialized.frequency_hz);
+        assert_eq!(config.duty_cycle, deserialized.duty_cycle);
+        assert_eq!(config.waveform_type, deserialized.waveform_type);
+    }
+
+    #[test]
+    fn test_waveform_type_detection() {
+        let sine_config = pemf::PemfConfig::new_with_params(10, 0.5, 0.2).unwrap();
+        assert_eq!(sine_config.get_waveform_type(), pemf::WaveformType::Sine);
+
+        let sawtooth_config = pemf::PemfConfig::new_with_params(10, 0.5, 0.5).unwrap();
+        assert_eq!(sawtooth_config.get_waveform_type(), pemf::WaveformType::Sawtooth);
+
+        let square_config = pemf::PemfConfig::new_with_params(10, 0.5, 0.9).unwrap();
+        assert_eq!(square_config.get_waveform_type(), pemf::WaveformType::Square);
+    }
+
+    #[test]
+    fn test_effective_duty_cycle_square() {
+        let config = pemf::PemfConfig::new_with_params(10, 0.5, 1.0).unwrap(); // Square wave
+        
+        // Square wave should have constant duty cycle
+        assert_eq!(config.get_effective_duty_cycle(0.0), 0.5);
+        assert_eq!(config.get_effective_duty_cycle(0.5), 0.5);
+        assert_eq!(config.get_effective_duty_cycle(1.0), 0.5);
+    }
+
+    #[test]
+    fn test_effective_duty_cycle_sawtooth() {
+        let config = pemf::PemfConfig::new_with_params(10, 0.5, 0.5).unwrap(); // Sawtooth wave
+        
+        // Sawtooth should start at 0 and ramp up
+        assert_eq!(config.get_effective_duty_cycle(0.0), 0.0);
+        assert_eq!(config.get_effective_duty_cycle(0.5), 0.25);
+        assert_eq!(config.get_effective_duty_cycle(1.0), 0.5);
+    }
+
+    #[test]
+    fn test_effective_duty_cycle_sine() {
+        let config = pemf::PemfConfig::new_with_params(10, 0.5, 0.1).unwrap(); // Sine wave
+        
+        // Sine wave should start at base/2, peak at middle, return to base/2
+        let start_duty = config.get_effective_duty_cycle(0.0);
+        let mid_duty = config.get_effective_duty_cycle(0.5);
+        let end_duty = config.get_effective_duty_cycle(1.0);
+        
+        // Start and end should be equal (sine starts and ends at 0)
+        assert!((start_duty - end_duty).abs() < 0.01);
+        
+        // Middle should be the peak (sine(π/2) = 1)
+        assert!(mid_duty > start_duty);
+        assert!(mid_duty <= 0.5); // Should not exceed base duty cycle
     }
 }
