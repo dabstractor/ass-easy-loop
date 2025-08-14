@@ -299,6 +299,7 @@ mod app {
         bootloader_manager: BootloaderEntryManager,
         system_state_handler: SystemStateHandler,
         test_processor: TestCommandProcessor,
+        pemf_config: crate::config::pemf::PemfConfig,
     }
 
     #[local]
@@ -576,6 +577,7 @@ mod app {
                 bootloader_manager,
                 system_state_handler,
                 test_processor,
+                pemf_config: crate::config::pemf::PemfConfig::new(),
             },
             Local {
                 mosfet_pin,
@@ -589,23 +591,24 @@ mod app {
     /// High-priority pEMF pulse generation task
     /// Generates 2Hz square wave with 2ms HIGH, 498ms LOW cycle
     /// Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 4.1, 4.2, 4.3, 4.4, 4.5
-    #[task(local = [mosfet_pin, pulse_active], priority = 3)]
-    async fn pemf_pulse_task(ctx: pemf_pulse_task::Context) {
+    #[task(local = [mosfet_pin, pulse_active], shared = [pemf_config], priority = 3)]
+    async fn pemf_pulse_task(mut ctx: pemf_pulse_task::Context) {
         let mosfet_pin = ctx.local.mosfet_pin;
         let pulse_active = ctx.local.pulse_active;
 
-        // Precise timing constants for 2Hz square wave
-        // Total period: 500ms (2Hz = 1/0.5s)
-        // HIGH phase: 2ms (exact)
-        // LOW phase: 498ms (500ms - 2ms = 498ms)
-        const PULSE_HIGH_DURATION_MS: u64 = 2;
-        const PULSE_LOW_DURATION_MS: u64 = 498;
-        const EXPECTED_TOTAL_PERIOD_MS: u64 = PULSE_HIGH_DURATION_MS + PULSE_LOW_DURATION_MS;
+        // Get initial pEMF configuration (will be updated dynamically during runtime)
+        let initial_config = ctx.shared.pemf_config.lock(|config| *config);
+        let mut current_config = initial_config;
+
+        // Calculate initial timing values from configuration
+        let mut pulse_high_duration_ms = current_config.high_duration_ms();
+        let mut pulse_low_duration_ms = current_config.low_duration_ms();
+        let mut expected_total_period_ms = current_config.period_ms();
 
         // Timing validation constants
         const TIMING_TOLERANCE_PERCENT: f32 = 0.01; // ±1% tolerance as per requirements
-        const MAX_TIMING_DEVIATION_MS: u64 =
-            ((EXPECTED_TOTAL_PERIOD_MS as f32) * TIMING_TOLERANCE_PERCENT) as u64;
+        let max_timing_deviation_ms = 
+            ((expected_total_period_ms as f32) * TIMING_TOLERANCE_PERCENT) as u64;
 
         // Performance monitoring constants
         const STATISTICS_LOG_INTERVAL_CYCLES: u32 = 120; // Log stats every 60 seconds (120 cycles * 0.5s)
@@ -623,14 +626,15 @@ mod app {
         // Requirements: 4.1
         log_info!("pEMF pulse generation initialized");
         log_info!(
-            "Target frequency: 2Hz, HIGH: {}ms, LOW: {}ms",
-            PULSE_HIGH_DURATION_MS,
-            PULSE_LOW_DURATION_MS
+            "Target frequency: {}Hz, HIGH: {}ms, LOW: {}ms",
+            current_config.frequency_hz,
+            pulse_high_duration_ms,
+            pulse_low_duration_ms
         );
         log_info!(
             "Timing tolerance: ±{}% (±{}ms)",
             TIMING_TOLERANCE_PERCENT * 100.0,
-            MAX_TIMING_DEVIATION_MS
+            max_timing_deviation_ms
         );
         log_info!(
             "Performance monitoring: stats every {} cycles, validation every {} cycles",
@@ -639,6 +643,27 @@ mod app {
         );
 
         loop {
+            // Check for configuration updates at the beginning of each cycle
+            let new_config = ctx.shared.pemf_config.lock(|config| *config);
+            if new_config.frequency_hz != current_config.frequency_hz ||
+               new_config.duty_cycle != current_config.duty_cycle ||
+               new_config.waveform_type != current_config.waveform_type {
+                
+                current_config = new_config;
+                pulse_high_duration_ms = current_config.high_duration_ms();
+                pulse_low_duration_ms = current_config.low_duration_ms();
+                expected_total_period_ms = current_config.period_ms();
+                max_timing_deviation_ms = 
+                    ((expected_total_period_ms as f32) * TIMING_TOLERANCE_PERCENT) as u64;
+                
+                log_info!(
+                    "pEMF config updated: {}Hz, duty: {:.1}%, waveform: {:.2}",
+                    current_config.frequency_hz,
+                    current_config.duty_cycle * 100.0,
+                    current_config.waveform_type
+                );
+            }
+
             // Check for shutdown request before starting new cycle
             // Requirements: 1.4, 1.5 (complete current cycle, graceful shutdown)
             if should_task_shutdown(TaskPriority::High) {
@@ -670,7 +695,7 @@ mod app {
                 // Continue with timing to maintain cycle consistency
             }
 
-            Mono::delay(PULSE_HIGH_DURATION_MS.millis()).await;
+            Mono::delay(pulse_high_duration_ms.millis()).await;
             let high_phase_end = Mono::now();
 
             // Pulse LOW phase: Set MOSFET pin low for 498ms
@@ -688,7 +713,7 @@ mod app {
                 // Continue with timing to maintain cycle consistency
             }
 
-            Mono::delay(PULSE_LOW_DURATION_MS.millis()).await;
+            Mono::delay(pulse_low_duration_ms.millis()).await;
             let low_phase_end = Mono::now();
 
             // Calculate actual timing for validation
@@ -705,47 +730,50 @@ mod app {
             // Requirements: 4.2
             if cycle_count % TIMING_VALIDATION_INTERVAL_CYCLES == 0 {
                 // Check HIGH phase timing deviation
-                let high_deviation_ms = actual_high_time_ms.abs_diff(PULSE_HIGH_DURATION_MS);
+                let high_deviation_ms = actual_high_time_ms.abs_diff(pulse_high_duration_ms);
 
                 // Check LOW phase timing deviation
-                let low_deviation_ms = actual_low_time_ms.abs_diff(PULSE_LOW_DURATION_MS);
+                let low_deviation_ms = actual_low_time_ms.abs_diff(pulse_low_duration_ms);
 
                 // Check total cycle timing deviation
-                let cycle_deviation_ms = actual_total_cycle_ms.abs_diff(EXPECTED_TOTAL_PERIOD_MS);
+                let cycle_deviation_ms = actual_total_cycle_ms.abs_diff(expected_total_period_ms);
 
                 // Track maximum deviation for statistics
-                let max_deviation = core::cmp::max(
+                let current_max_deviation = core::cmp::max(
                     high_deviation_ms,
                     core::cmp::max(low_deviation_ms, cycle_deviation_ms),
                 );
-                if max_deviation > max_timing_deviation_ms {
-                    max_timing_deviation_ms = max_deviation;
+                if current_max_deviation > max_timing_deviation_ms {
+                    max_timing_deviation_ms = current_max_deviation;
                 }
+
+                // Define the tolerance threshold for this cycle
+                let tolerance_threshold_ms = ((expected_total_period_ms as f32) * TIMING_TOLERANCE_PERCENT) as u64;
 
                 // Log timing deviations if they exceed tolerance
-                if high_deviation_ms > MAX_TIMING_DEVIATION_MS {
+                if high_deviation_ms > tolerance_threshold_ms {
                     log_warn!("HIGH phase timing deviation: {}ms (expected: {}ms, actual: {}ms, tolerance: ±{}ms)",
-                             high_deviation_ms, PULSE_HIGH_DURATION_MS, actual_high_time_ms, MAX_TIMING_DEVIATION_MS);
+                             high_deviation_ms, pulse_high_duration_ms, actual_high_time_ms, tolerance_threshold_ms);
                 }
 
-                if low_deviation_ms > MAX_TIMING_DEVIATION_MS {
+                if low_deviation_ms > tolerance_threshold_ms {
                     log_warn!("LOW phase timing deviation: {}ms (expected: {}ms, actual: {}ms, tolerance: ±{}ms)",
-                             low_deviation_ms, PULSE_LOW_DURATION_MS, actual_low_time_ms, MAX_TIMING_DEVIATION_MS);
+                             low_deviation_ms, pulse_low_duration_ms, actual_low_time_ms, tolerance_threshold_ms);
                 }
 
-                if cycle_deviation_ms > MAX_TIMING_DEVIATION_MS {
+                if cycle_deviation_ms > tolerance_threshold_ms {
                     log_warn!("Total cycle timing deviation: {}ms (expected: {}ms, actual: {}ms, tolerance: ±{}ms)",
-                             cycle_deviation_ms, EXPECTED_TOTAL_PERIOD_MS, actual_total_cycle_ms, MAX_TIMING_DEVIATION_MS);
+                             cycle_deviation_ms, expected_total_period_ms, actual_total_cycle_ms, tolerance_threshold_ms);
                 }
 
                 // Add timing conflict detection
                 // Requirements: 4.3
                 let time_since_last_cycle = (cycle_start_time - last_cycle_start_time).to_millis();
                 if cycle_count > 1
-                    && time_since_last_cycle < (EXPECTED_TOTAL_PERIOD_MS - MAX_TIMING_DEVIATION_MS)
+                    && time_since_last_cycle < (expected_total_period_ms - tolerance_threshold_ms)
                 {
                     log_error!("Timing conflict detected: cycle started {}ms after previous (expected: {}ms)",
-                              time_since_last_cycle, EXPECTED_TOTAL_PERIOD_MS);
+                              time_since_last_cycle, expected_total_period_ms);
                     timing_errors += 1;
                 }
             }
@@ -770,8 +798,9 @@ mod app {
                     avg_total_cycle_ms
                 );
                 log_info!(
-                    "Actual frequency: {:.3}Hz (target: 2.000Hz)",
-                    actual_frequency_hz
+                    "Actual frequency: {:.3}Hz (target: {:.3}Hz)",
+                    actual_frequency_hz,
+                    current_config.frequency_hz as f32
                 );
                 log_info!(
                     "Max timing deviation: {}ms, Timing errors: {}",
@@ -780,18 +809,18 @@ mod app {
                 );
 
                 // Calculate timing accuracy percentage
-                let high_accuracy = if PULSE_HIGH_DURATION_MS > 0 {
+                let high_accuracy = if pulse_high_duration_ms > 0 {
                     100.0
-                        - ((avg_high_time_ms as f32 - PULSE_HIGH_DURATION_MS as f32).abs()
-                            / PULSE_HIGH_DURATION_MS as f32)
+                        - ((avg_high_time_ms as f32 - pulse_high_duration_ms as f32).abs()
+                            / pulse_high_duration_ms as f32)
                             * 100.0
                 } else {
                     0.0
                 };
-                let low_accuracy = if PULSE_LOW_DURATION_MS > 0 {
+                let low_accuracy = if pulse_low_duration_ms > 0 {
                     100.0
-                        - ((avg_low_time_ms as f32 - PULSE_LOW_DURATION_MS as f32).abs()
-                            / PULSE_LOW_DURATION_MS as f32)
+                        - ((avg_low_time_ms as f32 - pulse_low_duration_ms as f32).abs()
+                            / pulse_low_duration_ms as f32)
                             * 100.0
                 } else {
                     0.0
@@ -820,7 +849,7 @@ mod app {
                 let timing_measurement = ass_easy_loop::test_processor::TimingMeasurement {
                     task_name: "pEMF_pulse",
                     execution_time_us: (actual_total_cycle_ms * 1000) as u32, // Convert ms to us
-                    expected_time_us: (EXPECTED_TOTAL_PERIOD_MS * 1000) as u32, // Convert ms to us
+                    expected_time_us: (expected_total_period_ms * 1000) as u32, // Convert ms to us
                     timestamp_ms: cycle_start_time.duration_since_epoch().to_millis() as u32,
                 };
 
@@ -1897,6 +1926,31 @@ mod app {
                                     )
                                 });
                             }
+                        }
+                        Some(ass_easy_loop::TestCommand::SetPemfFrequency) => {
+                            log_info!("Set pEMF frequency command received");
+                            commands_processed += 1;
+                            // TODO: Implementation will be handled by command handler
+                        }
+                        Some(ass_easy_loop::TestCommand::SetPemfDutyCycle) => {
+                            log_info!("Set pEMF duty cycle command received");
+                            commands_processed += 1;
+                            // TODO: Implementation will be handled by command handler
+                        }
+                        Some(ass_easy_loop::TestCommand::SetPemfWaveform) => {
+                            log_info!("Set pEMF waveform command received");
+                            commands_processed += 1;
+                            // TODO: Implementation will be handled by command handler
+                        }
+                        Some(ass_easy_loop::TestCommand::GetPemfConfig) => {
+                            log_info!("Get pEMF config command received");
+                            commands_processed += 1;
+                            // TODO: Implementation will be handled by command handler
+                        }
+                        Some(ass_easy_loop::TestCommand::SetPemfConfig) => {
+                            log_info!("Set pEMF config command received");
+                            commands_processed += 1;
+                            // TODO: Implementation will be handled by command handler
                         }
                         None => {
                             // Requirements: 2.5 (error response with diagnostic information)

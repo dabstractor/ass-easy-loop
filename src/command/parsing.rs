@@ -45,6 +45,12 @@ pub enum TestCommand {
     RunTestSuite = 0x85,
     GetTestResults = 0x86,
     ClearTestResults = 0x87,
+    // pEMF configuration commands
+    SetPemfFrequency = 0x90,
+    SetPemfDutyCycle = 0x91,
+    SetPemfWaveform = 0x92,
+    GetPemfConfig = 0x93,
+    SetPemfConfig = 0x94,
 }
 
 /// Test response types
@@ -227,13 +233,19 @@ impl CommandReport {
             0x85 => Some(TestCommand::RunTestSuite),
             0x86 => Some(TestCommand::GetTestResults),
             0x87 => Some(TestCommand::ClearTestResults),
+            0x90 => Some(TestCommand::SetPemfFrequency),
+            0x91 => Some(TestCommand::SetPemfDutyCycle),
+            0x92 => Some(TestCommand::SetPemfWaveform),
+            0x93 => Some(TestCommand::GetPemfConfig),
+            0x94 => Some(TestCommand::SetPemfConfig),
             _ => None,
         }
     }
 
     /// Check if command is valid test command
     pub fn is_valid_test_command(&self) -> bool {
-        self.command_type >= 0x80 && self.command_type <= 0x87
+        (self.command_type >= 0x80 && self.command_type <= 0x87) ||
+        (self.command_type >= 0x90 && self.command_type <= 0x94)
     }
 }
 

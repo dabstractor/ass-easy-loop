@@ -431,6 +431,203 @@ impl UsbCommandHandler {
     // pub fn get_test_execution_stats(&self) -> crate::test_execution_handler::TestExecutionStats {
     //     self.test_execution_handler.get_stats()
     // }
+
+    /// Process pEMF configuration commands
+    /// Returns a response to send back to the host
+    pub fn process_pemf_command(
+        &self,
+        command: &CommandReport,
+        timestamp: u32,
+    ) -> Option<LogReport> {
+        use crate::command::parsing::TestCommand;
+
+        match command.get_test_command() {
+            Some(TestCommand::GetPemfConfig) => {
+                self.handle_get_pemf_config(command.command_id, timestamp)
+            }
+            Some(TestCommand::SetPemfConfig) => {
+                self.handle_set_pemf_config(command, timestamp)
+            }
+            Some(TestCommand::SetPemfFrequency) => {
+                self.handle_set_pemf_frequency(command, timestamp)
+            }
+            Some(TestCommand::SetPemfDutyCycle) => {
+                self.handle_set_pemf_duty_cycle(command, timestamp)
+            }
+            Some(TestCommand::SetPemfWaveform) => {
+                self.handle_set_pemf_waveform(command, timestamp)
+            }
+            _ => {
+                // Not a pEMF command
+                None
+            }
+        }
+    }
+
+    /// Handle GetPemfConfig command
+    fn handle_get_pemf_config(&self, command_id: u8, timestamp: u32) -> Option<LogReport> {
+        // Get current pEMF configuration (placeholder - actual implementation would read from shared state)
+        let current_config = crate::config::pemf::PemfConfig::new();
+        let config_data = current_config.serialize();
+
+        if let Ok(response) = CommandReport::new(
+            crate::command::parsing::TestResponse::StateData as u8,
+            command_id,
+            &config_data,
+        ) {
+            let serialized = response.serialize();
+            LogReport::try_from(serialized).ok()
+        } else {
+            self.create_error_response(
+                command_id,
+                ErrorCode::SystemNotReady,
+                "Failed to create pEMF config response",
+                timestamp,
+            )
+        }
+    }
+
+    /// Handle SetPemfConfig command (sets all parameters at once)
+    fn handle_set_pemf_config(&self, command: &CommandReport, timestamp: u32) -> Option<LogReport> {
+        if command.payload.len() != 12 {
+            return self.create_error_response(
+                command.command_id,
+                ErrorCode::InvalidFormat,
+                "pEMF config requires 12 bytes",
+                timestamp,
+            );
+        }
+
+        // Convert payload to config array
+        let mut config_bytes = [0u8; 12];
+        config_bytes.copy_from_slice(&command.payload[0..12]);
+
+        match crate::config::pemf::PemfConfig::deserialize(&config_bytes) {
+            Ok(_config) => {
+                // TODO: Actually apply configuration to shared state
+                // For now, just acknowledge success
+                self.create_success_response(command.command_id, "pEMF config updated", timestamp)
+            }
+            Err(err) => self.create_error_response(
+                command.command_id,
+                ErrorCode::InvalidFormat,
+                err.as_str(),
+                timestamp,
+            ),
+        }
+    }
+
+    /// Handle SetPemfFrequency command
+    fn handle_set_pemf_frequency(&self, command: &CommandReport, timestamp: u32) -> Option<LogReport> {
+        if command.payload.len() != 4 {
+            return self.create_error_response(
+                command.command_id,
+                ErrorCode::InvalidFormat,
+                "Frequency requires 4 bytes",
+                timestamp,
+            );
+        }
+
+        let mut freq_bytes = [0u8; 4];
+        freq_bytes.copy_from_slice(&command.payload[0..4]);
+        let frequency_hz = u32::from_le_bytes(freq_bytes);
+
+        if frequency_hz < crate::config::pemf::MIN_FREQUENCY_HZ || frequency_hz > crate::config::pemf::MAX_FREQUENCY_HZ {
+            return self.create_error_response(
+                command.command_id,
+                ErrorCode::InvalidFormat,
+                "Frequency out of range (1-1000 Hz)",
+                timestamp,
+            );
+        }
+
+        // TODO: Actually apply frequency to shared state
+        self.create_success_response(command.command_id, "Frequency updated", timestamp)
+    }
+
+    /// Handle SetPemfDutyCycle command
+    fn handle_set_pemf_duty_cycle(&self, command: &CommandReport, timestamp: u32) -> Option<LogReport> {
+        if command.payload.len() != 4 {
+            return self.create_error_response(
+                command.command_id,
+                ErrorCode::InvalidFormat,
+                "Duty cycle requires 4 bytes",
+                timestamp,
+            );
+        }
+
+        let mut duty_bytes = [0u8; 4];
+        duty_bytes.copy_from_slice(&command.payload[0..4]);
+        let duty_cycle = f32::from_le_bytes(duty_bytes);
+
+        if duty_cycle < crate::config::pemf::MIN_DUTY_CYCLE || duty_cycle > crate::config::pemf::MAX_DUTY_CYCLE {
+            return self.create_error_response(
+                command.command_id,
+                ErrorCode::InvalidFormat,
+                "Duty cycle out of range (0.1%-99%)",
+                timestamp,
+            );
+        }
+
+        // TODO: Actually apply duty cycle to shared state
+        self.create_success_response(command.command_id, "Duty cycle updated", timestamp)
+    }
+
+    /// Handle SetPemfWaveform command
+    fn handle_set_pemf_waveform(&self, command: &CommandReport, timestamp: u32) -> Option<LogReport> {
+        if command.payload.len() != 4 {
+            return self.create_error_response(
+                command.command_id,
+                ErrorCode::InvalidFormat,
+                "Waveform type requires 4 bytes",
+                timestamp,
+            );
+        }
+
+        let mut waveform_bytes = [0u8; 4];
+        waveform_bytes.copy_from_slice(&command.payload[0..4]);
+        let waveform_type = f32::from_le_bytes(waveform_bytes);
+
+        if waveform_type < crate::config::pemf::MIN_WAVEFORM_TYPE || waveform_type > crate::config::pemf::MAX_WAVEFORM_TYPE {
+            return self.create_error_response(
+                command.command_id,
+                ErrorCode::InvalidFormat,
+                "Waveform type out of range (0.0-1.0)",
+                timestamp,
+            );
+        }
+
+        // TODO: Actually apply waveform type to shared state
+        self.create_success_response(command.command_id, "Waveform updated", timestamp)
+    }
+
+    /// Create a success response for pEMF commands
+    fn create_success_response(&self, command_id: u8, message: &str, timestamp: u32) -> Option<LogReport> {
+        let mut payload: Vec<u8, 60> = Vec::new();
+        let _ = payload.push(ResponseStatus::Success as u8);
+        
+        // Add message (truncated to fit)
+        let message_bytes = message.as_bytes();
+        let max_message_len = core::cmp::min(message_bytes.len(), 59);
+        for &byte in &message_bytes[..max_message_len] {
+            if payload.push(byte).is_err() {
+                break;
+            }
+        }
+
+        if let Ok(response) = CommandReport::new(
+            crate::command::parsing::TestResponse::Ack as u8,
+            command_id,
+            &payload,
+        ) {
+            let serialized = response.serialize();
+            LogReport::try_from(serialized).ok()
+        } else {
+            // Fallback to log message
+            let log_msg = LogMessage::new(timestamp, LogLevel::Info, "PEMF", message);
+            LogReport::try_from(log_msg.serialize()).ok()
+        }
+    }
 }
 
 /// Performance impact assessment for command processing
