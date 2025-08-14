@@ -1,6 +1,6 @@
 # Documentation Index
 
-This document provides a comprehensive index of all documentation files for the RP2040 pEMF/Battery monitoring device with USB HID logging functionality.
+This document provides a comprehensive index of all documentation files for the Ass-Easy Loop (RP2040 pEMF/Battery monitoring device) with USB HID logging functionality.
 
 ## Quick Start Guide
 
@@ -21,6 +21,7 @@ For new users, follow this recommended reading order:
 |----------|-------------|-----------------|
 | **[README.md](README.md)** | Main project overview, specifications, and safety information | All users |
 | **[WIRING_GUIDE.md](docs/hardware/WIRING_GUIDE.md)** | Hardware assembly and wiring instructions | Hardware builders |
+| **[IRF520_BARE_MOSFET_GUIDE.md](docs/hardware/IRF520_BARE_MOSFET_GUIDE.md)** | Advanced guide for building MOSFET driver from scratch | Advanced hardware builders |
 | **[SOFTWARE_SETUP.md](docs/setup/SOFTWARE_SETUP.md)** | Rust development environment and build setup | Developers |
 
 ### USB HID Logging Documentation
@@ -214,4 +215,4 @@ Project Structure:
 
 ---
 
-This documentation index provides a comprehensive guide to all available documentation for the RP2040 pEMF/Battery monitoring device with USB HID logging functionality. Choose the appropriate documents based on your role and current needs.
+This documentation index provides a comprehensive guide to all available documentation for the Ass-Easy Loop (RP2040 pEMF/Battery monitoring device) with USB HID logging functionality. Choose the appropriate documents based on your role and current needs.

@@ -63,7 +63,7 @@ mod tests {
     #[test]
     fn test_usb_polling_task_command_enqueue() {
         let mut command_queue = MockCommandQueue::new(8);
-        
+
         // Simulate USB polling task receiving HID output reports
         let usb_commands = vec![
             MockCommand {
@@ -102,12 +102,27 @@ mod tests {
     #[test]
     fn test_command_handler_task_fifo_processing() {
         let mut command_queue = MockCommandQueue::new(8);
-        
+
         // Enqueue commands in specific order
         let commands = vec![
-            MockCommand { command_type: 0x80, command_id: 1, payload: vec![0x01], timestamp: 1000 },
-            MockCommand { command_type: 0x81, command_id: 2, payload: vec![0x02], timestamp: 1001 },
-            MockCommand { command_type: 0x82, command_id: 3, payload: vec![0x03], timestamp: 1002 },
+            MockCommand {
+                command_type: 0x80,
+                command_id: 1,
+                payload: vec![0x01],
+                timestamp: 1000,
+            },
+            MockCommand {
+                command_type: 0x81,
+                command_id: 2,
+                payload: vec![0x02],
+                timestamp: 1001,
+            },
+            MockCommand {
+                command_type: 0x82,
+                command_id: 3,
+                payload: vec![0x03],
+                timestamp: 1002,
+            },
         ];
 
         for command in commands.iter() {
@@ -137,20 +152,40 @@ mod tests {
     #[test]
     fn test_task_priority_coordination() {
         let mut command_queue = MockCommandQueue::new(8);
-        
+
         // Simulate high-priority task (like pEMF pulse) creating commands
         // This represents the scenario where critical timing tasks can still
         // enqueue commands without being blocked by command processing
-        
+
         let high_priority_commands = vec![
-            MockCommand { command_type: 0x84, command_id: 10, payload: vec![0xFF], timestamp: 2000 },
-            MockCommand { command_type: 0x84, command_id: 11, payload: vec![0xFE], timestamp: 2001 },
+            MockCommand {
+                command_type: 0x84,
+                command_id: 10,
+                payload: vec![0xFF],
+                timestamp: 2000,
+            },
+            MockCommand {
+                command_type: 0x84,
+                command_id: 11,
+                payload: vec![0xFE],
+                timestamp: 2001,
+            },
         ];
 
         // Simulate medium-priority command processing task commands
         let medium_priority_commands = vec![
-            MockCommand { command_type: 0x81, command_id: 20, payload: vec![0xAA], timestamp: 2010 },
-            MockCommand { command_type: 0x82, command_id: 21, payload: vec![0xBB], timestamp: 2011 },
+            MockCommand {
+                command_type: 0x81,
+                command_id: 20,
+                payload: vec![0xAA],
+                timestamp: 2010,
+            },
+            MockCommand {
+                command_type: 0x82,
+                command_id: 21,
+                payload: vec![0xBB],
+                timestamp: 2011,
+            },
         ];
 
         // Enqueue high-priority commands first
@@ -183,11 +218,26 @@ mod tests {
     #[test]
     fn test_command_queue_capacity_handling() {
         let mut command_queue = MockCommandQueue::new(2); // Small capacity for testing
-        
+
         // Fill queue to capacity
-        let cmd1 = MockCommand { command_type: 0x80, command_id: 1, payload: vec![0x01], timestamp: 3000 };
-        let cmd2 = MockCommand { command_type: 0x81, command_id: 2, payload: vec![0x02], timestamp: 3001 };
-        let cmd3 = MockCommand { command_type: 0x82, command_id: 3, payload: vec![0x03], timestamp: 3002 };
+        let cmd1 = MockCommand {
+            command_type: 0x80,
+            command_id: 1,
+            payload: vec![0x01],
+            timestamp: 3000,
+        };
+        let cmd2 = MockCommand {
+            command_type: 0x81,
+            command_id: 2,
+            payload: vec![0x02],
+            timestamp: 3001,
+        };
+        let cmd3 = MockCommand {
+            command_type: 0x82,
+            command_id: 3,
+            payload: vec![0x03],
+            timestamp: 3002,
+        };
 
         // First two commands should succeed
         assert!(command_queue.enqueue(cmd1));
@@ -205,7 +255,7 @@ mod tests {
     #[test]
     fn test_command_timeout_handling() {
         let mut command_queue = MockCommandQueue::new(8);
-        
+
         // Create commands with different timestamps
         let old_command = MockCommand {
             command_type: 0x80,
@@ -213,7 +263,7 @@ mod tests {
             payload: vec![0x01],
             timestamp: 1000, // Old timestamp
         };
-        
+
         let recent_command = MockCommand {
             command_type: 0x81,
             command_id: 2,
@@ -227,7 +277,7 @@ mod tests {
         // Simulate timeout checking (current time = 6000, timeout = 1000ms)
         let current_time = 6000;
         let timeout_ms = 1000;
-        
+
         let mut non_timed_out_commands = Vec::new();
         let mut timed_out_count = 0;
 
@@ -252,7 +302,7 @@ mod tests {
     fn test_usb_polling_command_processing_integration() {
         let mut command_queue = MockCommandQueue::new(8);
         let mut processed_commands = Vec::new();
-        
+
         // Simulate USB polling task cycle
         for cycle in 0..5 {
             // USB polling task receives command
@@ -262,11 +312,14 @@ mod tests {
                 payload: vec![cycle as u8],
                 timestamp: 4000 + cycle as u32,
             };
-            
+
             // USB polling task enqueues command
             let enqueue_success = command_queue.enqueue(command);
-            assert!(enqueue_success, "USB polling should successfully enqueue command");
-            
+            assert!(
+                enqueue_success,
+                "USB polling should successfully enqueue command"
+            );
+
             // Command processing task processes available commands
             if let Some(cmd) = command_queue.dequeue() {
                 processed_commands.push(cmd);
@@ -275,13 +328,13 @@ mod tests {
 
         // Verify integration
         assert_eq!(processed_commands.len(), 5);
-        
+
         // Verify commands were processed in order
         for (i, cmd) in processed_commands.iter().enumerate() {
             assert_eq!(cmd.command_id, i as u8);
             assert_eq!(cmd.command_type, 0x81);
         }
-        
+
         // Queue should be empty after processing
         assert!(command_queue.is_empty());
     }
@@ -291,11 +344,11 @@ mod tests {
     #[test]
     fn test_timing_requirements_preservation() {
         let mut command_queue = MockCommandQueue::new(16);
-        
+
         // Simulate a burst of commands (stress test scenario)
         let command_burst_size = 10;
         let start_time = std::time::Instant::now();
-        
+
         for i in 0..command_burst_size {
             let command = MockCommand {
                 command_type: 0x82,
@@ -303,34 +356,40 @@ mod tests {
                 payload: vec![i as u8; 10], // Larger payload
                 timestamp: 5000 + i as u32,
             };
-            
+
             assert!(command_queue.enqueue(command));
         }
-        
+
         // Simulate command processing with timing measurement
         let mut processing_times = Vec::new();
-        
+
         while let Some(_command) = command_queue.dequeue() {
             let process_start = std::time::Instant::now();
-            
+
             // Simulate command processing work
             std::thread::sleep(std::time::Duration::from_micros(100));
-            
+
             let process_duration = process_start.elapsed();
             processing_times.push(process_duration);
         }
-        
+
         let total_time = start_time.elapsed();
-        
+
         // Verify timing constraints
-        assert_eq!(processing_times.len(), command_burst_size);
-        
+        assert_eq!(processing_times.len(), command_burst_size as usize);
+
         // Each command processing should be fast (< 1ms for this test)
         for duration in processing_times.iter() {
-            assert!(duration.as_millis() < 1, "Command processing should be fast");
+            assert!(
+                duration.as_millis() < 1,
+                "Command processing should be fast"
+            );
         }
-        
+
         // Total processing time should be reasonable
-        assert!(total_time.as_millis() < 50, "Total processing should be efficient");
+        assert!(
+            total_time.as_millis() < 50,
+            "Total processing should be efficient"
+        );
     }
 }

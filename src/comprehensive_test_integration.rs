@@ -124,6 +124,7 @@ impl TestExecutionSummary {
 }
 
 /// Comprehensive test integration manager
+#[derive(Debug)]
 pub struct ComprehensiveTestIntegration {
     /// Test executor
     executor: ComprehensiveTestExecutor,

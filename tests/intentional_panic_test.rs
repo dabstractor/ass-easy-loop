@@ -1,12 +1,12 @@
 //! Integration test for intentional panic scenarios
-//! 
+//!
 //! This test demonstrates panic logging functionality with intentional panic scenarios.
 //! It's designed to be run manually to verify panic handler behavior.
 //! Requirements: 5.4, 7.3
 
 // Test files should use std
 
-use ass_easy_loop::logging::{LogQueue, init_global_logging};
+use ass_easy_loop::logging::{init_global_logging, LogQueue};
 
 // Add macros for testing
 macro_rules! log_info {
@@ -39,15 +39,15 @@ fn test_timestamp() -> u32 {
 fn trigger_intentional_panic_with_message() {
     // Initialize logging system before panic
     static mut PANIC_TEST_QUEUE: LogQueue<32> = LogQueue::new();
-    
+
     unsafe {
         init_global_logging(&mut PANIC_TEST_QUEUE, test_timestamp);
     }
-    
+
     // Log some messages before panic to verify queue state
     log_info!("About to trigger intentional panic for testing");
     log_warn!("This is a test panic - system will halt after logging");
-    
+
     // Trigger panic with a specific message
     panic!("Intentional test panic - verifying panic handler logging");
 }
@@ -57,14 +57,14 @@ fn trigger_intentional_panic_with_message() {
 fn trigger_intentional_panic_without_message() {
     // Initialize logging system before panic
     static mut PANIC_TEST_QUEUE2: LogQueue<32> = LogQueue::new();
-    
+
     unsafe {
         init_global_logging(&mut PANIC_TEST_QUEUE2, test_timestamp);
     }
-    
+
     // Log some context before panic
     log_info!("Testing panic without explicit message");
-    
+
     // Trigger panic without message (using assert)
     assert!(false, "Assertion failure test");
 }
@@ -74,7 +74,7 @@ fn trigger_intentional_panic_without_message() {
 #[allow(dead_code)]
 fn trigger_panic_before_logging_init() {
     // Don't initialize logging system - this tests graceful degradation
-    
+
     // Trigger panic before logging is initialized
     panic!("Early initialization panic - logging not yet available");
 }
@@ -84,11 +84,11 @@ fn trigger_panic_before_logging_init() {
 fn trigger_panic_in_critical_section() {
     // Initialize logging system
     static mut CRITICAL_PANIC_QUEUE: LogQueue<32> = LogQueue::new();
-    
+
     unsafe {
         init_global_logging(&mut CRITICAL_PANIC_QUEUE, test_timestamp);
     }
-    
+
     // Simulate critical section
     cortex_m::interrupt::free(|_| {
         log_error!("About to panic in critical section");
@@ -101,13 +101,13 @@ fn trigger_panic_in_critical_section() {
 fn trigger_memory_panic() {
     // Initialize logging system
     static mut MEMORY_PANIC_QUEUE: LogQueue<32> = LogQueue::new();
-    
+
     unsafe {
         init_global_logging(&mut MEMORY_PANIC_QUEUE, test_timestamp);
     }
-    
+
     log_error!("Simulating memory-related panic");
-    
+
     // Simulate out-of-bounds access (this would normally cause a panic)
     // For safety, we'll just panic with a descriptive message instead
     panic!("Simulated memory access violation");
@@ -117,18 +117,18 @@ fn trigger_memory_panic() {
 #[allow(dead_code)]
 fn trigger_panic_with_full_queue() {
     // Initialize logging system with small queue
-    static mut FULL_QUEUE_TEST: LogQueue<4> = LogQueue::new();
-    
+    static mut FULL_QUEUE_TEST: LogQueue<32> = LogQueue::new();
+
     unsafe {
         init_global_logging(&mut FULL_QUEUE_TEST, test_timestamp);
     }
-    
+
     // Fill the queue to capacity
     log_info!("Message 1 - filling queue");
     log_info!("Message 2 - filling queue");
     log_info!("Message 3 - filling queue");
     log_info!("Message 4 - filling queue");
-    
+
     // Queue should now be full - panic should still work
     log_warn!("Queue is now full - testing panic with full queue");
     panic!("Panic with full message queue");
@@ -143,23 +143,23 @@ fn trigger_panic_with_full_queue() {
 // 4. Verify system halts properly after panic
 
 /// Documentation for manual testing procedure
-/// 
+///
 /// To manually test panic logging functionality:
-/// 
+///
 /// 1. Choose one of the test functions above
 /// 2. Add a call to the chosen function in main.rs init() function
 /// 3. Build and flash the firmware: `cargo build --release`
 /// 4. Connect to USB HID logging interface
 /// 5. Observe panic messages in the log output
 /// 6. Verify system halts after panic
-/// 
+///
 /// Expected behavior:
 /// - Panic location should be logged with file and line number
 /// - Panic message (if any) should be logged
 /// - System state message should be logged
 /// - USB messages should be flushed (best effort)
 /// - System should halt after logging attempts
-/// 
+///
 /// Test scenarios to verify:
 /// 1. Panic with message: Should log location and message
 /// 2. Panic without message: Should log location only

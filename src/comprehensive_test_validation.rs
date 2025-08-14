@@ -262,6 +262,7 @@ impl ValidationReport {
 }
 
 /// Comprehensive test validator
+#[derive(Debug)]
 pub struct ComprehensiveTestValidator {
     /// Test suite registry
     registry: TestSuiteRegistry,

@@ -1,18 +1,18 @@
 //! Test Result Serialization for USB HID Communication
-//! 
+//!
 //! This module provides serialization capabilities for test results to be transmitted
 //! via USB HID reports. It converts test framework results into standardized 64-byte
 //! HID reports that can be processed by the Python test framework.
-//! 
+//!
 //! Requirements: 4.2, 6.1, 6.4
 
-use heapless::{Vec, String};
-use core::option::Option::{self, Some, None};
-use core::result::Result::{self, Ok, Err};
-use core::default::Default;
-use core::convert::From;
-use crate::test_framework::{TestResult, TestSuiteResult, TestExecutionResult, TestSuiteStats};
 use crate::logging::LogReport;
+use crate::test_framework::{TestExecutionResult, TestResult, TestSuiteResult, TestSuiteStats};
+use core::convert::From;
+use core::default::Default;
+use core::option::Option::{self, None, Some};
+use core::result::Result::{self, Err, Ok};
+use heapless::{String, Vec};
 
 /// Maximum number of test results that can be batched in a single transmission
 pub const MAX_BATCH_SIZE: usize = 8;
@@ -92,6 +92,7 @@ pub struct SerializedSuiteSummary {
 }
 
 /// Test result serializer for converting test framework results to USB HID reports
+#[derive(Debug)]
 pub struct TestResultSerializer {
     /// Current test ID counter for sequencing
     test_id_counter: u8,
@@ -123,11 +124,14 @@ impl TestResultSerializer {
     }
 
     /// Serialize a single test execution result to USB HID report
-    pub fn serialize_test_result(&mut self, result: &TestExecutionResult) -> Result<LogReport, &'static str> {
+    pub fn serialize_test_result(
+        &mut self,
+        result: &TestExecutionResult,
+    ) -> Result<LogReport, &'static str> {
         // Create serialized test result
         let mut test_name = String::new();
         let _ = test_name.push_str(&result.test_name);
-        
+
         let mut error_message = String::new();
         if let TestResult::Fail(ref msg) = result.result {
             let _ = error_message.push_str(msg);
@@ -149,7 +153,10 @@ impl TestResultSerializer {
     }
 
     /// Serialize a test suite summary to USB HID report
-    pub fn serialize_suite_summary(&mut self, suite_result: &TestSuiteResult) -> Result<LogReport, &'static str> {
+    pub fn serialize_suite_summary(
+        &mut self,
+        suite_result: &TestSuiteResult,
+    ) -> Result<LogReport, &'static str> {
         let mut suite_name = String::new();
         let _ = suite_name.push_str(&suite_result.suite_name);
 
@@ -164,12 +171,17 @@ impl TestResultSerializer {
     }
 
     /// Serialize multiple test results as a batch
-    pub fn serialize_test_batch(&mut self, results: &[TestExecutionResult]) -> Result<Vec<LogReport, 16>, &'static str> {
+    pub fn serialize_test_batch(
+        &mut self,
+        results: &[TestExecutionResult],
+    ) -> Result<Vec<LogReport, 16>, &'static str> {
         let mut reports = Vec::new();
 
         // Add batch start marker
         let batch_start = self.create_batch_marker(TestReportType::BatchStart)?;
-        reports.push(batch_start).map_err(|_| "Batch reports vector full")?;
+        reports
+            .push(batch_start)
+            .map_err(|_| "Batch reports vector full")?;
 
         // Serialize individual test results
         for result in results.iter().take(MAX_BATCH_SIZE) {
@@ -189,14 +201,20 @@ impl TestResultSerializer {
 
         // Add batch end marker
         let batch_end = self.create_batch_marker(TestReportType::BatchEnd)?;
-        reports.push(batch_end).map_err(|_| "Batch reports vector full")?;
+        reports
+            .push(batch_end)
+            .map_err(|_| "Batch reports vector full")?;
 
         self.current_batch_size = 0; // Reset batch size
         Ok(reports)
     }
 
     /// Create a status update report for test execution progress
-    pub fn create_status_update(&mut self, status: TestResultStatus, message: &str) -> Result<LogReport, &'static str> {
+    pub fn create_status_update(
+        &mut self,
+        status: TestResultStatus,
+        message: &str,
+    ) -> Result<LogReport, &'static str> {
         let mut status_message = String::new();
         let _ = status_message.push_str(message);
 
@@ -246,7 +264,10 @@ impl TestResultSerializer {
     }
 
     /// Convert SerializedTestResult to USB HID report
-    fn serialize_to_hid_report(&mut self, result: &SerializedTestResult) -> Result<LogReport, &'static str> {
+    fn serialize_to_hid_report(
+        &mut self,
+        result: &SerializedTestResult,
+    ) -> Result<LogReport, &'static str> {
         let mut buffer = [0u8; 64];
 
         // Header: [Type:1][TestID:1][Status:1][Reserved:1] = 4 bytes
@@ -274,7 +295,10 @@ impl TestResultSerializer {
     }
 
     /// Convert SerializedSuiteSummary to USB HID report
-    fn serialize_suite_to_hid_report(&mut self, summary: &SerializedSuiteSummary) -> Result<LogReport, &'static str> {
+    fn serialize_suite_to_hid_report(
+        &mut self,
+        summary: &SerializedSuiteSummary,
+    ) -> Result<LogReport, &'static str> {
         let mut buffer = [0u8; 64];
 
         // Header: [Type:1][SuiteID:1][Reserved:2] = 4 bytes
@@ -286,13 +310,13 @@ impl TestResultSerializer {
         // Statistics: [TotalTests:2][Passed:2][Failed:2][Skipped:2] = 8 bytes
         let total_bytes = summary.stats.total_tests.to_le_bytes();
         buffer[4..6].copy_from_slice(&total_bytes);
-        
+
         let passed_bytes = summary.stats.passed.to_le_bytes();
         buffer[6..8].copy_from_slice(&passed_bytes);
-        
+
         let failed_bytes = summary.stats.failed.to_le_bytes();
         buffer[8..10].copy_from_slice(&failed_bytes);
-        
+
         let skipped_bytes = summary.stats.skipped.to_le_bytes();
         buffer[10..12].copy_from_slice(&skipped_bytes);
 
@@ -314,12 +338,15 @@ impl TestResultSerializer {
     }
 
     /// Create a batch marker report
-    fn create_batch_marker(&mut self, marker_type: TestReportType) -> Result<LogReport, &'static str> {
+    fn create_batch_marker(
+        &mut self,
+        marker_type: TestReportType,
+    ) -> Result<LogReport, &'static str> {
         let mut buffer = [0u8; 64];
 
         buffer[0] = marker_type as u8;
         buffer[1] = self.current_batch_size as u8; // Include batch size in marker
-        // Remaining bytes are zero (padding)
+                                                   // Remaining bytes are zero (padding)
 
         LogReport::try_from(buffer)
     }
@@ -335,6 +362,7 @@ pub struct SerializerStats {
 }
 
 /// Test result collection and batching system
+#[derive(Debug)]
 pub struct TestResultCollector {
     /// Collected test results waiting for transmission
     pending_results: Vec<TestExecutionResult, 32>,
@@ -367,14 +395,18 @@ impl TestResultCollector {
 
     /// Add a test result to the collection
     pub fn add_test_result(&mut self, result: TestExecutionResult) -> Result<(), &'static str> {
-        self.pending_results.push(result).map_err(|_| "Result collection full")?;
+        self.pending_results
+            .push(result)
+            .map_err(|_| "Result collection full")?;
         self.collected_count += 1;
         Ok(())
     }
 
     /// Add a completed test suite
     pub fn add_suite_result(&mut self, suite: TestSuiteResult) -> Result<(), &'static str> {
-        self.completed_suites.push(suite).map_err(|_| "Suite collection full")?;
+        self.completed_suites
+            .push(suite)
+            .map_err(|_| "Suite collection full")?;
         Ok(())
     }
 
@@ -387,7 +419,7 @@ impl TestResultCollector {
         // Take up to MAX_BATCH_SIZE results
         let batch_size = core::cmp::min(self.pending_results.len(), MAX_BATCH_SIZE);
         let mut batch_results: Vec<TestExecutionResult, MAX_BATCH_SIZE> = Vec::new();
-        
+
         // Extract results for the batch
         for _ in 0..batch_size {
             if let Some(result) = self.pending_results.pop() {
@@ -463,15 +495,15 @@ pub struct CollectorStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_framework::{TestResult, TestExecutionResult, TestSuiteResult, TestSuiteStats};
+    use crate::test_framework::{TestExecutionResult, TestResult, TestSuiteResult, TestSuiteStats};
 
     #[test]
     fn test_serialize_test_result() {
         let mut serializer = TestResultSerializer::new();
-        
+
         let test_result = TestExecutionResult::new("sample_test", TestResult::pass());
         let report = serializer.serialize_test_result(&test_result).unwrap();
-        
+
         // Verify report structure
         let data = report.as_bytes();
         assert_eq!(data[0], TestReportType::TestResult as u8);
@@ -481,19 +513,19 @@ mod tests {
     #[test]
     fn test_serialize_suite_summary() {
         let mut serializer = TestResultSerializer::new();
-        
+
         let mut suite_result = TestSuiteResult::new("test_suite");
         suite_result.stats.total_tests = 5;
         suite_result.stats.passed = 3;
         suite_result.stats.failed = 1;
         suite_result.stats.skipped = 1;
-        
+
         let report = serializer.serialize_suite_summary(&suite_result).unwrap();
-        
+
         // Verify report structure
         let data = report.as_bytes();
         assert_eq!(data[0], TestReportType::SuiteSummary as u8);
-        
+
         // Check statistics
         let total = u16::from_le_bytes([data[4], data[5]]);
         assert_eq!(total, 5);
@@ -502,12 +534,12 @@ mod tests {
     #[test]
     fn test_result_collector() {
         let mut collector = TestResultCollector::new();
-        
+
         let test_result = TestExecutionResult::new("test1", TestResult::pass());
         collector.add_test_result(test_result).unwrap();
-        
+
         assert!(collector.has_pending_results());
-        
+
         let batch = collector.get_next_batch().unwrap();
         assert!(!batch.is_empty());
     }

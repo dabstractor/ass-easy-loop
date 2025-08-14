@@ -2,11 +2,11 @@
 //! Implements command validation and authentication with simple checksum
 //! Requirements: 2.1, 2.2, 6.1, 6.2
 
-use heapless::{Vec, spsc::Queue};
-use portable_atomic::{AtomicUsize, Ordering};
-use core::option::Option::{self, Some, None};
-use core::result::Result::{self, Ok, Err};
 use core::iter::Iterator;
+use core::option::Option::{self, None, Some};
+use core::result::Result::{self, Err, Ok};
+use heapless::{Deque, Vec};
+use portable_atomic::{AtomicUsize, Ordering};
 
 /// Standardized 64-byte HID report format for command handling
 /// Format: [Command Type:1][Command ID:1][Payload Length:1][Auth Token:1][Payload:60]
@@ -94,11 +94,14 @@ impl CommandReport {
 
         let mut payload_vec = Vec::new();
         for &byte in payload {
-            payload_vec.push(byte).map_err(|_| ErrorCode::PayloadTooLarge)?;
+            payload_vec
+                .push(byte)
+                .map_err(|_| ErrorCode::PayloadTooLarge)?;
         }
 
         let payload_length = payload.len() as u8;
-        let auth_token = Self::calculate_checksum(command_type, command_id, payload_length, payload);
+        let auth_token =
+            Self::calculate_checksum(command_type, command_id, payload_length, payload);
 
         Ok(Self {
             command_type,
@@ -136,7 +139,8 @@ impl CommandReport {
         }
 
         // Validate checksum
-        let expected_checksum = Self::calculate_checksum(command_type, command_id, payload_length, &payload);
+        let expected_checksum =
+            Self::calculate_checksum(command_type, command_id, payload_length, &payload);
         if auth_token != expected_checksum {
             return ParseResult::InvalidChecksum;
         }
@@ -171,7 +175,12 @@ impl CommandReport {
 
     /// Calculate simple checksum for authentication
     /// Uses XOR of all header bytes and payload bytes
-    fn calculate_checksum(command_type: u8, command_id: u8, payload_length: u8, payload: &[u8]) -> u8 {
+    fn calculate_checksum(
+        command_type: u8,
+        command_id: u8,
+        payload_length: u8,
+        payload: &[u8],
+    ) -> u8 {
         let mut checksum = command_type ^ command_id ^ payload_length;
         for &byte in payload {
             checksum ^= byte;
@@ -185,10 +194,16 @@ impl CommandReport {
     }
 
     /// Create an error response
-    pub fn error_response(command_id: u8, error_code: ErrorCode, message: &str) -> Result<Self, ErrorCode> {
+    pub fn error_response(
+        command_id: u8,
+        error_code: ErrorCode,
+        message: &str,
+    ) -> Result<Self, ErrorCode> {
         let mut payload: Vec<u8, 60> = Vec::new();
-        payload.push(error_code as u8).map_err(|_| ErrorCode::PayloadTooLarge)?;
-        
+        payload
+            .push(error_code as u8)
+            .map_err(|_| ErrorCode::PayloadTooLarge)?;
+
         // Add error message (truncated to fit)
         let message_bytes = message.as_bytes();
         let max_message_len = core::cmp::min(message_bytes.len(), 59); // Reserve 1 byte for error code
@@ -233,7 +248,12 @@ pub struct QueuedCommand {
 
 impl QueuedCommand {
     /// Create a new queued command with sequence tracking
-    pub fn new(command: CommandReport, sequence_number: u32, timestamp_ms: u32, timeout_ms: u32) -> Self {
+    pub fn new(
+        command: CommandReport,
+        sequence_number: u32,
+        timestamp_ms: u32,
+        timeout_ms: u32,
+    ) -> Self {
         Self {
             command,
             sequence_number,
@@ -257,7 +277,7 @@ impl QueuedCommand {
 /// Thread-safe command queue for storing incoming commands with sequence tracking
 /// Requirements: 2.4 (FIFO order), 6.4 (timeout handling)
 pub struct CommandQueue<const N: usize> {
-    queue: Queue<QueuedCommand, N>,
+    queue: Deque<QueuedCommand, N>,
     dropped_commands: AtomicUsize,
     sequence_counter: AtomicUsize,
     timeout_count: AtomicUsize,
@@ -273,7 +293,7 @@ impl<const N: usize> CommandQueue<N> {
     /// Create a new command queue
     pub const fn new() -> Self {
         Self {
-            queue: Queue::new(),
+            queue: Deque::new(),
             dropped_commands: AtomicUsize::new(0),
             sequence_counter: AtomicUsize::new(0),
             timeout_count: AtomicUsize::new(0),
@@ -285,8 +305,8 @@ impl<const N: usize> CommandQueue<N> {
     pub fn enqueue(&mut self, command: CommandReport, timestamp_ms: u32, timeout_ms: u32) -> bool {
         let sequence_number = self.sequence_counter.fetch_add(1, Ordering::Relaxed) as u32;
         let queued_command = QueuedCommand::new(command, sequence_number, timestamp_ms, timeout_ms);
-        
-        match self.queue.enqueue(queued_command) {
+
+        match self.queue.push_back(queued_command) {
             Ok(()) => true,
             Err(_) => {
                 self.dropped_commands.fetch_add(1, Ordering::Relaxed);
@@ -298,12 +318,12 @@ impl<const N: usize> CommandQueue<N> {
     /// Dequeue a command (FIFO order)
     /// Requirements: 2.4 (commands executed in FIFO order)
     pub fn dequeue(&mut self) -> Option<QueuedCommand> {
-        self.queue.dequeue()
+        self.queue.pop_front()
     }
 
     /// Peek at the next command without removing it
     pub fn peek(&self) -> Option<&QueuedCommand> {
-        self.queue.peek()
+        self.queue.front()
     }
 
     /// Remove timed out commands from the queue
@@ -311,9 +331,9 @@ impl<const N: usize> CommandQueue<N> {
     pub fn remove_timed_out_commands(&mut self, current_time_ms: u32) -> usize {
         let mut removed_count = 0;
         let mut temp_commands: Vec<QueuedCommand, N> = Vec::new();
-        
+
         // Drain all commands and filter out timed out ones
-        while let Some(queued_cmd) = self.queue.dequeue() {
+        while let Some(queued_cmd) = self.queue.pop_front() {
             if queued_cmd.is_timed_out(current_time_ms) {
                 removed_count += 1;
                 self.timeout_count.fetch_add(1, Ordering::Relaxed);
@@ -325,15 +345,15 @@ impl<const N: usize> CommandQueue<N> {
                 }
             }
         }
-        
+
         // Re-enqueue non-timed-out commands (maintains FIFO order)
         for cmd in temp_commands {
-            if self.queue.enqueue(cmd).is_err() {
+            if self.queue.push_back(cmd).is_err() {
                 // Queue is somehow full, count as dropped
                 self.dropped_commands.fetch_add(1, Ordering::Relaxed);
             }
         }
-        
+
         removed_count
     }
 
@@ -403,7 +423,7 @@ impl CommandParser {
     /// Parse and validate a command from raw buffer
     pub fn parse_command(&self, buffer: &[u8]) -> ParseResult {
         let result = CommandReport::parse(buffer);
-        
+
         match &result {
             ParseResult::Valid(_) => {
                 self.processed_commands.fetch_add(1, Ordering::Relaxed);
@@ -496,14 +516,14 @@ impl QueuedResponse {
 
     /// Check if maximum retries exceeded
     pub fn max_retries_exceeded(&self, max_retries: u8) -> bool {
-        self.retry_count >= max_retries
+        self.retry_count > max_retries
     }
 }
 
 /// Thread-safe response queue for sending command results back to host
 /// Requirements: 2.5 (error responses with diagnostic information)
 pub struct ResponseQueue<const N: usize> {
-    queue: Queue<QueuedResponse, N>,
+    queue: Deque<QueuedResponse, N>,
     dropped_responses: AtomicUsize,
     transmission_failures: AtomicUsize,
 }
@@ -518,17 +538,22 @@ impl<const N: usize> ResponseQueue<N> {
     /// Create a new response queue
     pub const fn new() -> Self {
         Self {
-            queue: Queue::new(),
+            queue: Deque::new(),
             dropped_responses: AtomicUsize::new(0),
             transmission_failures: AtomicUsize::new(0),
         }
     }
 
     /// Enqueue a response for transmission
-    pub fn enqueue(&mut self, response: CommandReport, sequence_number: u32, timestamp_ms: u32) -> bool {
+    pub fn enqueue(
+        &mut self,
+        response: CommandReport,
+        sequence_number: u32,
+        timestamp_ms: u32,
+    ) -> bool {
         let queued_response = QueuedResponse::new(response, sequence_number, timestamp_ms);
-        
-        match self.queue.enqueue(queued_response) {
+
+        match self.queue.push_back(queued_response) {
             Ok(()) => true,
             Err(_) => {
                 self.dropped_responses.fetch_add(1, Ordering::Relaxed);
@@ -539,23 +564,23 @@ impl<const N: usize> ResponseQueue<N> {
 
     /// Dequeue a response for transmission
     pub fn dequeue(&mut self) -> Option<QueuedResponse> {
-        self.queue.dequeue()
+        self.queue.pop_front()
     }
 
     /// Peek at the next response without removing it
     pub fn peek(&self) -> Option<&QueuedResponse> {
-        self.queue.peek()
+        self.queue.front()
     }
 
     /// Re-enqueue a response for retry (e.g., after transmission failure)
     pub fn requeue_for_retry(&mut self, mut response: QueuedResponse, max_retries: u8) -> bool {
         response.increment_retry();
-        
+
         if response.max_retries_exceeded(max_retries) {
             self.transmission_failures.fetch_add(1, Ordering::Relaxed);
             false
         } else {
-            match self.queue.enqueue(response) {
+            match self.queue.push_back(response) {
                 Ok(()) => true,
                 Err(_) => {
                     self.dropped_responses.fetch_add(1, Ordering::Relaxed);

@@ -1,22 +1,23 @@
 //! Test Performance Optimization Integration Test
-//! 
+//!
 //! This test validates that the performance optimization features work correctly
 //! and don't interfere with pEMF timing requirements.
 
-#![no_std]
-#![no_main]
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_main)]
 
+use ass_easy_loop::test_framework::{TestResult, TestRunner};
+#[cfg(not(test))]
 use panic_halt as _;
-use ass_easy_loop::test_framework::{TestRunner, TestResult};
 
 #[cfg(feature = "test-commands")]
-use ass_easy_loop::test_performance_optimizer::{TestPerformanceOptimizer, OptimizationSettings};
+use ass_easy_loop::test_performance_optimizer::{OptimizationSettings, TestPerformanceOptimizer};
 
 fn test_basic_optimization() -> TestResult {
     #[cfg(feature = "test-commands")]
     {
         let optimizer = TestPerformanceOptimizer::new();
-        
+
         // Test that optimizer is created successfully
         if optimizer.get_performance_stats().tests_optimized == 0 {
             TestResult::pass()
@@ -24,7 +25,7 @@ fn test_basic_optimization() -> TestResult {
             TestResult::fail("Optimizer should start with zero optimized tests")
         }
     }
-    
+
     #[cfg(not(feature = "test-commands"))]
     {
         // Skip test when optimization features are disabled
@@ -43,9 +44,9 @@ fn test_optimization_settings() -> TestResult {
             enable_result_caching: true,
             test_execution_priority: 128,
         };
-        
+
         let optimizer = TestPerformanceOptimizer::new_with_settings(settings);
-        
+
         // Test that optimizer accepts custom settings
         if optimizer.is_system_ready_for_tests() {
             TestResult::pass()
@@ -53,7 +54,7 @@ fn test_optimization_settings() -> TestResult {
             TestResult::fail("System should be ready for tests with default conditions")
         }
     }
-    
+
     #[cfg(not(feature = "test-commands"))]
     {
         TestResult::skip("Performance optimization features disabled")
@@ -67,7 +68,7 @@ fn test_conditional_compilation() -> TestResult {
         // Performance optimization features should be available
         TestResult::pass()
     }
-    
+
     #[cfg(not(feature = "test-commands"))]
     {
         // Performance optimization features should be excluded
@@ -82,17 +83,18 @@ const PERFORMANCE_OPTIMIZATION_TESTS: &[(&str, fn() -> TestResult)] = &[
     ("test_conditional_compilation", test_conditional_compilation),
 ];
 
+#[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn main() -> ! {
     // Create test runner
     let runner = ass_easy_loop::test_framework::create_test_suite(
         "performance_optimization_tests",
-        PERFORMANCE_OPTIMIZATION_TESTS
+        PERFORMANCE_OPTIMIZATION_TESTS,
     );
-    
+
     // Run tests
     let _results = runner.run_all();
-    
+
     // In a real embedded system, this would report results via USB HID
     // For now, we'll just loop
     loop {}

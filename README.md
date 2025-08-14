@@ -1,4 +1,4 @@
-# pEMF Dual-Function Device
+# Ass-Easy Loop
 
 A Raspberry Pi Pico-based system that combines precise pulsed Electromagnetic Field (pEMF) generation with intelligent battery monitoring and visual status indication.
 
@@ -9,6 +9,13 @@ This DIY project creates a dual-function embedded device that:
 1. **Generates precise pEMF waveforms** - Produces a continuous 2Hz square wave with exact 2ms HIGH / 498ms LOW timing for driving electromagnetic field devices
 2. **Monitors battery status** - Continuously samples battery voltage and provides visual feedback through LED indicators
 3. **Operates in real-time** - Uses the RTIC framework to ensure timing-critical operations are never compromised
+
+### 🔧 Quick Build & Flash Command
+```bash
+cargo run-embedded
+```
+**Must have RP2040/Pico in bootloader mode (BOOTSEL + USB)**
+[📖 Full Build Instructions Below](#-quick-start-building-and-flashing-to-hardware)
 
 ### What is pEMF Therapy?
 
@@ -189,6 +196,65 @@ The project is organized into the following directories:
 │   └── bootloader_fix.rs                # Bootloader fixes
 └── validation_scripts/    # Setup validation scripts
 ```
+
+## Build and Flash Instructions
+
+### 🚀 Quick Start: Building and Flashing to Hardware
+
+**IMPORTANT**: This application runs on embedded ARM hardware (Raspberry Pi Pico RP2040). You must use the embedded-specific commands to build and flash to hardware.
+
+#### Primary Command (Recommended)
+```bash
+cargo run-embedded
+```
+
+This command will:
+- Build the application for the correct embedded target (`thumbv6m-none-eabi`)
+- Compile only embedded dependencies (no std dependencies)
+- Flash the compiled binary directly to the connected RP2040/Pico device
+- Automatically detect and upload via UF2 bootloader mode
+
+#### Alternative Manual Command
+If the alias doesn't work, use this full command:
+```bash
+cargo run --release --target thumbv6m-none-eabi --features embedded --no-default-features
+```
+
+#### Hardware Setup for Flashing
+1. **Connect your Raspberry Pi Pico** to your computer via USB
+2. **Enter Bootloader Mode** by holding the BOOTSEL button while plugging in the USB cable
+3. **Wait for RPI-RP2 drive** to appear on your computer
+4. **Run the build/flash command** above
+5. **Success**: The binary will transfer and the device will automatically reboot
+
+#### Expected Output
+```
+Found pico uf2 disk /run/media/your_username/RPI-RP2
+Transferring program to pico
+512 B / 769.00 KB [==>----------------------------] 0.67 % 156.00 MB/s 0s
+...
+769.00 KB / 769.00 KB [=============================] 100.00 % 205.00 MB/s 0s
+```
+
+#### Troubleshooting Flashing
+| Issue | Solution |
+|-------|----------|
+| "Unable to find mounted pico" | Ensure device is in bootloader mode (BOOTSEL + USB) |
+| "can't find crate for `std`" | You're using wrong command - use `cargo run-embedded` |
+| Linking errors with `cc` failed | Add `--target thumbv6m-none-eabi --no-default-features` |
+| USB connection issues | Try different USB cable or port |
+| RPI-RP2 drive not appearing | Re-enter bootloader mode |
+
+#### Common Commands Reference
+| Purpose | Command |
+|---------|---------|
+| **Build only** (no flash) | `cargo build-embedded` |
+| **Release build** (optimized) | `cargo run-embedded` (defaults to release) |
+| **Debug build** (with debugging) | Manual: `cargo run --target thumbv6m-none-eabi --features embedded --no-default-features` |
+
+⚠️ **DO NOT USE** `cargo run --release --features embedded` - This will fail with linking errors because it tries to build for your host computer, not the embedded target.
+
+---
 
 ## Getting Started
 

@@ -1,9 +1,10 @@
 //! Demo of the no_std test framework
-//! 
+//!
 //! This example shows how to use the custom test framework in a no_std environment.
 //! Run with: cargo run --example test_framework_demo
 
 use ass_easy_loop::test_framework::*;
+use ass_easy_loop::{assert_eq_no_std, assert_no_std, register_tests};
 
 // Example test functions using the no_std test framework
 fn test_basic_assertion() -> TestResult {
@@ -42,7 +43,8 @@ fn main() {
     let mut runner = TestRunner::new("Demo Test Suite");
 
     // Register tests using the macro
-    register_tests!(runner, 
+    register_tests!(
+        runner,
         test_basic_assertion,
         test_equality_assertion,
         test_failing_case,
@@ -73,9 +75,9 @@ fn main() {
             TestResult::Fail(_) => "FAIL",
             TestResult::Skip(_) => "SKIP",
         };
-        
+
         print!("  {} - {}", test_result.test_name, status);
-        
+
         match &test_result.result {
             TestResult::Fail(msg) => println!(" ({})", msg),
             TestResult::Skip(reason) => println!(" ({})", reason),
@@ -84,7 +86,7 @@ fn main() {
     }
 
     println!();
-    
+
     // Demonstrate running a specific test
     println!("Running specific test 'test_basic_assertion':");
     if let Some(result) = runner.run_test("test_basic_assertion") {
@@ -98,20 +100,21 @@ fn main() {
     }
 
     println!();
-    
+
     // Demonstrate the utility function
     println!("Using create_test_suite utility:");
     let utility_tests = [
         ("util_test_1", test_basic_assertion as fn() -> TestResult),
         ("util_test_2", test_equality_assertion as fn() -> TestResult),
     ];
-    
+
     let utility_runner = create_test_suite("Utility Suite", &utility_tests);
     let utility_results = utility_runner.run_all();
-    
-    println!("  Utility suite results: {}/{} passed", 
-             utility_results.stats.passed, 
-             utility_results.stats.total_tests);
+
+    println!(
+        "  Utility suite results: {}/{} passed",
+        utility_results.stats.passed, utility_results.stats.total_tests
+    );
 
     // Final summary
     println!();

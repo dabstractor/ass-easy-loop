@@ -4,18 +4,21 @@
 //! and other system parameters.
 
 use crate::logging::LogLevel;
-use core::result::Result::{self, Ok, Err};
-use core::option::Option::{self, Some, None};
+use crate::types::{Count, DurationMs, FrequencyHz, GpioPin, Index, Percentage, Priority, UsbId};
 use core::default::Default;
+use core::option::Option::{self, None, Some};
+use core::result::Result::{self, Err, Ok};
 
 /// USB Device Configuration
 pub mod usb {
+    use super::{Index, UsbId};
+
     /// USB Vendor ID for the HID logging device
     /// Using a custom VID for development - should be replaced with registered VID for production
-    pub const VENDOR_ID: u16 = 0x1234;
+    pub const VENDOR_ID: UsbId = 0x1234;
 
     /// USB Product ID for the HID logging device
-    pub const PRODUCT_ID: u16 = 0x5678;
+    pub const PRODUCT_ID: UsbId = 0x5678;
 
     /// USB device manufacturer string (used in validation functions)
     pub const MANUFACTURER: &str = "dabstractor";
@@ -27,18 +30,18 @@ pub mod usb {
     pub const SERIAL_NUMBER: &str = "001";
 
     /// USB device release number (BCD format)
-    pub const DEVICE_RELEASE: u16 = 0x0100; // Version 1.0
+    pub const DEVICE_RELEASE: UsbId = 0x0100; // Version 1.0
 
     /// HID report descriptor size in bytes
-    pub const HID_REPORT_SIZE: usize = 64;
+    pub const HID_REPORT_SIZE: Index = 64;
 
     /// Maximum number of HID endpoints
-    pub const MAX_HID_ENDPOINTS: usize = 1;
+    pub const MAX_HID_ENDPOINTS: Index = 1;
 }
 
 /// Logging Configuration
 pub mod logging {
-    use super::LogLevel;
+    use super::{Count, DurationMs, Index, LogLevel};
 
     /// Maximum log level to include at compile time
     /// Messages above this level will be compiled out
@@ -50,10 +53,10 @@ pub mod logging {
 
     /// Default log message queue size
     #[allow(dead_code)]
-    pub const DEFAULT_QUEUE_SIZE: usize = 32;
+    pub const DEFAULT_QUEUE_SIZE: Index = 32;
 
     /// Maximum log message queue size
-    pub const MAX_QUEUE_SIZE: usize = 128;
+    pub const MAX_QUEUE_SIZE: Index = 128;
 
     /// Enable battery monitoring logs (compile-time feature flag)
     #[cfg(feature = "battery-logs")]
@@ -80,92 +83,100 @@ pub mod logging {
     pub const ENABLE_USB_LOGS: bool = false;
 
     /// Log message transmission timeout in milliseconds
-    pub const TRANSMISSION_TIMEOUT_MS: u32 = 100;
+    pub const TRANSMISSION_TIMEOUT_MS: DurationMs = 100;
 
     /// Maximum retry attempts for failed log transmissions
-    pub const MAX_RETRY_ATTEMPTS: u8 = 3;
+    pub const MAX_RETRY_ATTEMPTS: Count = 3;
 
     /// Battery periodic logging interval in samples (at 10Hz sampling rate)
     /// Default: 50 samples = 5 seconds of periodic voltage readings
-    pub const BATTERY_PERIODIC_LOG_INTERVAL_SAMPLES: u32 = 50;
+    pub const BATTERY_PERIODIC_LOG_INTERVAL_SAMPLES: Count = 50;
 }
 
 /// System Configuration
 pub mod system {
+    use super::{DurationMs, FrequencyHz, Percentage};
+
     /// System clock frequency in Hz
-    pub const SYSTEM_CLOCK_HZ: u32 = 125_000_000;
+    pub const SYSTEM_CLOCK_HZ: FrequencyHz = 125_000_000.0;
 
     /// External crystal frequency in Hz
-    pub const EXTERNAL_CRYSTAL_HZ: u32 = 12_000_000;
+    pub const EXTERNAL_CRYSTAL_HZ: FrequencyHz = 12_000_000.0;
 
     /// USB polling interval in milliseconds
-    pub const USB_POLL_INTERVAL_MS: u64 = 1;
+    pub const USB_POLL_INTERVAL_MS: DurationMs = 1;
 
     /// HID transmission task interval in milliseconds
-    pub const HID_TASK_INTERVAL_MS: u64 = 10;
+    pub const HID_TASK_INTERVAL_MS: DurationMs = 10;
 
     /// Maximum CPU usage percentage for USB tasks
-    pub const MAX_USB_CPU_USAGE_PERCENT: u8 = 5;
+    pub const MAX_USB_CPU_USAGE_PERCENT: Percentage = 5.0;
 }
 
 /// Task Priority Configuration
 pub mod priorities {
+    use super::Priority;
+
     /// pEMF pulse generation task priority (highest)
-    pub const PEMF_PULSE_PRIORITY: u8 = 3;
+    pub const PEMF_PULSE_PRIORITY: Priority = 3;
 
     /// Battery monitoring task priority
-    pub const BATTERY_MONITOR_PRIORITY: u8 = 2;
+    pub const BATTERY_MONITOR_PRIORITY: Priority = 2;
 
     /// LED control task priority
-    pub const LED_CONTROL_PRIORITY: u8 = 1;
+    pub const LED_CONTROL_PRIORITY: Priority = 1;
 
     /// USB HID transmission task priority
-    pub const USB_HID_TASK_PRIORITY: u8 = 1;
+    pub const USB_HID_TASK_PRIORITY: Priority = 1;
 
     /// USB device polling task priority (lowest)
-    pub const USB_POLL_TASK_PRIORITY: u8 = 0;
+    pub const USB_POLL_TASK_PRIORITY: Priority = 0;
 }
 
 /// Hardware Pin Configuration
 pub mod pins {
+    use super::GpioPin;
+
     /// MOSFET control pin (GPIO 15)
-    pub const MOSFET_PIN: u8 = 15;
+    pub const MOSFET_PIN: GpioPin = 15;
 
     /// LED control pin (GPIO 25)
-    pub const LED_PIN: u8 = 25;
+    pub const LED_PIN: GpioPin = 25;
 
     /// ADC input pin for battery monitoring (GPIO 26)
-    pub const BATTERY_ADC_PIN: u8 = 26;
+    pub const BATTERY_ADC_PIN: GpioPin = 26;
 }
 
 /// Timing Configuration
 pub mod timing {
+    use super::{DurationMs, FrequencyHz, Percentage};
+
     /// pEMF pulse frequency in Hz
-    pub const PEMF_FREQUENCY_HZ: f32 = 2.0;
+    pub const PEMF_FREQUENCY_HZ: FrequencyHz = 2.0;
 
     /// pEMF pulse HIGH duration in milliseconds
-    pub const PEMF_PULSE_HIGH_MS: u64 = 2;
+    pub const PEMF_PULSE_HIGH_MS: DurationMs = 2;
 
     /// pEMF pulse LOW duration in milliseconds
-    pub const PEMF_PULSE_LOW_MS: u64 = 498;
+    pub const PEMF_PULSE_LOW_MS: DurationMs = 498;
 
     /// Battery monitoring sampling frequency in Hz
-    pub const BATTERY_SAMPLING_HZ: f32 = 10.0;
+    pub const BATTERY_SAMPLING_HZ: FrequencyHz = 10.0;
 
     /// Battery monitoring interval in milliseconds
-    pub const BATTERY_MONITOR_INTERVAL_MS: u64 = 100;
+    pub const BATTERY_MONITOR_INTERVAL_MS: DurationMs = 100;
 
     /// LED flash frequency for low battery indication in Hz
-    pub const LED_FLASH_FREQUENCY_HZ: f32 = 2.0;
+    pub const LED_FLASH_FREQUENCY_HZ: FrequencyHz = 2.0;
 
     /// LED flash ON duration in milliseconds
-    pub const LED_FLASH_ON_MS: u64 = 250;
+    pub const LED_FLASH_ON_MS: DurationMs = 250;
 
     /// LED flash OFF duration in milliseconds
-    pub const LED_FLASH_OFF_MS: u64 = 250;
+    pub const LED_FLASH_OFF_MS: DurationMs = 250;
 
     /// Timing tolerance percentage (±1%)
-    pub const TIMING_TOLERANCE_PERCENT: f32 = 0.01;
+    pub const TIMING_TOLERANCE_PERCENT: Percentage = 0.01;
 }
 
 /// Feature Flags
@@ -208,11 +219,11 @@ pub struct LogConfig {
     /// Runtime maximum log level (can be more restrictive than compile-time MAX_LOG_LEVEL)
     pub max_level: LogLevel,
     /// Log message queue size (must be <= MAX_QUEUE_SIZE)
-    pub queue_size: usize,
+    pub queue_size: Index,
     /// USB Vendor ID
-    pub usb_vid: u16,
+    pub usb_vid: UsbId,
     /// USB Product ID
-    pub usb_pid: u16,
+    pub usb_pid: UsbId,
     /// Enable battery monitoring logs at runtime
     pub enable_battery_logs: bool,
     /// Enable pEMF timing logs at runtime
@@ -222,9 +233,9 @@ pub struct LogConfig {
     /// Enable USB communication logs at runtime
     pub enable_usb_logs: bool,
     /// Log transmission timeout in milliseconds
-    pub transmission_timeout_ms: u32,
+    pub transmission_timeout_ms: DurationMs,
     /// Maximum retry attempts for failed transmissions
-    pub max_retry_attempts: u8,
+    pub max_retry_attempts: Count,
 }
 
 impl LogConfig {
@@ -251,10 +262,10 @@ impl LogConfig {
             queue_size: logging::MAX_QUEUE_SIZE,
             usb_vid: usb::VENDOR_ID,
             usb_pid: usb::PRODUCT_ID,
-            enable_battery_logs: true,
-            enable_pemf_logs: true,
-            enable_system_logs: true,
-            enable_usb_logs: true,
+            enable_battery_logs: logging::ENABLE_BATTERY_LOGS,
+            enable_pemf_logs: logging::ENABLE_PEMF_LOGS,
+            enable_system_logs: logging::ENABLE_SYSTEM_LOGS,
+            enable_usb_logs: logging::ENABLE_USB_LOGS,
             transmission_timeout_ms: logging::TRANSMISSION_TIMEOUT_MS,
             max_retry_attempts: logging::MAX_RETRY_ATTEMPTS,
         }
@@ -272,7 +283,7 @@ impl LogConfig {
             enable_system_logs: false,
             enable_usb_logs: false,
             transmission_timeout_ms: 50, // Shorter timeout
-            max_retry_attempts: 1, // Fewer retries
+            max_retry_attempts: 1,       // Fewer retries
         }
     }
 
@@ -349,7 +360,7 @@ impl LogConfig {
         if timeout_ms == 0 || timeout_ms > 10000 {
             return Err(ConfigError::InvalidTimeout);
         }
-        self.transmission_timeout_ms = timeout_ms;
+        self.transmission_timeout_ms = timeout_ms as DurationMs;
         Ok(())
     }
 
@@ -358,7 +369,7 @@ impl LogConfig {
         if attempts == 0 || attempts > 10 {
             return Err(ConfigError::InvalidRetryCount);
         }
-        self.max_retry_attempts = attempts;
+        self.max_retry_attempts = attempts as Count;
         Ok(())
     }
 
@@ -409,7 +420,7 @@ impl LogConfig {
     /// Serialize configuration to bytes for USB transmission
     pub fn serialize(&self) -> [u8; 16] {
         let mut buffer = [0u8; 16];
-        
+
         buffer[0] = self.max_level as u8;
         buffer[1] = (self.queue_size & 0xFF) as u8;
         buffer[2] = ((self.queue_size >> 8) & 0xFF) as u8;
@@ -417,49 +428,57 @@ impl LogConfig {
         buffer[4] = ((self.usb_vid >> 8) & 0xFF) as u8;
         buffer[5] = (self.usb_pid & 0xFF) as u8;
         buffer[6] = ((self.usb_pid >> 8) & 0xFF) as u8;
-        
+
         // Pack boolean flags into a single byte
         let mut flags = 0u8;
-        if self.enable_battery_logs { flags |= 0x01; }
-        if self.enable_pemf_logs { flags |= 0x02; }
-        if self.enable_system_logs { flags |= 0x04; }
-        if self.enable_usb_logs { flags |= 0x08; }
+        if self.enable_battery_logs {
+            flags |= 0x01;
+        }
+        if self.enable_pemf_logs {
+            flags |= 0x02;
+        }
+        if self.enable_system_logs {
+            flags |= 0x04;
+        }
+        if self.enable_usb_logs {
+            flags |= 0x08;
+        }
         buffer[7] = flags;
-        
-        // Transmission timeout (4 bytes, little-endian)
-        let timeout_bytes = self.transmission_timeout_ms.to_le_bytes();
+
+        // Transmission timeout (4 bytes, little-endian) - truncate u64 to u32
+        let timeout_bytes = (self.transmission_timeout_ms as u32).to_le_bytes();
         buffer[8..12].copy_from_slice(&timeout_bytes);
-        
-        buffer[12] = self.max_retry_attempts;
+
+        buffer[12] = self.max_retry_attempts as u8;
         // Bytes 13-15 reserved for future use
-        
+
         buffer
     }
 
     /// Deserialize configuration from bytes received via USB
     pub fn deserialize(buffer: &[u8; 16]) -> Result<Self, ConfigError> {
         let max_level = match buffer[0] {
-            0 => LogLevel::Debug,
-            1 => LogLevel::Info,
-            2 => LogLevel::Warn,
-            3 => LogLevel::Error,
+            0 => LogLevel::Error,
+            1 => LogLevel::Warn,
+            2 => LogLevel::Info,
+            3 => LogLevel::Debug,
             _ => return Err(ConfigError::InvalidLogLevel),
         };
 
         let queue_size = (buffer[1] as usize) | ((buffer[2] as usize) << 8);
         let usb_vid = (buffer[3] as u16) | ((buffer[4] as u16) << 8);
         let usb_pid = (buffer[5] as u16) | ((buffer[6] as u16) << 8);
-        
+
         let flags = buffer[7];
         let enable_battery_logs = (flags & 0x01) != 0;
         let enable_pemf_logs = (flags & 0x02) != 0;
         let enable_system_logs = (flags & 0x04) != 0;
         let enable_usb_logs = (flags & 0x08) != 0;
-        
+
         let mut timeout_bytes = [0u8; 4];
         timeout_bytes.copy_from_slice(&buffer[8..12]);
         let transmission_timeout_ms = u32::from_le_bytes(timeout_bytes);
-        
+
         let max_retry_attempts = buffer[12];
 
         let config = Self {
@@ -471,8 +490,8 @@ impl LogConfig {
             enable_pemf_logs,
             enable_system_logs,
             enable_usb_logs,
-            transmission_timeout_ms,
-            max_retry_attempts,
+            transmission_timeout_ms: transmission_timeout_ms.into(),
+            max_retry_attempts: max_retry_attempts.into(),
         };
 
         // Validate the deserialized configuration
@@ -527,8 +546,7 @@ impl ConfigError {
 }
 
 /// USB HID control commands for runtime configuration
-#[derive(Clone, Copy, PartialEq)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum UsbControlCommand {
     GetConfig = 0x01,
@@ -637,7 +655,7 @@ impl ConfigValidator {
     /// Validate system configuration constants
     pub fn validate_system_config() -> bool {
         // Validate clock frequencies
-        if system::SYSTEM_CLOCK_HZ == 0 || system::EXTERNAL_CRYSTAL_HZ == 0 {
+        if system::SYSTEM_CLOCK_HZ == 0.0 || system::EXTERNAL_CRYSTAL_HZ == 0.0 {
             return false;
         }
 
@@ -652,7 +670,7 @@ impl ConfigValidator {
         }
 
         // Validate CPU usage limit
-        if system::MAX_USB_CPU_USAGE_PERCENT == 0 || system::MAX_USB_CPU_USAGE_PERCENT > 50 {
+        if system::MAX_USB_CPU_USAGE_PERCENT == 0.0 || system::MAX_USB_CPU_USAGE_PERCENT > 50.0 {
             return false;
         }
 
@@ -711,8 +729,8 @@ mod tests {
     #[test]
     fn test_system_config_validation() {
         assert!(ConfigValidator::validate_system_config());
-        assert!(system::SYSTEM_CLOCK_HZ > 0);
-        assert!(system::EXTERNAL_CRYSTAL_HZ > 0);
+        assert!(system::SYSTEM_CLOCK_HZ > 0.0);
+        assert!(system::EXTERNAL_CRYSTAL_HZ > 0.0);
         assert!(system::USB_POLL_INTERVAL_MS > 0);
         assert!(system::HID_TASK_INTERVAL_MS > 0);
     }
@@ -739,4 +757,3 @@ mod tests {
         assert!(features::ENABLE_LOG_MODULE_NAMES);
     }
 }
-

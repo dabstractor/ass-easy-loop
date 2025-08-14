@@ -4,42 +4,41 @@
 
 #![cfg(test)]
 
-use ass_easy_loop::command::{
-    CommandReport, CommandQueue, ResponseQueue, TestCommand, ErrorCode, AuthenticationValidator
-};
+use ass_easy_loop::command::{AuthenticationValidator, CommandQueue, CommandReport, ResponseQueue};
+use ass_easy_loop::{ErrorCode, TestCommand};
 
 /// Test basic command queue FIFO ordering
 /// Requirements: 2.4 (commands executed in FIFO order)
 #[test]
 fn test_command_queue_fifo_order() {
     let mut queue = CommandQueue::<4>::new();
-    
+
     // Create test commands with different IDs
     let cmd1 = CommandReport::new(TestCommand::SystemStateQuery as u8, 1, &[0x01]).unwrap();
     let cmd2 = CommandReport::new(TestCommand::ExecuteTest as u8, 2, &[0x02]).unwrap();
     let cmd3 = CommandReport::new(TestCommand::ConfigurationQuery as u8, 3, &[0x03]).unwrap();
-    
+
     // Enqueue commands with timestamps
     let base_time = 1000;
     let timeout = 5000;
-    
+
     assert!(queue.enqueue(cmd1, base_time, timeout));
     assert!(queue.enqueue(cmd2, base_time + 100, timeout));
     assert!(queue.enqueue(cmd3, base_time + 200, timeout));
-    
+
     // Verify FIFO order
     let dequeued1 = queue.dequeue().unwrap();
     assert_eq!(dequeued1.command.command_id, 1);
     assert_eq!(dequeued1.sequence_number, 0); // First command gets sequence 0
-    
+
     let dequeued2 = queue.dequeue().unwrap();
     assert_eq!(dequeued2.command.command_id, 2);
     assert_eq!(dequeued2.sequence_number, 1); // Second command gets sequence 1
-    
+
     let dequeued3 = queue.dequeue().unwrap();
     assert_eq!(dequeued3.command.command_id, 3);
     assert_eq!(dequeued3.sequence_number, 2); // Third command gets sequence 2
-    
+
     // Queue should be empty
     assert!(queue.dequeue().is_none());
 }
@@ -48,26 +47,26 @@ fn test_command_queue_fifo_order() {
 #[test]
 fn test_command_queue_overflow() {
     let mut queue = CommandQueue::<2>::new(); // Small queue for testing overflow
-    
+
     let cmd1 = CommandReport::new(TestCommand::SystemStateQuery as u8, 1, &[]).unwrap();
     let cmd2 = CommandReport::new(TestCommand::ExecuteTest as u8, 2, &[]).unwrap();
     let cmd3 = CommandReport::new(TestCommand::ConfigurationQuery as u8, 3, &[]).unwrap();
-    
+
     let base_time = 1000;
     let timeout = 5000;
-    
+
     // Fill the queue
     assert!(queue.enqueue(cmd1, base_time, timeout));
     assert!(queue.enqueue(cmd2, base_time, timeout));
-    
+
     // Verify queue is full
     assert_eq!(queue.len(), 2);
     assert!(queue.is_full());
-    
+
     // Try to add one more (should fail and increment dropped count)
     assert!(!queue.enqueue(cmd3, base_time, timeout));
     assert_eq!(queue.dropped_count(), 1);
-    
+
     // Queue length should remain the same
     assert_eq!(queue.len(), 2);
 }
@@ -77,31 +76,31 @@ fn test_command_queue_overflow() {
 #[test]
 fn test_command_timeout_handling() {
     let mut queue = CommandQueue::<4>::new();
-    
+
     let cmd1 = CommandReport::new(TestCommand::SystemStateQuery as u8, 1, &[]).unwrap();
     let cmd2 = CommandReport::new(TestCommand::ExecuteTest as u8, 2, &[]).unwrap();
     let cmd3 = CommandReport::new(TestCommand::ConfigurationQuery as u8, 3, &[]).unwrap();
-    
+
     let base_time = 1000;
     let short_timeout = 100; // 100ms timeout
     let long_timeout = 5000; // 5s timeout
-    
+
     // Enqueue commands with different timeouts
     assert!(queue.enqueue(cmd1, base_time, short_timeout)); // Will timeout
-    assert!(queue.enqueue(cmd2, base_time, long_timeout));  // Won't timeout
+    assert!(queue.enqueue(cmd2, base_time, long_timeout)); // Won't timeout
     assert!(queue.enqueue(cmd3, base_time, short_timeout)); // Will timeout
-    
+
     assert_eq!(queue.len(), 3);
-    
+
     // Simulate time passing beyond short timeout
     let current_time = base_time + 200; // 200ms later
-    
+
     // Remove timed out commands
     let removed_count = queue.remove_timed_out_commands(current_time);
     assert_eq!(removed_count, 2); // cmd1 and cmd3 should be removed
     assert_eq!(queue.len(), 1); // Only cmd2 should remain
     assert_eq!(queue.timeout_count(), 2);
-    
+
     // Verify the remaining command is cmd2
     let remaining = queue.dequeue().unwrap();
     assert_eq!(remaining.command.command_id, 2);
@@ -111,30 +110,30 @@ fn test_command_timeout_handling() {
 #[test]
 fn test_response_queue_basic() {
     let mut queue = ResponseQueue::<4>::new();
-    
+
     // Create test responses
     let resp1 = CommandReport::success_response(1, &[0x01]).unwrap();
     let resp2 = CommandReport::success_response(2, &[0x02]).unwrap();
-    
+
     let base_time = 1000;
-    
+
     // Enqueue responses
     assert!(queue.enqueue(resp1, 0, base_time));
     assert!(queue.enqueue(resp2, 1, base_time + 100));
-    
+
     assert_eq!(queue.len(), 2);
     assert!(!queue.is_empty());
-    
+
     // Dequeue responses (FIFO order)
     let dequeued1 = queue.dequeue().unwrap();
     assert_eq!(dequeued1.response.command_id, 1);
     assert_eq!(dequeued1.sequence_number, 0);
     assert_eq!(dequeued1.retry_count, 0);
-    
+
     let dequeued2 = queue.dequeue().unwrap();
     assert_eq!(dequeued2.response.command_id, 2);
     assert_eq!(dequeued2.sequence_number, 1);
-    
+
     // Queue should be empty
     assert!(queue.dequeue().is_none());
     assert!(queue.is_empty());
@@ -144,34 +143,34 @@ fn test_response_queue_basic() {
 #[test]
 fn test_response_queue_retry() {
     let mut queue = ResponseQueue::<4>::new();
-    
+
     let resp = CommandReport::success_response(1, &[0x01]).unwrap();
     let base_time = 1000;
-    
+
     // Enqueue response
     assert!(queue.enqueue(resp, 0, base_time));
-    
+
     // Dequeue for transmission
     let queued_resp = queue.dequeue().unwrap();
     assert_eq!(queued_resp.retry_count, 0);
-    
+
     // Simulate transmission failure and retry
     assert!(queue.requeue_for_retry(queued_resp, 3)); // Max 3 retries
-    
+
     // Dequeue again
     let queued_resp = queue.dequeue().unwrap();
     assert_eq!(queued_resp.retry_count, 1);
-    
+
     // Retry again
     assert!(queue.requeue_for_retry(queued_resp, 3));
     let queued_resp = queue.dequeue().unwrap();
     assert_eq!(queued_resp.retry_count, 2);
-    
+
     // One more retry
     assert!(queue.requeue_for_retry(queued_resp, 3));
     let queued_resp = queue.dequeue().unwrap();
     assert_eq!(queued_resp.retry_count, 3);
-    
+
     // Should fail to retry (max retries exceeded)
     assert!(!queue.requeue_for_retry(queued_resp, 3));
     assert_eq!(queue.transmission_failure_count(), 1);
@@ -185,28 +184,27 @@ fn test_command_authentication() {
     let cmd = CommandReport::new(TestCommand::SystemStateQuery as u8, 1, &[0x01, 0x02]).unwrap();
     assert!(AuthenticationValidator::validate_command(&cmd));
     assert!(AuthenticationValidator::validate_format(&cmd).is_ok());
-    
+
     // Test invalid command type
     let invalid_type_cmd = CommandReport::new(0x70, 1, &[]).unwrap(); // Invalid command type
-    assert_eq!(AuthenticationValidator::validate_format(&invalid_type_cmd), 
-               Err(ErrorCode::UnsupportedCommand));
+    assert_eq!(
+        AuthenticationValidator::validate_format(&invalid_type_cmd),
+        Err(ErrorCode::UnsupportedCommand)
+    );
 }
 
 /// Test error response creation
 /// Requirements: 2.5 (error responses with diagnostic information)
 #[test]
 fn test_error_response_creation() {
-    let error_resp = CommandReport::error_response(
-        42, 
-        ErrorCode::InvalidFormat, 
-        "Test error message"
-    ).unwrap();
-    
+    let error_resp =
+        CommandReport::error_response(42, ErrorCode::InvalidFormat, "Test error message").unwrap();
+
     assert_eq!(error_resp.command_type, 0x93); // TestResponse::Error as u8
     assert_eq!(error_resp.command_id, 42);
     assert!(error_resp.payload.len() > 1); // Should contain error code + message
     assert_eq!(error_resp.payload[0], ErrorCode::InvalidFormat as u8);
-    
+
     // Verify authentication
     assert!(AuthenticationValidator::validate_command(&error_resp));
 }
@@ -215,27 +213,27 @@ fn test_error_response_creation() {
 #[test]
 fn test_command_sequence_tracking() {
     let mut queue = CommandQueue::<4>::new();
-    
+
     let cmd1 = CommandReport::new(TestCommand::SystemStateQuery as u8, 1, &[]).unwrap();
     let cmd2 = CommandReport::new(TestCommand::ExecuteTest as u8, 2, &[]).unwrap();
-    
+
     let base_time = 1000;
     let timeout = 5000;
-    
+
     // Initial sequence should be 0
     assert_eq!(queue.current_sequence(), 0);
-    
+
     // Enqueue commands and verify sequence increments
     assert!(queue.enqueue(cmd1, base_time, timeout));
     assert_eq!(queue.current_sequence(), 1);
-    
+
     assert!(queue.enqueue(cmd2, base_time, timeout));
     assert_eq!(queue.current_sequence(), 2);
-    
+
     // Dequeue and verify sequence numbers
     let queued1 = queue.dequeue().unwrap();
     assert_eq!(queued1.sequence_number, 0);
-    
+
     let queued2 = queue.dequeue().unwrap();
     assert_eq!(queued2.sequence_number, 1);
 }
@@ -245,55 +243,55 @@ fn test_command_sequence_tracking() {
 fn test_queue_statistics() {
     let mut cmd_queue = CommandQueue::<2>::new();
     let mut resp_queue = ResponseQueue::<2>::new();
-    
+
     let cmd = CommandReport::new(TestCommand::SystemStateQuery as u8, 1, &[]).unwrap();
     let resp = CommandReport::success_response(1, &[]).unwrap();
-    
+
     let base_time = 1000;
     let timeout = 100; // Short timeout for testing
-    
+
     // Test command queue statistics
     assert_eq!(cmd_queue.len(), 0);
     assert_eq!(cmd_queue.dropped_count(), 0);
     assert_eq!(cmd_queue.timeout_count(), 0);
-    
+
     // Add commands
-    assert!(cmd_queue.enqueue(cmd, base_time, timeout));
-    assert!(cmd_queue.enqueue(cmd, base_time, timeout));
+    assert!(cmd_queue.enqueue(cmd.clone(), base_time, timeout));
+    assert!(cmd_queue.enqueue(cmd.clone(), base_time, timeout));
     assert_eq!(cmd_queue.len(), 2);
-    
+
     // Overflow
     assert!(!cmd_queue.enqueue(cmd, base_time, timeout));
     assert_eq!(cmd_queue.dropped_count(), 1);
-    
+
     // Timeout
     let removed = cmd_queue.remove_timed_out_commands(base_time + 200);
     assert_eq!(removed, 2);
     assert_eq!(cmd_queue.timeout_count(), 2);
-    
+
     // Test response queue statistics
     assert_eq!(resp_queue.len(), 0);
     assert_eq!(resp_queue.dropped_count(), 0);
     assert_eq!(resp_queue.transmission_failure_count(), 0);
-    
+
     // Add responses
-    assert!(resp_queue.enqueue(resp, 0, base_time));
-    assert!(resp_queue.enqueue(resp, 1, base_time));
+    assert!(resp_queue.enqueue(resp.clone(), 0, base_time));
+    assert!(resp_queue.enqueue(resp.clone(), 1, base_time));
     assert_eq!(resp_queue.len(), 2);
-    
+
     // Overflow
     assert!(!resp_queue.enqueue(resp, 2, base_time));
     assert_eq!(resp_queue.dropped_count(), 1);
-    
+
     // Test retry failure
     let queued_resp = resp_queue.dequeue().unwrap();
     assert!(!resp_queue.requeue_for_retry(queued_resp, 0)); // Max retries = 0
     assert_eq!(resp_queue.transmission_failure_count(), 1);
-    
+
     // Reset statistics
     cmd_queue.reset_stats();
     resp_queue.reset_stats();
-    
+
     assert_eq!(cmd_queue.dropped_count(), 0);
     assert_eq!(cmd_queue.timeout_count(), 0);
     assert_eq!(resp_queue.dropped_count(), 0);

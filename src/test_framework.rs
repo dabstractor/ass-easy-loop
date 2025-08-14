@@ -213,6 +213,7 @@ impl TestSuiteResult {
 }
 
 /// Custom test runner for no_std environments
+#[derive(Debug)]
 pub struct TestRunner {
     /// Collection of test cases to execute
     tests: Vec<TestCase, MAX_TESTS_PER_SUITE>,
@@ -480,4 +481,3 @@ mod tests {
         assert_eq!(results.stats.failed, 1);
     }
 }
-

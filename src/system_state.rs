@@ -1,20 +1,20 @@
 //! System State Query Handler Module
-//! 
+//!
 //! This module implements system state query handlers for the automated testing framework.
 //! It provides comprehensive system health data collection, hardware status reporting,
 //! and configuration dump functionality.
-//! 
+//!
 //! Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
 
-use heapless::Vec;
-use crate::config::LogConfig;
 use crate::battery::BatteryState;
-use crate::command::parsing::{CommandReport, TestResponse, ErrorCode};
+use crate::command::parsing::{CommandReport, ErrorCode, TestResponse};
+use crate::config::LogConfig;
 use crate::error_handling::{SystemError, SystemResult};
-use core::option::Option::{self, Some, None};
-use core::result::Result::{self, Ok};
-use core::iter::Iterator;
 use core::clone::Clone;
+use core::iter::Iterator;
+use core::option::Option::{self, None, Some};
+use core::result::Result::{self, Ok};
+use heapless::Vec;
 
 /// System state query types
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -174,10 +174,10 @@ pub struct HardwareStatusData {
 /// GPIO pin states
 #[derive(Clone, Copy, Debug)]
 pub struct GpioStates {
-    pub mosfet_pin_state: bool,     // GPIO 15
-    pub led_pin_state: bool,        // GPIO 25
-    pub adc_pin_voltage_mv: u32,    // GPIO 26
-    pub bootsel_pin_state: bool,    // BOOTSEL button
+    pub mosfet_pin_state: bool,  // GPIO 15
+    pub led_pin_state: bool,     // GPIO 25
+    pub adc_pin_voltage_mv: u32, // GPIO 26
+    pub bootsel_pin_state: bool, // BOOTSEL button
     pub gpio_error_count: u32,
 }
 
@@ -409,7 +409,8 @@ impl SystemStateHandler {
         let command_queue_usage_bytes = 8 * 64; // 8 commands * 64 bytes each
         let stack_usage_bytes = 4096; // Estimated stack usage
         let heap_usage_bytes = 0; // No heap in no_std
-        let total_ram_usage_bytes = log_queue_usage_bytes + command_queue_usage_bytes + stack_usage_bytes;
+        let total_ram_usage_bytes =
+            log_queue_usage_bytes + command_queue_usage_bytes + stack_usage_bytes;
         let peak_ram_usage_bytes = total_ram_usage_bytes; // Simplified
         let memory_fragmentation_percent = 0; // No fragmentation in static allocation
 
@@ -498,13 +499,23 @@ impl SystemStateHandler {
 
         // Serialize error history (simplified format)
         let error_count = core::cmp::min(error_history.len(), 15); // Limit to fit in payload
-        serialized.push(error_count as u8).map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(error_count as u8)
+            .map_err(|_| SystemError::SystemBusy)?;
 
         for error in error_history.iter().take(error_count) {
-            serialized.push(error.error_type as u8).map_err(|_| SystemError::SystemBusy)?;
-            serialized.push((error.timestamp_ms & 0xFF) as u8).map_err(|_| SystemError::SystemBusy)?;
-            serialized.push(((error.timestamp_ms >> 8) & 0xFF) as u8).map_err(|_| SystemError::SystemBusy)?;
-            serialized.push(((error.timestamp_ms >> 16) & 0xFF) as u8).map_err(|_| SystemError::SystemBusy)?;
+            serialized
+                .push(error.error_type as u8)
+                .map_err(|_| SystemError::SystemBusy)?;
+            serialized
+                .push((error.timestamp_ms & 0xFF) as u8)
+                .map_err(|_| SystemError::SystemBusy)?;
+            serialized
+                .push(((error.timestamp_ms >> 8) & 0xFF) as u8)
+                .map_err(|_| SystemError::SystemBusy)?;
+            serialized
+                .push(((error.timestamp_ms >> 16) & 0xFF) as u8)
+                .map_err(|_| SystemError::SystemBusy)?;
         }
 
         Ok(serialized)
@@ -526,7 +537,9 @@ impl SystemStateHandler {
             BatteryState::Normal => 1,
             BatteryState::Charging => 2,
         };
-        serialized.push(battery_state_byte).map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(battery_state_byte)
+            .map_err(|_| SystemError::SystemBusy)?;
 
         // Serialize battery voltage (4 bytes)
         let voltage_bytes = data.battery_voltage_mv.to_le_bytes();
@@ -535,7 +548,9 @@ impl SystemStateHandler {
         }
 
         // Serialize pEMF status (1 byte + 4 bytes)
-        serialized.push(if data.pemf_active { 1 } else { 0 }).map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(if data.pemf_active { 1 } else { 0 })
+            .map_err(|_| SystemError::SystemBusy)?;
         let cycle_bytes = data.pemf_cycle_count.to_le_bytes();
         for &byte in &cycle_bytes {
             serialized.push(byte).map_err(|_| SystemError::SystemBusy)?;
@@ -543,13 +558,27 @@ impl SystemStateHandler {
 
         // Serialize task health (1 byte bitfield)
         let mut task_health_byte = 0u8;
-        if data.task_health_status.pemf_task_healthy { task_health_byte |= 0x01; }
-        if data.task_health_status.battery_task_healthy { task_health_byte |= 0x02; }
-        if data.task_health_status.led_task_healthy { task_health_byte |= 0x04; }
-        if data.task_health_status.usb_poll_task_healthy { task_health_byte |= 0x08; }
-        if data.task_health_status.usb_hid_task_healthy { task_health_byte |= 0x10; }
-        if data.task_health_status.command_handler_healthy { task_health_byte |= 0x20; }
-        serialized.push(task_health_byte).map_err(|_| SystemError::SystemBusy)?;
+        if data.task_health_status.pemf_task_healthy {
+            task_health_byte |= 0x01;
+        }
+        if data.task_health_status.battery_task_healthy {
+            task_health_byte |= 0x02;
+        }
+        if data.task_health_status.led_task_healthy {
+            task_health_byte |= 0x04;
+        }
+        if data.task_health_status.usb_poll_task_healthy {
+            task_health_byte |= 0x08;
+        }
+        if data.task_health_status.usb_hid_task_healthy {
+            task_health_byte |= 0x10;
+        }
+        if data.task_health_status.command_handler_healthy {
+            task_health_byte |= 0x20;
+        }
+        serialized
+            .push(task_health_byte)
+            .map_err(|_| SystemError::SystemBusy)?;
 
         // Serialize memory usage (simplified - 8 bytes)
         let memory_bytes = data.memory_usage.total_ram_usage_bytes.to_le_bytes();
@@ -620,11 +649,21 @@ impl SystemStateHandler {
         }
 
         // Serialize resource usage (5 bytes)
-        serialized.push(data.resource_usage.cpu_usage_percent).map_err(|_| SystemError::SystemBusy)?;
-        serialized.push(data.resource_usage.memory_usage_percent).map_err(|_| SystemError::SystemBusy)?;
-        serialized.push(data.resource_usage.queue_utilization_percent).map_err(|_| SystemError::SystemBusy)?;
-        serialized.push(data.resource_usage.usb_bandwidth_usage_percent).map_err(|_| SystemError::SystemBusy)?;
-        serialized.push(data.resource_usage.interrupt_load_percent).map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(data.resource_usage.cpu_usage_percent)
+            .map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(data.resource_usage.memory_usage_percent)
+            .map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(data.resource_usage.queue_utilization_percent)
+            .map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(data.resource_usage.usb_bandwidth_usage_percent)
+            .map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(data.resource_usage.interrupt_load_percent)
+            .map_err(|_| SystemError::SystemBusy)?;
 
         // Serialize performance metrics (13 bytes)
         let metrics = [
@@ -640,7 +679,9 @@ impl SystemStateHandler {
             }
         }
 
-        serialized.push(data.performance_metrics.system_efficiency_percent).map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(data.performance_metrics.system_efficiency_percent)
+            .map_err(|_| SystemError::SystemBusy)?;
 
         Ok(serialized)
     }
@@ -650,15 +691,29 @@ impl SystemStateHandler {
         let mut serialized = Vec::new();
 
         // Serialize GPIO states (9 bytes)
-        serialized.push(if data.gpio_states.mosfet_pin_state { 1 } else { 0 }).map_err(|_| SystemError::SystemBusy)?;
-        serialized.push(if data.gpio_states.led_pin_state { 1 } else { 0 }).map_err(|_| SystemError::SystemBusy)?;
-        
+        serialized
+            .push(if data.gpio_states.mosfet_pin_state {
+                1
+            } else {
+                0
+            })
+            .map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(if data.gpio_states.led_pin_state { 1 } else { 0 })
+            .map_err(|_| SystemError::SystemBusy)?;
+
         let adc_voltage_bytes = data.gpio_states.adc_pin_voltage_mv.to_le_bytes();
         for &byte in &adc_voltage_bytes {
             serialized.push(byte).map_err(|_| SystemError::SystemBusy)?;
         }
 
-        serialized.push(if data.gpio_states.bootsel_pin_state { 1 } else { 0 }).map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(if data.gpio_states.bootsel_pin_state {
+                1
+            } else {
+                0
+            })
+            .map_err(|_| SystemError::SystemBusy)?;
 
         let gpio_error_bytes = data.gpio_states.gpio_error_count.to_le_bytes();
         for &byte in &gpio_error_bytes {
@@ -693,11 +748,21 @@ impl SystemStateHandler {
 
         // Serialize USB status (16 bytes)
         let mut usb_status_byte = 0u8;
-        if data.usb_status.connected { usb_status_byte |= 0x01; }
-        if data.usb_status.configured { usb_status_byte |= 0x02; }
-        if data.usb_status.suspended { usb_status_byte |= 0x04; }
-        if data.usb_status.enumerated { usb_status_byte |= 0x08; }
-        serialized.push(usb_status_byte).map_err(|_| SystemError::SystemBusy)?;
+        if data.usb_status.connected {
+            usb_status_byte |= 0x01;
+        }
+        if data.usb_status.configured {
+            usb_status_byte |= 0x02;
+        }
+        if data.usb_status.suspended {
+            usb_status_byte |= 0x04;
+        }
+        if data.usb_status.enumerated {
+            usb_status_byte |= 0x08;
+        }
+        serialized
+            .push(usb_status_byte)
+            .map_err(|_| SystemError::SystemBusy)?;
 
         let usb_metrics = [
             data.usb_status.hid_reports_sent,
@@ -758,10 +823,18 @@ impl SystemStateHandler {
         }
 
         // Serialize hardware configuration (12 bytes)
-        serialized.push(data.hardware_config.mosfet_pin).map_err(|_| SystemError::SystemBusy)?;
-        serialized.push(data.hardware_config.led_pin).map_err(|_| SystemError::SystemBusy)?;
-        serialized.push(data.hardware_config.adc_pin).map_err(|_| SystemError::SystemBusy)?;
-        serialized.push(data.hardware_config.adc_resolution_bits).map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(data.hardware_config.mosfet_pin)
+            .map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(data.hardware_config.led_pin)
+            .map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(data.hardware_config.adc_pin)
+            .map_err(|_| SystemError::SystemBusy)?;
+        serialized
+            .push(data.hardware_config.adc_resolution_bits)
+            .map_err(|_| SystemError::SystemBusy)?;
 
         let adc_ref_bytes = data.hardware_config.adc_reference_mv.to_le_bytes();
         for &byte in &adc_ref_bytes {
@@ -775,14 +848,30 @@ impl SystemStateHandler {
 
         // Serialize feature flags (1 byte)
         let mut feature_byte = 0u8;
-        if data.feature_flags.usb_hid_logging_enabled { feature_byte |= 0x01; }
-        if data.feature_flags.battery_monitoring_enabled { feature_byte |= 0x02; }
-        if data.feature_flags.pemf_generation_enabled { feature_byte |= 0x04; }
-        if data.feature_flags.led_control_enabled { feature_byte |= 0x08; }
-        if data.feature_flags.performance_monitoring_enabled { feature_byte |= 0x10; }
-        if data.feature_flags.debug_mode_enabled { feature_byte |= 0x20; }
-        if data.feature_flags.panic_logging_enabled { feature_byte |= 0x40; }
-        serialized.push(feature_byte).map_err(|_| SystemError::SystemBusy)?;
+        if data.feature_flags.usb_hid_logging_enabled {
+            feature_byte |= 0x01;
+        }
+        if data.feature_flags.battery_monitoring_enabled {
+            feature_byte |= 0x02;
+        }
+        if data.feature_flags.pemf_generation_enabled {
+            feature_byte |= 0x04;
+        }
+        if data.feature_flags.led_control_enabled {
+            feature_byte |= 0x08;
+        }
+        if data.feature_flags.performance_monitoring_enabled {
+            feature_byte |= 0x10;
+        }
+        if data.feature_flags.debug_mode_enabled {
+            feature_byte |= 0x20;
+        }
+        if data.feature_flags.panic_logging_enabled {
+            feature_byte |= 0x40;
+        }
+        serialized
+            .push(feature_byte)
+            .map_err(|_| SystemError::SystemBusy)?;
 
         Ok(serialized)
     }
@@ -801,13 +890,17 @@ impl SystemStateHandler {
         data: &[u8],
     ) -> Result<CommandReport, ErrorCode> {
         let mut payload: Vec<u8, 60> = Vec::new();
-        
+
         // Add query type to payload
-        payload.push(query_type as u8).map_err(|_| ErrorCode::PayloadTooLarge)?;
-        
+        payload
+            .push(query_type as u8)
+            .map_err(|_| ErrorCode::PayloadTooLarge)?;
+
         // Add data length
-        payload.push(data.len() as u8).map_err(|_| ErrorCode::PayloadTooLarge)?;
-        
+        payload
+            .push(data.len() as u8)
+            .map_err(|_| ErrorCode::PayloadTooLarge)?;
+
         // Add data (truncate if necessary)
         let max_data_len = core::cmp::min(data.len(), 58); // Reserve 2 bytes for type and length
         for &byte in &data[..max_data_len] {
@@ -994,6 +1087,7 @@ impl DiagnosticCollector {
 }
 
 /// Configuration manager for device settings
+#[derive(Debug)]
 pub struct ConfigurationManager {
     query_count: u32,
 }

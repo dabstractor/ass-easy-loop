@@ -22,7 +22,7 @@ pub const MAX_REGISTERED_SUITES: usize = 20;
 pub type TestSuiteFactory = fn() -> TestRunner;
 
 /// Test suite registry entry
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TestSuiteEntry {
     /// Name of the test suite
     pub name: &'static str,
@@ -35,6 +35,7 @@ pub struct TestSuiteEntry {
 }
 
 /// Centralized test suite registry
+#[derive(Debug)]
 pub struct TestSuiteRegistry {
     /// Registered test suites
     suites: Vec<TestSuiteEntry, MAX_REGISTERED_SUITES>,

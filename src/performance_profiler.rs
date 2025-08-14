@@ -1,9 +1,9 @@
 //! Performance Profiler Module
-//! 
+//!
 //! This module provides basic performance profiling types for the pEMF device system.
 //! Most actual performance monitoring is handled by the logging module's PerformanceMonitor.
 //! This module only provides the minimal types that are imported by main.rs.
-//! 
+//!
 //! Requirements: 2.3, 3.5, 4.4
 
 use crate::log_info;
@@ -105,13 +105,28 @@ impl PerformanceProfiler {
         self.execution_time_samples.clear();
         self.timing_samples.clear();
         self.jitter_samples.clear();
-        
+
         log_info!("Performance profiling started");
         log_info!("Target metrics:");
-        log_info!("- pEMF frequency: {:.1}Hz (±{:.1}%)", PEMF_TARGET_FREQUENCY_HZ, TIMING_TOLERANCE_PERCENT * 100.0);
-        log_info!("- pEMF HIGH duration: {}ms (±{:.1}%)", PEMF_HIGH_DURATION_MS, TIMING_TOLERANCE_PERCENT * 100.0);
-        log_info!("- pEMF LOW duration: {}ms (±{:.1}%)", PEMF_LOW_DURATION_MS, TIMING_TOLERANCE_PERCENT * 100.0);
-        log_info!("- Battery sampling: {}ms intervals", BATTERY_MONITOR_INTERVAL_MS);
+        log_info!(
+            "- pEMF frequency: {:.1}Hz (±{:.1}%)",
+            PEMF_TARGET_FREQUENCY_HZ,
+            TIMING_TOLERANCE_PERCENT * 100.0
+        );
+        log_info!(
+            "- pEMF HIGH duration: {}ms (±{:.1}%)",
+            PEMF_HIGH_DURATION_MS,
+            TIMING_TOLERANCE_PERCENT * 100.0
+        );
+        log_info!(
+            "- pEMF LOW duration: {}ms (±{:.1}%)",
+            PEMF_LOW_DURATION_MS,
+            TIMING_TOLERANCE_PERCENT * 100.0
+        );
+        log_info!(
+            "- Battery sampling: {}ms intervals",
+            BATTERY_MONITOR_INTERVAL_MS
+        );
         log_info!("- LED response: <{}ms", LED_RESPONSE_TIMEOUT_MS);
     }
 
@@ -159,7 +174,7 @@ impl PerformanceProfiler {
                 total_times.usb_poll_time_us += sample.usb_poll_time_us;
                 total_times.usb_hid_time_us += sample.usb_hid_time_us;
             }
-            
+
             let sample_count = self.execution_time_samples.len() as u32;
             results.task_execution_times = TaskExecutionTimes {
                 pemf_pulse_time_us: total_times.pemf_pulse_time_us / sample_count,
@@ -191,7 +206,7 @@ impl PerformanceProfiler {
     /// Calculate timing accuracy percentages
     fn calculate_timing_accuracy(&self) -> TimingAccuracy {
         let mut accuracy = TimingAccuracy::default();
-        
+
         if self.timing_samples.is_empty() {
             return accuracy;
         }
@@ -207,14 +222,14 @@ impl PerformanceProfiler {
         for sample in &self.timing_samples {
             // Check pEMF HIGH duration accuracy
             let high_deviation = sample.pemf_high_duration_ms.abs_diff(PEMF_HIGH_DURATION_MS);
-            
+
             if high_deviation <= tolerance_ms {
                 pemf_high_deviations += 1;
             }
 
             // Check pEMF LOW duration accuracy
             let low_deviation = sample.pemf_low_duration_ms.abs_diff(PEMF_LOW_DURATION_MS);
-            
+
             if low_deviation <= tolerance_ms {
                 pemf_low_deviations += 1;
             }
@@ -222,14 +237,16 @@ impl PerformanceProfiler {
             // Check pEMF frequency accuracy
             let expected_cycle_ms = PEMF_HIGH_DURATION_MS + PEMF_LOW_DURATION_MS;
             let cycle_deviation = sample.pemf_cycle_duration_ms.abs_diff(expected_cycle_ms);
-            
+
             if cycle_deviation <= tolerance_ms {
                 pemf_frequency_deviations += 1;
             }
 
             // Check battery sampling accuracy
-            let battery_deviation = sample.battery_sample_interval_ms.abs_diff(BATTERY_MONITOR_INTERVAL_MS);
-            
+            let battery_deviation = sample
+                .battery_sample_interval_ms
+                .abs_diff(BATTERY_MONITOR_INTERVAL_MS);
+
             if battery_deviation <= tolerance_ms {
                 battery_sampling_deviations += 1;
             }
@@ -243,9 +260,12 @@ impl PerformanceProfiler {
         let sample_count = self.timing_samples.len() as f32;
         accuracy.pemf_high_accuracy_percent = (pemf_high_deviations as f32 / sample_count) * 100.0;
         accuracy.pemf_low_accuracy_percent = (pemf_low_deviations as f32 / sample_count) * 100.0;
-        accuracy.pemf_frequency_accuracy_percent = (pemf_frequency_deviations as f32 / sample_count) * 100.0;
-        accuracy.battery_sampling_accuracy_percent = (battery_sampling_deviations as f32 / sample_count) * 100.0;
-        accuracy.led_response_accuracy_percent = (led_response_deviations as f32 / sample_count) * 100.0;
+        accuracy.pemf_frequency_accuracy_percent =
+            (pemf_frequency_deviations as f32 / sample_count) * 100.0;
+        accuracy.battery_sampling_accuracy_percent =
+            (battery_sampling_deviations as f32 / sample_count) * 100.0;
+        accuracy.led_response_accuracy_percent =
+            (led_response_deviations as f32 / sample_count) * 100.0;
 
         accuracy
     }
@@ -253,7 +273,7 @@ impl PerformanceProfiler {
     /// Calculate jitter measurements
     fn calculate_jitter_measurements(&self) -> JitterMeasurements {
         let mut jitter = JitterMeasurements::default();
-        
+
         if self.jitter_samples.is_empty() {
             return jitter;
         }
@@ -302,12 +322,13 @@ impl PerformanceProfiler {
             total_execution_time_us += sample.usb_hid_time_us;
         }
 
-        let avg_execution_time_us = total_execution_time_us / (self.execution_time_samples.len() as u32);
-        
+        let avg_execution_time_us =
+            total_execution_time_us / (self.execution_time_samples.len() as u32);
+
         // Assume 500ms cycle time (pEMF period)
         let cycle_time_us = 500_000u32;
         let cpu_utilization = (avg_execution_time_us * 100) / cycle_time_us;
-        
+
         core::cmp::min(cpu_utilization, 100) as u8
     }
 
@@ -318,10 +339,10 @@ impl PerformanceProfiler {
         const USB_BUFFER_SIZE: usize = 1024; // Estimated USB buffer size
         const PROFILER_SIZE: usize = core::mem::size_of::<PerformanceProfiler>();
         const TOTAL_ESTIMATED_USAGE: usize = LOG_QUEUE_SIZE + USB_BUFFER_SIZE + PROFILER_SIZE;
-        
+
         // RP2040 has 264KB of RAM
         const TOTAL_RAM: usize = 264 * 1024;
-        
+
         let utilization = (TOTAL_ESTIMATED_USAGE * 100) / TOTAL_RAM;
         core::cmp::min(utilization, 100) as u8
     }
@@ -331,13 +352,12 @@ impl PerformanceProfiler {
         let mut score = 100u8;
 
         // Deduct points for timing inaccuracy
-        let avg_timing_accuracy = (
-            results.timing_accuracy.pemf_high_accuracy_percent +
-            results.timing_accuracy.pemf_low_accuracy_percent +
-            results.timing_accuracy.pemf_frequency_accuracy_percent +
-            results.timing_accuracy.battery_sampling_accuracy_percent +
-            results.timing_accuracy.led_response_accuracy_percent
-        ) / 5.0;
+        let avg_timing_accuracy = (results.timing_accuracy.pemf_high_accuracy_percent
+            + results.timing_accuracy.pemf_low_accuracy_percent
+            + results.timing_accuracy.pemf_frequency_accuracy_percent
+            + results.timing_accuracy.battery_sampling_accuracy_percent
+            + results.timing_accuracy.led_response_accuracy_percent)
+            / 5.0;
 
         if avg_timing_accuracy < 99.0 {
             score = score.saturating_sub((100.0 - avg_timing_accuracy) as u8);
@@ -440,36 +460,83 @@ impl PerformanceReport {
         log_info!("Profiling duration: {}ms", self.profiling_duration_ms);
         log_info!("Sample count: {}", self.sample_count);
         log_info!("");
-        
+
         log_info!("Task Execution Times (average):");
-        log_info!("- pEMF pulse: {}μs", self.results.task_execution_times.pemf_pulse_time_us);
-        log_info!("- Battery monitor: {}μs", self.results.task_execution_times.battery_monitor_time_us);
-        log_info!("- LED control: {}μs", self.results.task_execution_times.led_control_time_us);
-        log_info!("- USB poll: {}μs", self.results.task_execution_times.usb_poll_time_us);
-        log_info!("- USB HID: {}μs", self.results.task_execution_times.usb_hid_time_us);
+        log_info!(
+            "- pEMF pulse: {}μs",
+            self.results.task_execution_times.pemf_pulse_time_us
+        );
+        log_info!(
+            "- Battery monitor: {}μs",
+            self.results.task_execution_times.battery_monitor_time_us
+        );
+        log_info!(
+            "- LED control: {}μs",
+            self.results.task_execution_times.led_control_time_us
+        );
+        log_info!(
+            "- USB poll: {}μs",
+            self.results.task_execution_times.usb_poll_time_us
+        );
+        log_info!(
+            "- USB HID: {}μs",
+            self.results.task_execution_times.usb_hid_time_us
+        );
         log_info!("");
-        
+
         log_info!("Timing Accuracy:");
-        log_info!("- pEMF HIGH: {:.1}%", self.results.timing_accuracy.pemf_high_accuracy_percent);
-        log_info!("- pEMF LOW: {:.1}%", self.results.timing_accuracy.pemf_low_accuracy_percent);
-        log_info!("- pEMF frequency: {:.1}%", self.results.timing_accuracy.pemf_frequency_accuracy_percent);
-        log_info!("- Battery sampling: {:.1}%", self.results.timing_accuracy.battery_sampling_accuracy_percent);
-        log_info!("- LED response: {:.1}%", self.results.timing_accuracy.led_response_accuracy_percent);
+        log_info!(
+            "- pEMF HIGH: {:.1}%",
+            self.results.timing_accuracy.pemf_high_accuracy_percent
+        );
+        log_info!(
+            "- pEMF LOW: {:.1}%",
+            self.results.timing_accuracy.pemf_low_accuracy_percent
+        );
+        log_info!(
+            "- pEMF frequency: {:.1}%",
+            self.results.timing_accuracy.pemf_frequency_accuracy_percent
+        );
+        log_info!(
+            "- Battery sampling: {:.1}%",
+            self.results
+                .timing_accuracy
+                .battery_sampling_accuracy_percent
+        );
+        log_info!(
+            "- LED response: {:.1}%",
+            self.results.timing_accuracy.led_response_accuracy_percent
+        );
         log_info!("");
-        
+
         log_info!("Jitter Measurements:");
-        log_info!("- pEMF pulse: {}μs", self.results.jitter_measurements.pemf_pulse_jitter_us);
-        log_info!("- Battery monitor: {}μs", self.results.jitter_measurements.battery_monitor_jitter_us);
-        log_info!("- LED control: {}μs", self.results.jitter_measurements.led_control_jitter_us);
-        log_info!("- Max system: {}μs", self.results.jitter_measurements.max_system_jitter_us);
+        log_info!(
+            "- pEMF pulse: {}μs",
+            self.results.jitter_measurements.pemf_pulse_jitter_us
+        );
+        log_info!(
+            "- Battery monitor: {}μs",
+            self.results.jitter_measurements.battery_monitor_jitter_us
+        );
+        log_info!(
+            "- LED control: {}μs",
+            self.results.jitter_measurements.led_control_jitter_us
+        );
+        log_info!(
+            "- Max system: {}μs",
+            self.results.jitter_measurements.max_system_jitter_us
+        );
         log_info!("");
-        
+
         log_info!("System Utilization:");
         log_info!("- CPU: {}%", self.results.cpu_utilization_percent);
         log_info!("- Memory: {}%", self.results.memory_utilization_percent);
-        log_info!("- Overall score: {}/100", self.results.overall_performance_score);
+        log_info!(
+            "- Overall score: {}/100",
+            self.results.overall_performance_score
+        );
         log_info!("");
-        
+
         if !self.recommendations.is_empty() {
             log_info!("Recommendations:");
             for (i, recommendation) in self.recommendations.iter().enumerate() {
@@ -478,7 +545,7 @@ impl PerformanceReport {
         } else {
             log_info!("No recommendations - system performance is optimal");
         }
-        
+
         log_info!("=== END PERFORMANCE REPORT ===");
     }
 }
@@ -506,9 +573,13 @@ macro_rules! measure_task_execution {
         // Placeholder implementation - would use actual timer in real system
         let result = $code;
         let execution_time_us = 100u32; // Placeholder execution time
-        
-        log_debug!("Task {} execution time: {}μs", $task_name, execution_time_us);
-        
+
+        log_debug!(
+            "Task {} execution time: {}μs",
+            $task_name,
+            execution_time_us
+        );
+
         (result, execution_time_us)
     }};
 }
@@ -521,13 +592,13 @@ macro_rules! measure_timing_accuracy {
         } else {
             $expected_duration_ms - $actual_duration_ms
         };
-        
+
         let accuracy_percent = if $expected_duration_ms > 0 {
             100.0 - ((deviation as f32 / $expected_duration_ms as f32) * 100.0)
         } else {
             0.0
         };
-        
+
         accuracy_percent
     }};
 }

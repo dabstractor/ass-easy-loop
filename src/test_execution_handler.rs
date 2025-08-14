@@ -1,19 +1,19 @@
 //! Test Execution Handler for USB HID Command Processing
-//! 
+//!
 //! This module handles test execution commands received via USB HID and coordinates
 //! with the test framework and result serialization system to execute tests and
 //! transmit results back to the host.
-//! 
+//!
 //! Requirements: 4.2, 6.1, 6.4
 
-use heapless::{Vec, String};
-use core::option::Option::{self, Some, None};
-use core::result::Result::{self, Ok, Err};
-use core::default::Default;
-use crate::command::parsing::{CommandReport, TestCommand, ErrorCode};
+use crate::command::parsing::{CommandReport, ErrorCode, TestCommand};
+use crate::logging::LogReport;
 use crate::test_framework::{TestRunner, TestSuiteResult};
 use crate::test_result_serializer::{TestResultCollector, TestResultStatus};
-use crate::logging::LogReport;
+use core::default::Default;
+use core::option::Option::{self, None, Some};
+use core::result::Result::{self, Err, Ok};
+use heapless::{String, Vec};
 
 /// Maximum number of test suites that can be registered
 pub const MAX_TEST_SUITES: usize = 8;
@@ -69,6 +69,7 @@ pub enum TestExecutionStatus {
 }
 
 /// Test execution handler for processing USB HID test commands
+#[derive(Debug)]
 pub struct TestExecutionHandler {
     /// Registered test suites
     test_suites: Vec<(&'static str, fn() -> TestRunner), MAX_TEST_SUITES>,
@@ -105,12 +106,21 @@ impl TestExecutionHandler {
     }
 
     /// Register a test suite with the handler
-    pub fn register_test_suite(&mut self, name: &'static str, suite_factory: fn() -> TestRunner) -> Result<(), &'static str> {
-        self.test_suites.push((name, suite_factory)).map_err(|_| "Test suite registry full")
+    pub fn register_test_suite(
+        &mut self,
+        name: &'static str,
+        suite_factory: fn() -> TestRunner,
+    ) -> Result<(), &'static str> {
+        self.test_suites
+            .push((name, suite_factory))
+            .map_err(|_| "Test suite registry full")
     }
 
     /// Process a test execution command from USB HID
-    pub fn process_test_command(&mut self, command: &CommandReport) -> Result<Vec<LogReport, 8>, ErrorCode> {
+    pub fn process_test_command(
+        &mut self,
+        command: &CommandReport,
+    ) -> Result<Vec<LogReport, 8>, ErrorCode> {
         match command.get_test_command() {
             Some(TestCommand::RunTestSuite) => self.handle_run_test_suite(command),
             Some(TestCommand::GetTestResults) => self.handle_get_test_results(command),
@@ -121,10 +131,13 @@ impl TestExecutionHandler {
     }
 
     /// Handle RunTestSuite command
-    fn handle_run_test_suite(&mut self, command: &CommandReport) -> Result<Vec<LogReport, 8>, ErrorCode> {
+    fn handle_run_test_suite(
+        &mut self,
+        command: &CommandReport,
+    ) -> Result<Vec<LogReport, 8>, ErrorCode> {
         // Parse execution parameters from command payload
         let params = self.parse_execution_params(&command.payload)?;
-        
+
         // Check if already running
         if self.execution_status == TestExecutionStatus::Running {
             return Err(ErrorCode::SystemNotReady);
@@ -158,19 +171,22 @@ impl TestExecutionHandler {
 
         // Create response reports
         let mut responses = Vec::new();
-        
+
         // Add acknowledgment
         let ack_response = CommandReport::success_response(command.command_id, &[0x00])
             .map_err(|_| ErrorCode::SystemNotReady)?;
-        let ack_report = LogReport::try_from(ack_response.serialize())
+        let ack_report =
+            LogReport::try_from(ack_response.serialize()).map_err(|_| ErrorCode::SystemNotReady)?;
+        responses
+            .push(ack_report)
             .map_err(|_| ErrorCode::SystemNotReady)?;
-        responses.push(ack_report).map_err(|_| ErrorCode::SystemNotReady)?;
 
         // Add status update
-        if let Ok(status_report) = self.result_collector.get_serializer_mut().create_status_update(
-            TestResultStatus::Running,
-            "Test suite execution started"
-        ) {
+        if let Ok(status_report) = self
+            .result_collector
+            .get_serializer_mut()
+            .create_status_update(TestResultStatus::Running, "Test suite execution started")
+        {
             let _ = responses.push(status_report);
         }
 
@@ -178,15 +194,20 @@ impl TestExecutionHandler {
     }
 
     /// Handle GetTestResults command
-    fn handle_get_test_results(&mut self, command: &CommandReport) -> Result<Vec<LogReport, 8>, ErrorCode> {
+    fn handle_get_test_results(
+        &mut self,
+        command: &CommandReport,
+    ) -> Result<Vec<LogReport, 8>, ErrorCode> {
         let mut responses = Vec::new();
 
         // Add acknowledgment
         let ack_response = CommandReport::success_response(command.command_id, &[0x00])
             .map_err(|_| ErrorCode::SystemNotReady)?;
-        let ack_report = LogReport::try_from(ack_response.serialize())
+        let ack_report =
+            LogReport::try_from(ack_response.serialize()).map_err(|_| ErrorCode::SystemNotReady)?;
+        responses
+            .push(ack_report)
             .map_err(|_| ErrorCode::SystemNotReady)?;
-        responses.push(ack_report).map_err(|_| ErrorCode::SystemNotReady)?;
 
         // Get next batch of test results
         if let Some(batch_reports) = self.result_collector.get_next_batch() {
@@ -208,7 +229,10 @@ impl TestExecutionHandler {
     }
 
     /// Handle ClearTestResults command
-    fn handle_clear_test_results(&mut self, command: &CommandReport) -> Result<Vec<LogReport, 8>, ErrorCode> {
+    fn handle_clear_test_results(
+        &mut self,
+        command: &CommandReport,
+    ) -> Result<Vec<LogReport, 8>, ErrorCode> {
         // Clear all pending results
         self.result_collector.clear();
         self.execution_status = TestExecutionStatus::Idle;
@@ -218,36 +242,47 @@ impl TestExecutionHandler {
         let mut responses = Vec::new();
         let ack_response = CommandReport::success_response(command.command_id, &[0x00])
             .map_err(|_| ErrorCode::SystemNotReady)?;
-        let ack_report = LogReport::try_from(ack_response.serialize())
+        let ack_report =
+            LogReport::try_from(ack_response.serialize()).map_err(|_| ErrorCode::SystemNotReady)?;
+        responses
+            .push(ack_report)
             .map_err(|_| ErrorCode::SystemNotReady)?;
-        responses.push(ack_report).map_err(|_| ErrorCode::SystemNotReady)?;
 
         Ok(responses)
     }
 
     /// Handle ExecuteTest command (single test execution)
-    fn handle_execute_single_test(&mut self, command: &CommandReport) -> Result<Vec<LogReport, 8>, ErrorCode> {
+    fn handle_execute_single_test(
+        &mut self,
+        command: &CommandReport,
+    ) -> Result<Vec<LogReport, 8>, ErrorCode> {
         let params = self.parse_execution_params(&command.payload)?;
-        
+
         if params.suite_name.is_empty() || params.test_name.is_empty() {
             return Err(ErrorCode::InvalidFormat);
         }
 
         // Execute the specific test
-        let execution_result = self.execute_single_test(&params.suite_name, &params.test_name, &params);
+        let execution_result =
+            self.execute_single_test(&params.suite_name, &params.test_name, &params);
 
         // Create response
         let mut responses = Vec::new();
         let ack_response = CommandReport::success_response(command.command_id, &[0x00])
             .map_err(|_| ErrorCode::SystemNotReady)?;
-        let ack_report = LogReport::try_from(ack_response.serialize())
+        let ack_report =
+            LogReport::try_from(ack_response.serialize()).map_err(|_| ErrorCode::SystemNotReady)?;
+        responses
+            .push(ack_report)
             .map_err(|_| ErrorCode::SystemNotReady)?;
-        responses.push(ack_report).map_err(|_| ErrorCode::SystemNotReady)?;
 
         // Add test result if available
         if execution_result.is_ok() {
             if let Some(batch_reports) = self.result_collector.get_next_batch() {
-                for report in batch_reports.into_iter().take(responses.capacity() - responses.len()) {
+                for report in batch_reports
+                    .into_iter()
+                    .take(responses.capacity() - responses.len())
+                {
                     let _ = responses.push(report);
                 }
             }
@@ -259,7 +294,8 @@ impl TestExecutionHandler {
     /// Execute all registered test suites
     fn execute_all_suites(&mut self, params: &TestExecutionParams) -> Result<(), &'static str> {
         // Clone the test suite registry to avoid borrowing issues
-        let mut suites_to_run: Vec<(&'static str, fn() -> TestRunner), MAX_TEST_SUITES> = Vec::new();
+        let mut suites_to_run: Vec<(&'static str, fn() -> TestRunner), MAX_TEST_SUITES> =
+            Vec::new();
         for (suite_name, suite_factory) in &self.test_suites {
             if suites_to_run.push((*suite_name, *suite_factory)).is_err() {
                 break; // Registry is full
@@ -268,14 +304,19 @@ impl TestExecutionHandler {
 
         for (suite_name, suite_factory) in suites_to_run {
             let suite_result = self.execute_suite_internal(suite_name, &suite_factory, params)?;
-            self.result_collector.add_suite_result(suite_result)
+            self.result_collector
+                .add_suite_result(suite_result)
                 .map_err(|_| "Failed to collect suite result")?;
         }
         Ok(())
     }
 
     /// Execute a specific test suite by name
-    fn execute_specific_suite(&mut self, suite_name: &str, params: &TestExecutionParams) -> Result<(), &'static str> {
+    fn execute_specific_suite(
+        &mut self,
+        suite_name: &str,
+        params: &TestExecutionParams,
+    ) -> Result<(), &'static str> {
         // Find the suite factory first
         let mut target_factory: Option<fn() -> TestRunner> = None;
         for (name, suite_factory) in &self.test_suites {
@@ -287,7 +328,8 @@ impl TestExecutionHandler {
 
         if let Some(suite_factory) = target_factory {
             let suite_result = self.execute_suite_internal(suite_name, &suite_factory, params)?;
-            self.result_collector.add_suite_result(suite_result)
+            self.result_collector
+                .add_suite_result(suite_result)
                 .map_err(|_| "Failed to collect suite result")?;
             Ok(())
         } else {
@@ -296,7 +338,12 @@ impl TestExecutionHandler {
     }
 
     /// Execute a single test within a suite
-    fn execute_single_test(&mut self, suite_name: &str, test_name: &str, _params: &TestExecutionParams) -> Result<(), &'static str> {
+    fn execute_single_test(
+        &mut self,
+        suite_name: &str,
+        test_name: &str,
+        _params: &TestExecutionParams,
+    ) -> Result<(), &'static str> {
         // Find the suite factory first
         let mut target_factory: Option<fn() -> TestRunner> = None;
         for (name, suite_factory) in &self.test_suites {
@@ -309,7 +356,8 @@ impl TestExecutionHandler {
         if let Some(suite_factory) = target_factory {
             let runner = suite_factory();
             if let Some(test_result) = runner.run_test(test_name) {
-                self.result_collector.add_test_result(test_result)
+                self.result_collector
+                    .add_test_result(test_result)
                     .map_err(|_| "Failed to collect test result")?;
                 Ok(())
             } else {
@@ -321,13 +369,19 @@ impl TestExecutionHandler {
     }
 
     /// Internal suite execution with error handling
-    fn execute_suite_internal(&mut self, _suite_name: &str, suite_factory: &fn() -> TestRunner, _params: &TestExecutionParams) -> Result<TestSuiteResult, &'static str> {
+    fn execute_suite_internal(
+        &mut self,
+        _suite_name: &str,
+        suite_factory: &fn() -> TestRunner,
+        _params: &TestExecutionParams,
+    ) -> Result<TestSuiteResult, &'static str> {
         let runner = suite_factory();
         let suite_result = runner.run_all();
-        
+
         // Add individual test results to collector
         for test_result in &suite_result.test_results {
-            self.result_collector.add_test_result(test_result.clone())
+            self.result_collector
+                .add_test_result(test_result.clone())
                 .map_err(|_| "Failed to collect individual test result")?;
         }
 
@@ -380,7 +434,8 @@ impl TestExecutionHandler {
         if payload.len() > test_name_start {
             let test_name_len = payload[test_name_start] as usize;
             if test_name_len > 0 && payload.len() > test_name_start + 1 + test_name_len {
-                let test_name_bytes = &payload[test_name_start + 1..test_name_start + 1 + test_name_len];
+                let test_name_bytes =
+                    &payload[test_name_start + 1..test_name_start + 1 + test_name_len];
                 if let Ok(name_str) = core::str::from_utf8(test_name_bytes) {
                     let _ = test_name.push_str(name_str);
                 }
@@ -416,7 +471,6 @@ impl TestExecutionHandler {
             collector_stats: self.result_collector.get_stats(),
         }
     }
-
 }
 
 /// Test execution statistics
@@ -433,7 +487,7 @@ pub struct TestExecutionStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_framework::{TestResult, TestCase};
+    use crate::test_framework::{TestCase, TestResult};
 
     fn create_sample_test_suite() -> TestRunner {
         let mut runner = TestRunner::new("sample_suite");
@@ -445,19 +499,21 @@ mod tests {
     #[test]
     fn test_register_test_suite() {
         let mut handler = TestExecutionHandler::new();
-        assert!(handler.register_test_suite("sample", create_sample_test_suite).is_ok());
+        assert!(handler
+            .register_test_suite("sample", create_sample_test_suite)
+            .is_ok());
         assert_eq!(handler.test_suites.len(), 1);
     }
 
     #[test]
     fn test_parse_execution_params() {
         let handler = TestExecutionHandler::new();
-        
+
         // Test empty payload (default params)
         let params = handler.parse_execution_params(&[]).unwrap();
         assert_eq!(params.timeout_ms, 30000);
         assert!(params.suite_name.is_empty());
-        
+
         // Test with timeout and flags
         let payload = [
             0x10, 0x27, 0x00, 0x00, // timeout: 10000ms
@@ -466,7 +522,7 @@ mod tests {
             b't', b'e', b's', b't', // suite name: "test"
             0x00, // test name length: 0
         ];
-        
+
         let params = handler.parse_execution_params(&payload).unwrap();
         assert_eq!(params.timeout_ms, 10000);
         assert!(params.flags.parallel);

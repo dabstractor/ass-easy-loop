@@ -13,44 +13,54 @@ name = "ass_easy_loop"
 path = "src/lib.rs"
 
 [dependencies]
-cortex-m = { version = "0.7.7", features = ["critical-section-single-core"] }
-cortex-m-rt = "0.7.3"
-embedded-hal = "1.0.0"
-fugit = "0.3.7"
-nb = "1.1.0"
-panic-halt = "1.0.0"
-rp2040-boot2 = "0.3.0"
-rp2040-hal = { version = "0.11.0", features = ["rt", "rtic-monotonic"] }
-rp2040-pac = "0.6.0"
-rtic = { version = "2.2.0", features = ["thumbv6-backend"] }
-rtic-monotonics = { version = "2.1.0", features = ["rp2040"] }
-rtic-time = "2.0.0"
-
-# USB HID logging dependencies
-usbd-hid = "0.8.2"
-usb-device = "0.3.2"
+# Always available dependencies
 heapless = "0.8.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 
-# Command processing dependencies
-# bitvec = "1.0.1"  // Removed due to std dependency issues on embedded targets
+# Embedded dependencies (feature-gated)
+cortex-m = { version = "0.7.7", features = ["critical-section-single-core"], optional = true }
+cortex-m-rt = { version = "0.7.3", optional = true }
+embedded-hal = { version = "1.0.0", optional = true }
+fugit = { version = "0.3.7", optional = true }
+nb = { version = "1.1.0", optional = true }
+panic-halt = { version = "1.0.0", optional = true }
+rp2040-boot2 = { version = "0.3.0", optional = true }
+rp2040-hal = { version = "0.11.0", features = ["rt", "rtic-monotonic"], optional = true }
+rp2040-pac = { version = "0.6.0", optional = true }
+rtic = { version = "2.2.0", features = ["thumbv6-backend"], optional = true }
+rtic-monotonics = { version = "2.1.0", features = ["rp2040"], optional = true }
+rtic-time = { version = "2.0.0", optional = true }
+
+# USB HID logging dependencies (embedded only)
+usbd-hid = { version = "0.8.2", optional = true }
+usb-device = { version = "0.3.2", optional = true }
 
 # Conditional dependencies for different targets
 [target.'cfg(not(target_arch = "arm"))'.dependencies]
-portable-atomic = "1.11"
+portable-atomic = { version = "1.11", optional = true }
 
 [target.'cfg(target_arch = "arm")'.dependencies]
-portable-atomic = { version = "1.11", features = ["unsafe-assume-single-core"] }
+portable-atomic = { version = "1.11", features = ["unsafe-assume-single-core"], optional = true }
 
 [features]
-default = ["battery-logs", "pemf-logs", "system-logs", "usb-logs", "test-commands"]
-std = []
-embedded = []
+default = ["std-testing"]
+std-testing = [            # Enable std for host-side tests and include embedded deps for compilation
+    "dep:cortex-m", "dep:embedded-hal", "dep:rp2040-hal", 
+    "dep:usbd-hid", "dep:usb-device", "dep:portable-atomic"
+]
+embedded = [               # Enable embedded binary compilation
+    "dep:cortex-m", "dep:cortex-m-rt", "dep:embedded-hal", "dep:fugit", 
+    "dep:nb", "dep:panic-halt", "dep:rp2040-boot2", "dep:rp2040-hal", 
+    "dep:rp2040-pac", "dep:rtic", "dep:rtic-monotonics", "dep:rtic-time",
+    "dep:usbd-hid", "dep:usb-device", "dep:portable-atomic"
+]
+hardware-tests = ["embedded"]        # Enable hardware-dependent tests
+mock-hardware = ["std-testing"]      # Enable mock implementations
 
 # Build configuration feature flags
-production = ["battery-logs", "system-logs", "performance-optimized"]
-development = ["battery-logs", "pemf-logs", "system-logs", "usb-logs", "test-commands", "debug-features"]
-testing = ["battery-logs", "pemf-logs", "system-logs", "usb-logs", "test-commands", "debug-features", "test-validation"]
+production = ["embedded", "battery-logs", "system-logs", "performance-optimized", "exclude-test-infrastructure"]
+development = ["embedded", "battery-logs", "pemf-logs", "system-logs", "usb-logs", "test-commands", "debug-features"]
+testing = ["std-testing", "battery-logs", "pemf-logs", "system-logs", "usb-logs", "test-commands", "debug-features", "test-validation"]
 
 # Command processing feature flags
 command-processor = []
@@ -61,6 +71,7 @@ system-state-queries = []
 performance-optimized = []
 debug-features = []
 test-validation = []
+exclude-test-infrastructure = []
 
 # Logging category feature flags for conditional compilation
 battery-logs = []
@@ -73,46 +84,29 @@ debug-logging = ["battery-logs", "pemf-logs", "system-logs", "usb-logs"]
 minimal-logging = []
 
 [dev-dependencies]
+# Test-only dependencies for host-side testing
+tokio = { version = "1.0", features = ["full"] }
+mockall = "0.12"
+proptest = "1.0"
+
+# Embedded testing dependencies
 defmt = "0.3.8"
 defmt-rtt = "0.4.1"
 panic-probe = { version = "0.3.2", features = ["print-defmt"] }
 
-# Test configuration to avoid panic handler conflicts
+# Test configurations with proper feature separation
 [[test]]
-name = "logging_tests"
-path = "tests/logging_tests.rs"
+name = "unit_tests"
+path = "tests/unit/mod.rs"
+required-features = ["std-testing"]
 
 [[test]]
-name = "hardware_validation_tests"
-path = "tests/hardware_validation_tests.rs"
+name = "integration_tests"
+path = "tests/integration/mod.rs"
+required-features = ["std-testing", "mock-hardware"]
 
 [[test]]
-name = "pemf_timing_validation_test"
-path = "tests/pemf_timing_validation_test.rs"
-
-[[test]]
-name = "battery_adc_integration_test"
-path = "tests/battery_adc_integration_test.rs"
-
-[[test]]
-name = "core_functionality_unit_tests"
-path = "tests/core_functionality_unit_tests.rs"
-
-[[test]]
-name = "system_state_unit_tests"
-path = "tests/system_state_unit_tests.rs"
-
-[[test]]
-name = "system_state_tests"
-path = "tests/system_state_tests.rs"
-harness = false
-
-[[test]]
-name = "usb_communication_test_integration"
-path = "tests/usb_communication_test_integration.rs"
-harness = false
-
-[[test]]
-name = "usb_communication_validation_test"
-path = "tests/usb_communication_validation_test.rs"
+name = "embedded_tests"
+path = "tests/embedded/mod.rs"
+required-features = ["hardware-tests"]
 harness = false

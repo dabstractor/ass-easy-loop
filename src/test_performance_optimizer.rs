@@ -1,19 +1,22 @@
 //! Test Performance Optimizer Module
-//! 
+//!
 //! This module provides performance optimization capabilities for the no_std test framework
 //! to ensure minimal impact on device operation and pEMF timing accuracy.
-//! 
+//!
 //! Requirements: 5.5, 6.1
 
-#![cfg(all(feature = "test-commands", not(feature = "exclude-test-infrastructure")))]
+#![cfg(all(
+    feature = "test-commands",
+    not(feature = "exclude-test-infrastructure")
+))]
 
-use heapless::{Vec, String};
-use core::option::Option::{self, Some, None};
-use core::result::Result::{self, Ok, Err};
+use crate::test_framework::{TestExecutionResult, TestSuiteResult};
 use core::default::Default;
-use core::{assert, assert_eq};
 use core::iter::Iterator;
-use crate::test_framework::{TestSuiteResult, TestExecutionResult};
+use core::option::Option::{self, None, Some};
+use core::result::Result::{self, Err, Ok};
+use core::{assert, assert_eq};
+use heapless::{String, Vec};
 // Define performance profiler types locally
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TaskExecutionTimes {
@@ -72,7 +75,7 @@ impl TestExecutionProfile {
     pub fn new(test_id: &str) -> Self {
         let mut id = String::new();
         let _ = id.push_str(test_id);
-        
+
         Self {
             test_id: id,
             avg_execution_time_us: 0,
@@ -85,7 +88,12 @@ impl TestExecutionProfile {
     }
 
     /// Update profile with new execution data
-    pub fn update_with_execution(&mut self, execution_time_us: u32, memory_usage: u32, cpu_usage: u8) {
+    pub fn update_with_execution(
+        &mut self,
+        execution_time_us: u32,
+        memory_usage: u32,
+        cpu_usage: u8,
+    ) {
         // Update timing statistics
         if execution_time_us > self.max_execution_time_us {
             self.max_execution_time_us = execution_time_us;
@@ -111,13 +119,14 @@ impl TestExecutionProfile {
         const MAX_MEMORY_USAGE_BYTES: u32 = 2048; // 2KB limit
         const MAX_CPU_UTILIZATION: u8 = 25; // 25% CPU limit
 
-        self.max_execution_time_us <= MAX_EXECUTION_TIME_US &&
-        self.memory_usage_bytes <= MAX_MEMORY_USAGE_BYTES &&
-        self.cpu_utilization_percent <= MAX_CPU_UTILIZATION
+        self.max_execution_time_us <= MAX_EXECUTION_TIME_US
+            && self.memory_usage_bytes <= MAX_MEMORY_USAGE_BYTES
+            && self.cpu_utilization_percent <= MAX_CPU_UTILIZATION
     }
 }
 
 /// Test performance optimizer for minimizing impact on device operation
+#[derive(Debug)]
 pub struct TestPerformanceOptimizer {
     /// Test execution profiles
     test_profiles: Vec<TestExecutionProfile, MAX_TEST_PROFILES>,
@@ -165,8 +174,8 @@ impl Default for OptimizationSettings {
     fn default() -> Self {
         Self {
             enable_dynamic_scheduling: true,
-            max_cpu_utilization_percent: 20, // 20% CPU limit
-            max_memory_usage_bytes: 4096, // 4KB memory limit
+            max_cpu_utilization_percent: 20,    // 20% CPU limit
+            max_memory_usage_bytes: 4096,       // 4KB memory limit
             pemf_timing_tolerance_percent: 1.0, // ±1% tolerance
             enable_result_caching: true,
             test_execution_priority: 64, // Medium priority
@@ -218,9 +227,12 @@ impl TestPerformanceOptimizer {
 
     /// Optimize test suite execution for minimal device impact
     /// Requirements: 5.5 (profile test execution to ensure minimal impact on device operation)
-    pub fn optimize_test_suite_execution(&mut self, suite_result: &mut TestSuiteResult) -> OptimizationResult {
+    pub fn optimize_test_suite_execution(
+        &mut self,
+        suite_result: &mut TestSuiteResult,
+    ) -> OptimizationResult {
         let mut optimization_result = OptimizationResult::new();
-        
+
         // Analyze current performance impact
         let current_impact = self.analyze_performance_impact(suite_result);
         optimization_result.initial_impact_score = current_impact;
@@ -242,7 +254,7 @@ impl TestPerformanceOptimizer {
         // Calculate final impact score
         let final_impact = self.analyze_performance_impact(suite_result);
         optimization_result.final_impact_score = final_impact;
-        optimization_result.improvement_percent = 
+        optimization_result.improvement_percent =
             ((current_impact as f32 - final_impact as f32) / current_impact as f32) * 100.0;
 
         // Update performance statistics
@@ -258,11 +270,14 @@ impl TestPerformanceOptimizer {
 
         // Calculate impact based on execution time
         if let Some(exec_time_ms) = suite_result.stats.execution_time_ms {
-            if exec_time_ms > 100 { // More than 100ms
+            if exec_time_ms > 100 {
+                // More than 100ms
                 impact_score += 30;
-            } else if exec_time_ms > 50 { // More than 50ms
+            } else if exec_time_ms > 50 {
+                // More than 50ms
                 impact_score += 15;
-            } else if exec_time_ms > 20 { // More than 20ms
+            } else if exec_time_ms > 20 {
+                // More than 20ms
                 impact_score += 5;
             }
         }
@@ -288,7 +303,11 @@ impl TestPerformanceOptimizer {
 
     /// Apply timing accuracy optimization to maintain ±1% pEMF tolerance
     /// Requirements: 5.5 (ensure tests don't interfere with pEMF timing requirements)
-    fn apply_timing_accuracy_optimization(&mut self, suite_result: &mut TestSuiteResult, result: &mut OptimizationResult) {
+    fn apply_timing_accuracy_optimization(
+        &mut self,
+        suite_result: &mut TestSuiteResult,
+        result: &mut OptimizationResult,
+    ) {
         let mut timing_optimized_count = 0u16;
 
         // Optimize tests that might interfere with pEMF timing
@@ -303,13 +322,20 @@ impl TestPerformanceOptimizer {
 
         if timing_optimized_count > 0 {
             result.tests_optimized += timing_optimized_count;
-            result.optimizations_applied.push("Timing accuracy optimization").ok();
+            result
+                .optimizations_applied
+                .push("Timing accuracy optimization")
+                .ok();
         }
     }
 
     /// Apply pEMF timing preservation optimizations
     /// Requirements: 5.5 (maintain ±1% pEMF timing tolerance)
-    fn apply_pemf_timing_preservation(&mut self, suite_result: &mut TestSuiteResult, result: &mut OptimizationResult) {
+    fn apply_pemf_timing_preservation(
+        &mut self,
+        suite_result: &mut TestSuiteResult,
+        result: &mut OptimizationResult,
+    ) {
         // Ensure test execution doesn't interfere with 2Hz pEMF timing
         let pemf_period_us = 500_000u32; // 500ms period for 2Hz
         let tolerance_us = pemf_period_us / 100; // 1% tolerance = 5ms
@@ -326,20 +352,28 @@ impl TestPerformanceOptimizer {
         }
 
         if preserved_count > 0 {
-            result.optimizations_applied.push("pEMF timing preservation").ok();
+            result
+                .optimizations_applied
+                .push("pEMF timing preservation")
+                .ok();
         }
     }
 
     /// Apply dynamic scheduling optimization
     /// Requirements: 5.5 (implement test batching and scheduling to minimize resource usage)
-    fn apply_dynamic_scheduling_optimization(&mut self, suite_result: &mut TestSuiteResult, result: &mut OptimizationResult) {
+    fn apply_dynamic_scheduling_optimization(
+        &mut self,
+        suite_result: &mut TestSuiteResult,
+        result: &mut OptimizationResult,
+    ) {
         // Sort test results by execution time (if available)
         let mut optimized_count = 0u16;
 
         // Identify tests that can be optimized
         for test_result in &suite_result.test_results {
             if let Some(exec_time_us) = test_result.execution_time_us {
-                if exec_time_us > 5000 { // Tests taking more than 5ms
+                if exec_time_us > 5000 {
+                    // Tests taking more than 5ms
                     optimized_count += 1;
                 }
             }
@@ -359,8 +393,11 @@ impl TestPerformanceOptimizer {
     /// Update or create test profile for a specific test
     fn update_or_create_test_profile(&mut self, test_result: &TestExecutionResult) {
         // Find existing profile or create new one
-        let profile_index = self.test_profiles.iter().position(|p| p.test_id == test_result.test_name);
-        
+        let profile_index = self
+            .test_profiles
+            .iter()
+            .position(|p| p.test_id == test_result.test_name);
+
         if let Some(index) = profile_index {
             // Update existing profile
             if let Some(exec_time_us) = test_result.execution_time_us {
@@ -385,26 +422,32 @@ impl TestPerformanceOptimizer {
     /// Update performance statistics
     fn update_performance_stats(&mut self, optimization_result: &OptimizationResult) {
         self.performance_stats.tests_optimized += optimization_result.tests_optimized as u32;
-        
+
         if optimization_result.improvement_percent > 0.0 {
             // Update average improvement
-            let total_improvement = self.performance_stats.avg_execution_time_reduction_percent * 
-                (self.performance_stats.tests_optimized - optimization_result.tests_optimized as u32) as f32;
+            let total_improvement = self.performance_stats.avg_execution_time_reduction_percent
+                * (self.performance_stats.tests_optimized
+                    - optimization_result.tests_optimized as u32) as f32;
             let new_total = total_improvement + optimization_result.improvement_percent;
-            self.performance_stats.avg_execution_time_reduction_percent = 
+            self.performance_stats.avg_execution_time_reduction_percent =
                 new_total / self.performance_stats.tests_optimized as f32;
         }
     }
 
     /// Add performance sample for system monitoring
     /// Requirements: 5.5 (monitor system performance during test execution)
-    pub fn add_performance_sample(&mut self, sample: PerformanceSample) -> Result<(), &'static str> {
+    pub fn add_performance_sample(
+        &mut self,
+        sample: PerformanceSample,
+    ) -> Result<(), &'static str> {
         if self.performance_samples.len() >= MAX_PERFORMANCE_SAMPLES {
             // Remove oldest sample
             self.performance_samples.remove(0);
         }
-        
-        self.performance_samples.push(sample).map_err(|_| "Performance samples full")
+
+        self.performance_samples
+            .push(sample)
+            .map_err(|_| "Performance samples full")
     }
 
     /// Check if system is ready for test execution
@@ -413,12 +456,15 @@ impl TestPerformanceOptimizer {
         // Check recent performance samples
         if let Some(latest_sample) = self.performance_samples.last() {
             // Check CPU utilization
-            if latest_sample.cpu_utilization_percent > self.optimization_settings.max_cpu_utilization_percent {
+            if latest_sample.cpu_utilization_percent
+                > self.optimization_settings.max_cpu_utilization_percent
+            {
                 return false;
             }
 
             // Check memory usage
-            if latest_sample.memory_usage_bytes > self.optimization_settings.max_memory_usage_bytes {
+            if latest_sample.memory_usage_bytes > self.optimization_settings.max_memory_usage_bytes
+            {
                 return false;
             }
 
@@ -453,11 +499,11 @@ impl TestPerformanceOptimizer {
             if latest_sample.cpu_utilization_percent > 50 {
                 let _ = recommendations.push("Reduce CPU utilization during tests");
             }
-            
+
             if latest_sample.memory_usage_bytes > 2048 {
                 let _ = recommendations.push("Optimize memory usage in tests");
             }
-            
+
             if latest_sample.pemf_timing_accuracy_percent < 99.0 {
                 let _ = recommendations.push("Improve pEMF timing accuracy");
             }
@@ -520,35 +566,40 @@ impl OptimizationResult {
 mod tests {
     use super::*;
     use crate::test_framework::{TestResult, TestSuiteStats};
+    use crate::{assert_eq_no_std, assert_no_std};
 
     // Test converted to no_std - run via test framework
-    fn test_performance_profile_creation() {
+    fn test_performance_profile_creation() -> TestResult {
         let profile = TestExecutionProfile::new("test_sample");
         assert_eq_no_std!(profile.test_id.as_str(), "test_sample");
         assert_eq_no_std!(profile.sample_count, 0);
+        TestResult::pass()
     }
 
     // Test converted to no_std - run via test framework
-    fn test_performance_profile_update() {
+    fn test_performance_profile_update() -> TestResult {
         let mut profile = TestExecutionProfile::new("test_sample");
         profile.update_with_execution(1000, 512, 10);
-        
+
         assert_eq_no_std!(profile.avg_execution_time_us, 1000);
         assert_eq_no_std!(profile.max_execution_time_us, 1000);
         assert_eq_no_std!(profile.sample_count, 1);
+        TestResult::pass()
     }
 
     // Test converted to no_std - run via test framework
-    fn test_optimizer_creation() {
+    fn test_optimizer_creation() -> TestResult {
         let optimizer = TestPerformanceOptimizer::new();
         assert_eq_no_std!(optimizer.test_profiles.len(), 0);
         assert_eq_no_std!(optimizer.performance_samples.len(), 0);
+        TestResult::pass()
     }
 
     // Test converted to no_std - run via test framework
-    fn test_system_readiness_check() {
+    fn test_system_readiness_check() -> TestResult {
         let optimizer = TestPerformanceOptimizer::new();
         // Should be ready when no samples are available
         assert_no_std!(optimizer.is_system_ready_for_tests());
+        TestResult::pass()
     }
 }

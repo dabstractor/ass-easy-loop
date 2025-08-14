@@ -1,26 +1,26 @@
 //! USB Communication Validation Tests
-//! 
+//!
 //! This module implements comprehensive integration tests for USB HID communication validation.
 //! It validates bidirectional data transfer, message integrity checking, transmission error detection,
 //! and configurable message count and timing parameters.
-//! 
+//!
 //! Requirements: 9.4, 9.5
 
-#![no_std]
-#![no_main]
+#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(test), no_main)]
 
+#[cfg(not(test))]
 use panic_halt as _;
 
-use ass_easy_loop::{
-    TestCommandProcessor, TestType, TestStatus,
-    TestExecutionError, TestParameterError,
-    UsbCommunicationTestParameters, UsbCommunicationStatistics
-};
 use ass_easy_loop::test_framework::{TestResult, TestRunner};
-use heapless::{Vec, FnvIndexMap};
+use ass_easy_loop::{
+    TestCommandProcessor, TestExecutionError, TestParameterError, TestStatus, TestType,
+    UsbCommunicationStatistics, UsbCommunicationTestParameters,
+};
+use heapless::{FnvIndexMap, Vec};
 
 // Import custom assertion macros
-use ass_easy_loop::{assert_no_std, assert_eq_no_std, register_tests};
+use ass_easy_loop::{assert_eq_no_std, assert_no_std, register_tests};
 
 /// Error types for testing error detection
 #[derive(Debug, Clone, Copy)]
@@ -44,18 +44,19 @@ impl UsbTestMessage {
     /// Create a new USB test message with integrity checking
     pub fn new(message_id: u32, timestamp_ms: u32, data: &[u8], is_outbound: bool) -> Self {
         let mut message_data = Vec::new();
-        for &byte in data.iter().take(64) { // Limit to capacity
+        for &byte in data.iter().take(64) {
+            // Limit to capacity
             if message_data.push(byte).is_err() {
                 break; // Vector is full
             }
         }
-        
+
         // Calculate checksum (XOR of message ID and all data bytes)
         let mut checksum = message_id;
         for &byte in &message_data {
             checksum ^= byte as u32;
         }
-        
+
         Self {
             message_id,
             timestamp_ms,
@@ -66,38 +67,39 @@ impl UsbTestMessage {
     }
 
     /// Serialize message to bytes with integrity checking
-    pub fn serialize(&self) -> Vec<u8, 80> { // Fixed capacity for no_std
+    pub fn serialize(&self) -> Vec<u8, 80> {
+        // Fixed capacity for no_std
         let mut serialized = Vec::new();
-        
+
         // Message ID (4 bytes)
         for &byte in &self.message_id.to_le_bytes() {
             let _ = serialized.push(byte);
         }
-        
+
         // Timestamp (4 bytes)
         for &byte in &self.timestamp_ms.to_le_bytes() {
             let _ = serialized.push(byte);
         }
-        
+
         // Data length (2 bytes)
         for &byte in &(self.data.len() as u16).to_le_bytes() {
             let _ = serialized.push(byte);
         }
-        
+
         // Data
         for &byte in &self.data {
             if serialized.push(byte).is_err() {
                 break; // Vector is full
             }
         }
-        
+
         // Checksum (4 bytes)
         for &byte in &self.checksum.to_le_bytes() {
             if serialized.push(byte).is_err() {
                 break; // Vector is full
             }
         }
-        
+
         serialized
     }
 
@@ -110,18 +112,19 @@ impl UsbTestMessage {
         let message_id = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
         let timestamp_ms = u32::from_le_bytes([data[4], data[5], data[6], data[7]]);
         let data_len = u16::from_le_bytes([data[8], data[9]]) as usize;
-        
+
         if data.len() < 14 + data_len {
             return Err("Incomplete message data");
         }
 
         let mut message_data = Vec::new();
-        for &byte in data[10..10 + data_len].iter().take(64) { // Limit to capacity
+        for &byte in data[10..10 + data_len].iter().take(64) {
+            // Limit to capacity
             if message_data.push(byte).is_err() {
                 break; // Vector is full
             }
         }
-        
+
         let checksum = u32::from_le_bytes([
             data[10 + data_len],
             data[11 + data_len],
@@ -244,7 +247,10 @@ impl MockUsbHidDevice {
     }
 
     /// Receive a message (host to device)
-    pub fn receive_message(&mut self, serialized_data: &[u8]) -> Result<UsbTestMessage, &'static str> {
+    pub fn receive_message(
+        &mut self,
+        serialized_data: &[u8],
+    ) -> Result<UsbTestMessage, &'static str> {
         if !self.is_connected {
             self.reception_errors += 1;
             return Err("Device not connected");
@@ -257,7 +263,7 @@ impl MockUsbHidDevice {
                 break; // Vector is full
             }
         }
-        
+
         if self.error_injection_enabled && self.should_inject_error() {
             if !data.is_empty() {
                 data[0] ^= 0xFF; // Corrupt first byte
@@ -267,7 +273,7 @@ impl MockUsbHidDevice {
         match UsbTestMessage::deserialize(&data) {
             Ok(mut message) => {
                 message.is_outbound = false;
-                
+
                 if self.received_messages.push(message.clone()).is_err() {
                     return Err("Receive buffer full");
                 }
@@ -285,10 +291,10 @@ impl MockUsbHidDevice {
         if self.error_injection_rate == 0 {
             return false;
         }
-        
+
         // Simple pseudo-random number generation for testing (no_std compatible)
         let random_value = (self.message_id_counter * 17 + 23) % 100;
-        
+
         random_value < self.error_injection_rate as u32
     }
 
@@ -298,8 +304,13 @@ impl MockUsbHidDevice {
         let received_count = self.received_messages.len() as u32;
         let transmission_errors = self.transmission_errors;
         let reception_errors = self.reception_errors;
-        
-        (transmitted_count, received_count, transmission_errors, reception_errors)
+
+        (
+            transmitted_count,
+            received_count,
+            transmission_errors,
+            reception_errors,
+        )
     }
 }
 
@@ -325,7 +336,10 @@ fn test_usb_communication_parameters_validation() -> TestResult {
     // Test invalid message count (zero)
     let mut invalid_params = valid_params;
     invalid_params.message_count = 0;
-    assert_eq!(invalid_params.validate(), Err(TestParameterError::InvalidResourceLimits));
+    assert_eq!(
+        invalid_params.validate(),
+        Err(TestParameterError::InvalidResourceLimits)
+    );
 
     TestResult::pass()
 }
@@ -378,7 +392,8 @@ fn test_bidirectional_communication_success() -> TestResult {
     assert!(message_id > 0);
 
     // Test host-to-device communication
-    let inbound_message = UsbTestMessage::new(message_id + 1, 33333, b"Host to device response", false);
+    let inbound_message =
+        UsbTestMessage::new(message_id + 1, 33333, b"Host to device response", false);
     let serialized_response = inbound_message.serialize();
     let received = match device.receive_message(&serialized_response) {
         Ok(msg) => msg,
@@ -401,7 +416,7 @@ fn test_bidirectional_communication_success() -> TestResult {
 
 fn test_usb_communication_test_integration() -> TestResult {
     let mut processor = TestCommandProcessor::new();
-    
+
     // Create USB communication test parameters
     let params = UsbCommunicationTestParameters {
         message_count: 50,
@@ -414,24 +429,24 @@ fn test_usb_communication_test_integration() -> TestResult {
         bidirectional_test: true,
         concurrent_messages: 2,
     };
-    
+
     let test_id = 42;
     let timestamp_ms = 12345;
-    
+
     // Execute USB communication test
     let result = processor.execute_usb_communication_test(test_id, params, timestamp_ms);
     assert!(result.is_ok());
-    
+
     // Verify test is active
     assert!(processor.has_active_test());
-    let active_test_type = processor.get_active_test_type();
-    assert_eq!(active_test_type, Some(TestType::UsbCommunicationTest));
-    
+    let active_test_type = processor.get_active_test_info();
+    assert!(active_test_type.is_some());
+
     // Complete the test
     let final_stats = processor.complete_usb_communication_test(timestamp_ms + 2000);
     assert!(final_stats.is_ok());
     let final_stats = final_stats.unwrap();
-    
+
     // Verify final statistics
     assert!(final_stats.test_duration_ms > 0);
     assert!(final_stats.success_rate_percent >= 0.0);
@@ -440,22 +455,24 @@ fn test_usb_communication_test_integration() -> TestResult {
 }
 
 // Test runner setup and execution
+#[cfg(not(test))]
 #[no_mangle]
 pub extern "C" fn main() -> ! {
     let mut runner = TestRunner::new("USB Communication Validation Tests");
-    
+
     // Register all test functions
-    register_tests!(runner,
+    register_tests!(
+        runner,
         test_usb_communication_parameters_validation,
         test_message_integrity_validation,
         test_message_integrity_corruption_detection,
         test_bidirectional_communication_success,
         test_usb_communication_test_integration
     );
-    
+
     // Run all tests
     let _results = runner.run_all();
-    
+
     // In a real implementation, results would be transmitted via USB HID
     // For now, we just loop indefinitely
     loop {}

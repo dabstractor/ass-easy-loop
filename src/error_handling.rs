@@ -1,11 +1,11 @@
 //! Error handling utilities for the pEMF/Battery Monitor system
 //! Requirements: 7.1, 7.5 - Graceful error handling and error logging for debugging
 
-use crate::logging::{LogLevel, log_message};
-use heapless::String;
+use crate::logging::{log_message, LogLevel};
 use core::fmt::Write;
-use core::result::Result::{self, Ok, Err};
 use core::ops::FnMut;
+use core::result::Result::{self, Err, Ok};
+use heapless::String;
 
 /// System error types for graceful error handling
 /// Requirements: 7.1 (graceful error handling for non-critical operations)
@@ -58,13 +58,13 @@ impl SystemError {
     /// Requirements: 7.1 (panic-halt for unrecoverable errors)
     pub fn is_critical(&self) -> bool {
         match self {
-            SystemError::AdcReadFailed => false,        // Continue with last known value
+            SystemError::AdcReadFailed => false, // Continue with last known value
             SystemError::GpioOperationFailed => false, // Log and continue
-            SystemError::HardwareError => false,       // Log and continue
-            SystemError::TaskError => false,           // Log and continue
-            SystemError::SystemBusy => false,          // Log and continue
+            SystemError::HardwareError => false, // Log and continue
+            SystemError::TaskError => false,     // Log and continue
+            SystemError::SystemBusy => false,    // Log and continue
             SystemError::OperationInterrupted => false, // Log and continue
-            SystemError::InvalidParameter => false,    // Log and continue
+            SystemError::InvalidParameter => false, // Log and continue
         }
     }
 }
@@ -74,6 +74,7 @@ pub type SystemResult<T> = Result<T, SystemError>;
 
 /// Error recovery strategies for different error types
 /// Requirements: 7.1 (graceful error handling for non-critical operations)
+#[derive(Debug)]
 pub struct ErrorRecovery;
 
 impl ErrorRecovery {
@@ -82,12 +83,14 @@ impl ErrorRecovery {
     pub fn handle_error(error: SystemError, context: &str) -> SystemResult<()> {
         // Log the error with context information
         let mut error_msg: String<64> = String::new();
-        let _ = write!(&mut error_msg, "{}: {} in {}", error.severity().as_str(), error.description(), context);
-        log_message(
-            error.severity(),
-            "ERROR_HANDLER",
-            error_msg.as_str()
+        let _ = write!(
+            &mut error_msg,
+            "{}: {} in {}",
+            error.severity().as_str(),
+            error.description(),
+            context
         );
+        log_message(error.severity(), "ERROR_HANDLER", error_msg.as_str());
 
         // Check if this is a critical error that requires panic
         if error.is_critical() {
@@ -98,45 +101,73 @@ impl ErrorRecovery {
         // For non-critical errors, implement recovery strategies
         match error {
             SystemError::AdcReadFailed => {
-                log_message(LogLevel::Info, "ERROR_HANDLER", "ADC error recovery: using last known good value");
+                log_message(
+                    LogLevel::Info,
+                    "ERROR_HANDLER",
+                    "ADC error recovery: using last known good value",
+                );
                 // Recovery: Continue with last known good ADC value
                 // The calling code should handle this by using cached values
                 Ok(())
             }
-            
+
             SystemError::GpioOperationFailed => {
-                log_message(LogLevel::Info, "ERROR_HANDLER", "GPIO error recovery: operation will be retried");
+                log_message(
+                    LogLevel::Info,
+                    "ERROR_HANDLER",
+                    "GPIO error recovery: operation will be retried",
+                );
                 // Recovery: GPIO operations will be retried on next cycle
                 // This is handled by the calling task's loop structure
                 Ok(())
             }
-            
+
             SystemError::HardwareError => {
-                log_message(LogLevel::Error, "ERROR_HANDLER", "Hardware error recovery: logging and continuing");
+                log_message(
+                    LogLevel::Error,
+                    "ERROR_HANDLER",
+                    "Hardware error recovery: logging and continuing",
+                );
                 // Recovery: Log the error and continue operation
                 Ok(())
             }
-            
+
             SystemError::TaskError => {
-                log_message(LogLevel::Error, "ERROR_HANDLER", "Task error recovery: logging and continuing");
+                log_message(
+                    LogLevel::Error,
+                    "ERROR_HANDLER",
+                    "Task error recovery: logging and continuing",
+                );
                 // Recovery: Log the error and continue operation
                 Ok(())
             }
-            
+
             SystemError::SystemBusy => {
-                log_message(LogLevel::Warn, "ERROR_HANDLER", "System busy: operation will be retried");
+                log_message(
+                    LogLevel::Warn,
+                    "ERROR_HANDLER",
+                    "System busy: operation will be retried",
+                );
                 // Recovery: Operation will be retried later
                 Ok(())
             }
-            
+
             SystemError::OperationInterrupted => {
-                log_message(LogLevel::Warn, "ERROR_HANDLER", "Operation interrupted: will attempt recovery");
+                log_message(
+                    LogLevel::Warn,
+                    "ERROR_HANDLER",
+                    "Operation interrupted: will attempt recovery",
+                );
                 // Recovery: Operation can be retried or resumed
                 Ok(())
             }
-            
+
             SystemError::InvalidParameter => {
-                log_message(LogLevel::Error, "ERROR_HANDLER", "Invalid parameter: operation aborted");
+                log_message(
+                    LogLevel::Error,
+                    "ERROR_HANDLER",
+                    "Invalid parameter: operation aborted",
+                );
                 // Recovery: Log the error and abort the operation
                 Err(error)
             }
@@ -161,12 +192,11 @@ impl ErrorRecovery {
                 Ok(result) => {
                     if attempts > 0 {
                         let mut success_msg: String<64> = String::new();
-                        let _ = write!(&mut success_msg, "Operation succeeded after {attempts} retries in {context}");
-                        log_message(
-                            LogLevel::Info,
-                            "ERROR_HANDLER",
-                            success_msg.as_str()
+                        let _ = write!(
+                            &mut success_msg,
+                            "Operation succeeded after {attempts} retries in {context}"
                         );
+                        log_message(LogLevel::Info, "ERROR_HANDLER", success_msg.as_str());
                     }
                     return Ok(result);
                 }
@@ -182,12 +212,15 @@ impl ErrorRecovery {
                     // Log retry attempt
                     if attempts < max_retries {
                         let mut retry_msg: String<64> = String::new();
-                        let _ = write!(&mut retry_msg, "Retry {}/{} for {} in {}", attempts, max_retries, error.description(), context);
-                        log_message(
-                            LogLevel::Debug,
-                            "ERROR_HANDLER",
-                            retry_msg.as_str()
+                        let _ = write!(
+                            &mut retry_msg,
+                            "Retry {}/{} for {} in {}",
+                            attempts,
+                            max_retries,
+                            error.description(),
+                            context
                         );
+                        log_message(LogLevel::Debug, "ERROR_HANDLER", retry_msg.as_str());
 
                         // Simple delay for backoff (in a real implementation, this would use proper timing)
                         for _ in 0..(1000 * attempts as u32) {
@@ -200,12 +233,14 @@ impl ErrorRecovery {
 
         // All retries exhausted
         let mut failure_msg: String<64> = String::new();
-        let _ = write!(&mut failure_msg, "Operation failed after {} retries in {}: {}", max_retries, context, last_error.description());
-        log_message(
-            LogLevel::Error,
-            "ERROR_HANDLER",
-            failure_msg.as_str()
+        let _ = write!(
+            &mut failure_msg,
+            "Operation failed after {} retries in {}: {}",
+            max_retries,
+            context,
+            last_error.description()
         );
+        log_message(LogLevel::Error, "ERROR_HANDLER", failure_msg.as_str());
 
         Self::handle_error(last_error, context).and(Err(last_error))
     }
@@ -249,7 +284,7 @@ macro_rules! retry_on_error {
         $crate::error_handling::ErrorRecovery::retry_with_backoff(
             || $operation,
             $max_retries,
-            $context
+            $context,
         )
     };
 }
@@ -272,7 +307,13 @@ mod tests {
 
     #[test]
     fn test_error_descriptions() {
-        assert_eq!(SystemError::AdcReadFailed.description(), "ADC read operation failed");
-        assert_eq!(SystemError::GpioOperationFailed.description(), "GPIO operation failed");
+        assert_eq!(
+            SystemError::AdcReadFailed.description(),
+            "ADC read operation failed"
+        );
+        assert_eq!(
+            SystemError::GpioOperationFailed.description(),
+            "GPIO operation failed"
+        );
     }
 }

@@ -191,6 +191,7 @@ pub struct TestTimeoutEntry {
 }
 
 /// Comprehensive test execution manager
+#[derive(Debug)]
 pub struct ComprehensiveTestExecutor {
     /// Base test execution handler
     test_handler: TestExecutionHandler,
@@ -313,7 +314,7 @@ impl ResourceMonitor {
 }
 
 /// Comprehensive results collector for aggregating test results across multiple suites
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ComprehensiveResultsCollector {
     /// Base result collector
     base_collector: TestResultCollector,

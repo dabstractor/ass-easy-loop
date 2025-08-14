@@ -116,4 +116,3 @@ mod tests {
         assert!(validate_test_framework());
     }
 }
-
