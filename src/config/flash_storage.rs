@@ -1,0 +1,24 @@
+use embedded_storage::nor_flash::{NorFlash, ReadNorFlash};
+use crate::types::waveform::WaveformConfig;
+use crate::types::errors::SystemError;
+
+pub struct ConfigStorage<F: NorFlash + ReadNorFlash> {
+    flash: F,
+    
+}
+
+impl<F: NorFlash + ReadNorFlash> ConfigStorage<F> {
+    pub fn new(flash: F) -> Self {
+        Self { flash }
+    }
+
+    pub fn save_config(&mut self, config: &WaveformConfig) -> Result<(), SystemError> {
+        // Implementation to be added
+        Ok(())
+    }
+
+    pub fn load_config(&mut self) -> Result<WaveformConfig, SystemError> {
+        // Implementation to be added
+        Ok(crate::config::defaults::DEFAULT_WAVEFORM_CONFIG)
+    }
+}

@@ -1,0 +1,7 @@
+[default.general]
+chip = "RP2040"
+
+[default.flashing]
+halt_afterwards = false
+clear_all = true
+restore_unwritten = true

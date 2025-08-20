@@ -1,0 +1,16 @@
+[target.thumbv6m-none-eabi]
+runner = "./flash.sh"
+rustflags = [
+  "-C", "link-arg=-Tlink.x",
+]
+
+[build]
+target = "thumbv6m-none-eabi"
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1

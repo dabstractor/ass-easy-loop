@@ -1,0 +1,36 @@
+{
+  "name": "asseasyloop-host-tools",
+  "version": "1.0.0",
+  "description": "Host tools for controlling and monitoring the ass-easy-loop pEMF device",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts"
+  },
+  "keywords": [
+    "rp2040",
+    "hid",
+    "usb",
+    "device-control"
+  ],
+  "author": "ass-easy-loop team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^18.15.0",
+    "@typescript-eslint/eslint-plugin": "^5.57.0",
+    "@typescript-eslint/parser": "^5.57.0",
+    "eslint": "^8.37.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "node-hid": "^2.1.2"
+  }
+}
