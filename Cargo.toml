@@ -4,21 +4,22 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rp2040-hal = { version = "0.8.0", features = ["rt"] }
 rp2040-boot2 = "0.2.1"
 cortex-m = "0.7.7"
 cortex-m-rt = "0.7.3"
 cortex-m-rtic = "1.1.4"
-usb-device = "0.2.9"
-usbd-hid = "0.6.1"
 embedded-storage = "0.3.0"
 defmt = "0.3.5"
 defmt-rtt = "0.4.0"
-panic-probe = { version = "0.3.1", features = ["print-defmt"] }
+panic-probe = { version = "0.3.1" }
 embedded-hal = "0.2.7"
 fugit = "0.3.7"
 libm = "0.2.7"
 heapless = "0.7.16"
+systick-monotonic = "1.0.1"
+usb-device = "0.3.2"
+usbd-hid = "0.8.2"
+rp2040-hal = { version = "0.11.0", features = ["rt", "critical-section-impl"] }
 
 [features]
 default = []
