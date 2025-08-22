@@ -12,21 +12,130 @@ BINARY_NAME=${BINARY_NAME%.*}
 
 echo "📦 Flashing $BINARY_NAME to RP2040..."
 
+# Function to check if device is in bootloader mode
+check_bootloader_mode() {
+    if [ -d "/run/media/dustin/RPI-RP2" ]; then
+        echo "/run/media/dustin/RPI-RP2"
+        return 0
+    elif [ -d "/media/dustin/RPI-RP2" ]; then
+        echo "/media/dustin/RPI-RP2"
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to check if device is running our firmware
+check_device_running() {
+    # Check if our device (VID:PID = fade:1212) is connected and responding
+    if command -v python3 &> /dev/null; then
+        python3 -c "
+import sys
+try:
+    import hid
+    devices = hid.enumerate(0xfade, 0x1212)
+    if devices:
+        print('Device found running firmware')
+        sys.exit(0)
+    else:
+        sys.exit(1)
+except ImportError:
+    sys.exit(1)  # hidapi not available
+except Exception:
+    sys.exit(1)  # Device not found or other error
+" 2>/dev/null
+        return $?
+    else
+        return 1  # Python not available
+    fi
+}
+
+# Function to trigger bootloader mode
+trigger_bootloader_mode() {
+    echo "🔄 Attempting to trigger bootloader mode automatically..."
+    
+    SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+    BOOTLOADER_SCRIPT="$SCRIPT_DIR/host_tools/bootloader_entry.py"
+    
+    if [ ! -f "$BOOTLOADER_SCRIPT" ]; then
+        echo "❌ ERROR: bootloader_entry.py not found at $BOOTLOADER_SCRIPT"
+        return 1
+    fi
+    
+    # Try to trigger bootloader mode using our automation tool
+    echo "📤 Sending bootloader entry command..."
+    python3 "$BOOTLOADER_SCRIPT" >/dev/null 2>&1
+    
+    # Always wait for bootloader mode regardless of script exit code
+    # The script may fail to detect the device but still succeed in triggering bootloader mode
+    echo "⏳ Waiting for device to enter bootloader mode..."
+    
+    # Wait up to 15 seconds for bootloader mode (increased from 10)
+    for i in {1..15}; do
+        sleep 1
+        MOUNT_POINT=$(check_bootloader_mode)
+        if [ $? -eq 0 ]; then
+            echo "✅ Device successfully entered bootloader mode"
+            return 0
+        fi
+        
+        # Also check via lsusb for bootloader VID:PID
+        if lsusb | grep -q "2e8a:0003"; then
+            echo "✅ Device detected in bootloader mode via USB"
+            # Wait a bit more for mount to appear
+            sleep 2
+            MOUNT_POINT=$(check_bootloader_mode)
+            if [ $? -eq 0 ]; then
+                echo "✅ Bootloader drive mounted"
+                return 0
+            else
+                echo "⚠️  Device in bootloader mode but drive not mounted yet, waiting..."
+                sleep 3
+                MOUNT_POINT=$(check_bootloader_mode)
+                if [ $? -eq 0 ]; then
+                    echo "✅ Bootloader drive now mounted"
+                    return 0
+                fi
+            fi
+        fi
+    done
+    
+    echo "❌ Device did not enter bootloader mode after command"
+    return 1
+}
+
 # Check if RP2040 is in bootloader mode (mounted drive)
-MOUNT_POINT=""
-if [ -d "/run/media/dustin/RPI-RP2" ]; then
-    MOUNT_POINT="/run/media/dustin/RPI-RP2"
-elif [ -d "/media/dustin/RPI-RP2" ]; then
-    MOUNT_POINT="/media/dustin/RPI-RP2"
-else
-    echo -e "\033[31m❌ ERROR: RP2040 not found in bootloader mode\033[0m"
-    echo "💡 Please put your RP2040 in bootloader mode:"
-    echo "   1. Hold the BOOTSEL button"
-    echo "   2. Plug in the RP2040 or press the reset button"
-    echo "   3. Release BOOTSEL when the drive appears"
-    echo ""
-    echo "Then run 'cargo run' again."
-    exit 1
+MOUNT_POINT=$(check_bootloader_mode)
+if [ $? -ne 0 ]; then
+    echo "📱 RP2040 not in bootloader mode, checking if device is running..."
+    
+    # Check if our device is running and can be triggered
+    if check_device_running; then
+        echo "✅ Found device running firmware, attempting automatic bootloader entry..."
+        
+        if trigger_bootloader_mode; then
+            MOUNT_POINT=$(check_bootloader_mode)
+        else
+            echo -e "\033[31m❌ ERROR: Could not automatically enter bootloader mode\033[0m"
+            echo "💡 Please manually put your RP2040 in bootloader mode:"
+            echo "   1. Hold the BOOTSEL button"
+            echo "   2. Plug in the RP2040 or press the reset button"
+            echo "   3. Release BOOTSEL when the drive appears"
+            echo ""
+            echo "Then run 'cargo run' again."
+            exit 1
+        fi
+    else
+        echo -e "\033[31m❌ ERROR: RP2040 not found in bootloader mode or running firmware\033[0m"
+        echo "💡 Please put your RP2040 in bootloader mode:"
+        echo "   1. Hold the BOOTSEL button"
+        echo "   2. Plug in the RP2040 or press the reset button"
+        echo "   3. Release BOOTSEL when the drive appears"
+        echo ""
+        echo "Alternatively, ensure the device is running firmware with bootloader entry support."
+        echo "Then run 'cargo run' again."
+        exit 1
+    fi
 fi
 
 echo "✅ RP2040 found at $MOUNT_POINT"

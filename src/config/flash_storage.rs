@@ -1,10 +1,9 @@
-use embedded_storage::nor_flash::{NorFlash, ReadNorFlash};
-use crate::types::waveform::WaveformConfig;
 use crate::types::errors::SystemError;
+use crate::types::waveform::WaveformConfig;
+use embedded_storage::nor_flash::{NorFlash, ReadNorFlash};
 
 pub struct ConfigStorage<F: NorFlash + ReadNorFlash> {
     flash: F,
-    
 }
 
 impl<F: NorFlash + ReadNorFlash> ConfigStorage<F> {

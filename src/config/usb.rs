@@ -1,5 +1,5 @@
 /// USB Device Configuration
-/// 
+///
 /// Configuration constants for USB HID device enumeration and communication.
 /// Based on working reference implementation with updated VID/PID for AsEasyLoop device.
 pub mod usb {

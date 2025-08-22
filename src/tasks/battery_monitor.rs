@@ -1,3 +1,2 @@
-pub fn battery_monitor_task(cx: crate::app::battery_monitor::Context) {
-    // Implementation to be added
-}
+// Battery monitor task placeholder
+// Implementation to be added when battery monitoring is needed

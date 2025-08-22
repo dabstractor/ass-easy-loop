@@ -2,4 +2,5 @@
 pub enum SystemError {
     ConfigurationInvalid,
     FlashOperationFailed,
+    BootloaderError,
 }

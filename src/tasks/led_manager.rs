@@ -1,3 +1,2 @@
-pub fn led_manager_task(cx: crate::app::led_manager::Context) {
-    // Implementation to be added
-}
+// LED manager task placeholder
+// Implementation to be added when LED control is needed

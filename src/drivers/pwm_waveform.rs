@@ -1,5 +1,5 @@
-use rp2040_hal::pwm::{Slice, SliceId, FreeRunning};
 use crate::types::waveform::WaveformConfig;
+use rp2040_hal::pwm::{FreeRunning, Slice, SliceId};
 
 pub struct WaveformGenerator<Id: SliceId> {
     pwm: Slice<Id, FreeRunning>,

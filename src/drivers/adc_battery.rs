@@ -1,5 +1,5 @@
-use rp2040_hal::adc::Adc;
 use crate::types::battery::BatteryState;
+use rp2040_hal::adc::Adc;
 
 pub struct BatteryMonitor {
     adc: Adc,

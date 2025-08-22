@@ -3,6 +3,13 @@ name = "ass-easy-loop"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "ass-easy-loop"
+test = false
+
+[lib]
+name = "ass_easy_loop"
+
 [dependencies]
 rp2040-boot2 = "0.2.1"
 cortex-m = "0.7.7"

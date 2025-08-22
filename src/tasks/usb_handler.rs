@@ -1,3 +1,2 @@
-pub fn usb_handler_task(cx: crate::app::usb_handler::Context) {
-    // Implementation to be added
-}
+// USB handler task placeholder
+// Implementation to be added when additional USB handling is needed
