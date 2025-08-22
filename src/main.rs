@@ -26,6 +26,11 @@ use crate::types::{
     usb_commands::CommandReport,
 };
 
+#[cfg(feature = "usb-logs")]
+use crate::types::logging::{LogMessage, LoggingConfig};
+#[cfg(feature = "usb-logs")]
+use heapless::spsc::Queue;
+
 // Bootloader - exact same as working reference
 #[link_section = ".boot2"]
 #[used]
@@ -35,7 +40,7 @@ pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_GENERIC_03H;
 static mut USB_BUS: Option<UsbBusAllocator<UsbBus>> = None;
 
 // RTIC app structure - exact same pattern as working reference
-#[rtic::app(device = rp2040_hal::pac, peripherals = true, dispatchers = [TIMER_IRQ_1, TIMER_IRQ_2])]
+#[rtic::app(device = rp2040_hal::pac, peripherals = true, dispatchers = [TIMER_IRQ_1, TIMER_IRQ_2, TIMER_IRQ_3])]
 mod app {
     use super::*;
 
@@ -44,6 +49,8 @@ mod app {
         usb_dev: UsbDevice<'static, UsbBus>,
         hid_class: HIDClass<'static, UsbBus>,
         bootloader_state: BootloaderState,
+        log_queue: Queue<LogMessage, 32>,
+        logging_config: LoggingConfig,
     }
 
     #[local]
@@ -109,11 +116,30 @@ mod app {
         // Spawn the USB command handler task
         usb_command_handler_task::spawn_after(Duration::<u64, 1, 1000>::millis(20)).unwrap();
 
+        // Spawn the logging transmission task if logging is enabled
+        #[cfg(feature = "usb-logs")]
+        {
+            logging_transmit_task::spawn_after(Duration::<u64, 1, 1000>::millis(30)).unwrap();
+        }
+
+        // Initialize logging system only
+        #[cfg(feature = "system-logs")]
+        {
+            use crate::drivers::logging;
+            logging::init();
+        }
+
         (
             Shared {
                 usb_dev,
                 hid_class,
                 bootloader_state: BootloaderState::Normal,
+                log_queue: Queue::new(),
+                logging_config: LoggingConfig {
+                    enabled_categories: 0xF, // All categories enabled by default
+                    verbosity_level: crate::types::logging::LogLevel::Debug,
+                    enabled: true,
+                },
             },
             Local {},
             init::Monotonics(mono),
@@ -138,6 +164,28 @@ mod app {
                 usb_dev.poll(&mut [hid_class])
             })
         });
+
+        // Update timestamp for logging - increment by 10ms each poll
+        #[cfg(feature = "usb-logs")]
+        {
+            use crate::drivers::logging::set_timestamp_ms;
+            static mut TIMESTAMP_COUNTER: u32 = 0;
+            static mut INIT_LOG_SENT: bool = false;
+            unsafe {
+                TIMESTAMP_COUNTER += 10; // Increment by 10ms
+                set_timestamp_ms(TIMESTAMP_COUNTER);
+
+                // Send init log once after USB is ready
+                if !INIT_LOG_SENT && TIMESTAMP_COUNTER > 100 {
+                    #[cfg(feature = "system-logs")]
+                    {
+                        use crate::drivers::logging;
+                        logging::log_system_event("System booting"); // todo/fixme:this part doesn't work
+                    }
+                    INIT_LOG_SENT = true;
+                }
+            }
+        }
 
         // Schedule next poll in 10ms - critical for USB enumeration - exact same as working reference
         usb_poll_task::spawn_after(Duration::<u64, 1, 1000>::millis(10)).unwrap();
@@ -217,5 +265,83 @@ mod app {
             );
         }
         // Note: This function does not return - device resets
+    }
+
+    /// Logging transmission task - sends log messages via USB HID
+    #[cfg(feature = "usb-logs")]
+    #[task(
+        shared = [hid_class, log_queue, logging_config],
+        priority = 3
+    )]
+    fn logging_transmit_task(mut ctx: logging_transmit_task::Context) {
+        use crate::drivers::logging::{dequeue_message, format_log_message};
+        use systick_monotonic::fugit::Duration;
+
+        // Check if logging is enabled before processing
+        let is_enabled = ctx.shared.logging_config.lock(|config| config.enabled);
+        if !is_enabled {
+            logging_transmit_task::spawn_after(Duration::<u64, 1, 1000>::millis(100)).unwrap();
+            return;
+        }
+
+        // Non-blocking queue operations to prevent task blocking
+        if let Some(message) = dequeue_message() {
+            // Add debug log to see if we're processing messages
+            #[cfg(feature = "system-logs")]
+            {
+                use crate::drivers::logging;
+                // Only log if it's not a system log to avoid infinite loop
+                if message.category != crate::types::logging::LogCategory::System {
+                    logging::log_system_event("Processing queued message");
+                }
+            }
+
+            let report = format_log_message(&message);
+
+            // Error handling for USB transmission with retry logic
+            let mut retry_count = 0;
+            loop {
+                match ctx
+                    .shared
+                    .hid_class
+                    .lock(|hid_class| hid_class.push_raw_input(&report.data))
+                {
+                    Ok(_) => {
+                        // Add debug log to see if transmission succeeded
+                        #[cfg(feature = "system-logs")]
+                        {
+                            use crate::drivers::logging;
+                            if message.category != crate::types::logging::LogCategory::System {
+                                logging::log_system_event("Log transmitted");
+                            }
+                        }
+                        break; // Success
+                    }
+                    Err(_) if retry_count < 3 => {
+                        retry_count += 1;
+                        // Exponential backoff: 10ms, 20ms, 40ms
+                        cortex_m::asm::delay(10000 * (1 << retry_count));
+                    }
+                    Err(_) => {
+                        // Log transmission failed after 3 retries
+                        // Continue with next message to prevent blocking
+                        #[cfg(feature = "system-logs")]
+                        {
+                            use crate::drivers::logging;
+                            if message.category != crate::types::logging::LogCategory::System {
+                                logging::log_system_event("Log transmission failed");
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Reschedule task for periodic checking
+        logging_transmit_task::spawn_after(
+            systick_monotonic::fugit::Duration::<u64, 1, 1000>::millis(50),
+        )
+        .unwrap();
     }
 }

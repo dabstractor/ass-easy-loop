@@ -21,3 +21,4 @@ pub mod usb {
     /// USB device release number in BCD format (version 1.0)
     pub const DEVICE_RELEASE: u16 = 0x0100;
 }
+

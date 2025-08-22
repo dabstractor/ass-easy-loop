@@ -29,5 +29,11 @@ usbd-hid = "0.8.2"
 rp2040-hal = { version = "0.11.0", features = ["rt", "critical-section-impl"] }
 
 [features]
-default = []
-# Add other features as needed
+default = ["usb-logs", "system-logs"]
+usb-logs = []
+battery-logs = []
+pemf-logs = []
+system-logs = []
+development = ["usb-logs", "battery-logs", "pemf-logs", "system-logs"]
+testing = ["development"]
+production = ["usb-logs", "system-logs"]
