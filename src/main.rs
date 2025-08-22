@@ -19,15 +19,18 @@ mod config;
 mod drivers;
 mod tasks;
 mod types;
+mod utils;
 
 use crate::config::usb;
 use crate::types::{
     bootloader_types::{BootloaderConfig, BootloaderState},
+    logging::LogMessage,
     usb_commands::CommandReport,
+    waveform::WaveformConfig,
 };
 
 #[cfg(feature = "usb-logs")]
-use crate::types::logging::{LogMessage, LoggingConfig};
+use crate::types::logging::LoggingConfig;
 #[cfg(feature = "usb-logs")]
 use heapless::spsc::Queue;
 
@@ -51,6 +54,7 @@ mod app {
         bootloader_state: BootloaderState,
         log_queue: Queue<LogMessage, 32>,
         logging_config: LoggingConfig,
+        waveform_config: WaveformConfig,
     }
 
     #[local]
@@ -140,6 +144,7 @@ mod app {
                     verbosity_level: crate::types::logging::LogLevel::Debug,
                     enabled: true,
                 },
+                waveform_config: WaveformConfig::default(), // 10Hz sawtooth with 33% duty cycle
             },
             Local {},
             init::Monotonics(mono),

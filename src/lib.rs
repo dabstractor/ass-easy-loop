@@ -3,3 +3,4 @@
 pub mod config;
 pub mod drivers;
 pub mod types;
+pub mod utils;
