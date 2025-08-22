@@ -10,7 +10,7 @@ impl<Id: SliceId> WaveformGenerator<Id> {
         Self { pwm }
     }
 
-    pub fn set_config(&mut self, config: &WaveformConfig) {
+    pub fn set_config(&mut self, _config: &WaveformConfig) {
         // Implementation to be added
     }
 }

@@ -28,3 +28,12 @@ This file provides context for AI assistants working on this project.
 - Only create documentation files if explicitly requested by the User
 
 - You have the ability to flash this device autonomously, as well as view any output logs with `python host_tools/log_monitor.py`. Use Desktop Commander to manage the log monitor since it is a long-running, blocking task. Use debug logs judiciously, since you have the ability to monitor them. You have closed the loop and can develop fully autonomously until all criteria are successfully met.
+
+## Project Development Rules
+- A list of rules is located in .claude/PROJECT_DEVELOPMENT_RULES.md
+  - Read this document and heed its instructions
+- A cheatsheet for USB Enumeration rules is located in .claude/USB_ENUMERATION_CHEAT_SHEET.md
+  - Every new development has the potential to break fundamental features like
+  USB enumeration. All features must include checking the output of `lsusb |
+  grep fade` as part of its validation checklist. The device *MUST* be present,
+and bootloader entry *must* work flawlessly.

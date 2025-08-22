@@ -11,7 +11,7 @@ impl<F: NorFlash + ReadNorFlash> ConfigStorage<F> {
         Self { flash }
     }
 
-    pub fn save_config(&mut self, config: &WaveformConfig) -> Result<(), SystemError> {
+    pub fn save_config(&mut self, _config: &WaveformConfig) -> Result<(), SystemError> {
         // Implementation to be added
         Ok(())
     }

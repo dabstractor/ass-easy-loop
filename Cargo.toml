@@ -27,6 +27,7 @@ systick-monotonic = "1.0.1"
 usb-device = "0.3.2"
 usbd-hid = "0.8.2"
 rp2040-hal = { version = "0.11.0", features = ["rt", "critical-section-impl"] }
+nb = "1.1.0"
 
 [features]
 default = ["usb-logs", "system-logs"]

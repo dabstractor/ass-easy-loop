@@ -1,3 +1,5 @@
+use core::default::Default;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BootloaderState {
     Normal,

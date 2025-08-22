@@ -1,6 +1,7 @@
 #[cfg(feature = "usb-logs")]
 use crate::types::logging::{LogCategory, LogLevel, LoggingUsbCommand};
 use crate::types::usb_commands::UsbCommand;
+use core::option::Option::{Some, None};
 
 pub fn parse_hid_report(report: &[u8; 64]) -> Option<UsbCommand> {
     match report[0] {
