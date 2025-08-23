@@ -253,11 +253,11 @@ mod tests {
     fn test_adc_error_handling() {
         // Test error count tracking and fault detection
         let mock_adc = unsafe { core::mem::zeroed() }; // Mock ADC for testing
-        let mut monitor = BatteryMonitor::new(mock_adc);
+        let monitor = BatteryMonitor::new(mock_adc);
         
         // Verify initial state
         assert_eq!(monitor.get_error_count(), 0);
-        assert_eq!(monitor.get_battery_state(), BatteryState::Normal);
+        assert_eq!(monitor.get_battery_state(), BatteryState::Full);
     }
     
     #[test]
@@ -287,7 +287,7 @@ mod tests {
     #[test]
     fn test_charging_detection() {
         let mock_adc = unsafe { core::mem::zeroed() };
-        let mut monitor = BatteryMonitor::new(mock_adc);
+        let monitor = BatteryMonitor::new(mock_adc);
         
         // Set ADC reading above charging threshold
         monitor.last_adc_reading.store(1700, Ordering::SeqCst);

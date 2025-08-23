@@ -3,6 +3,7 @@ use crate::types::waveform::WaveformConfig;
 use embedded_storage::nor_flash::{NorFlash, ReadNorFlash};
 
 pub struct ConfigStorage<F: NorFlash + ReadNorFlash> {
+    #[allow(dead_code)]
     flash: F,
 }
 

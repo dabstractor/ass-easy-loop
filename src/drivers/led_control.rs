@@ -1,6 +1,7 @@
 use embedded_hal::digital::v2::OutputPin;
 
 pub struct LedControl<P: OutputPin> {
+    #[allow(dead_code)]
     pin: P,
 }
 

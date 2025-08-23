@@ -38,3 +38,7 @@ system-logs = []
 development = ["usb-logs", "battery-logs", "pemf-logs", "system-logs"]
 testing = ["development"]
 production = ["usb-logs", "system-logs"]
+host-tests = [] # Feature to enable host-only tests
+
+[dev-dependencies]
+approx = "0.5"

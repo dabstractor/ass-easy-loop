@@ -330,8 +330,6 @@ impl SafetyMonitor {
 mod tests {
     use super::*;
     use crate::types::battery::SafetyFlags;
-    use core::result::Result::{Ok, Err};
-    use core::option::Option::{Some, None};
     
     #[test]
     fn test_safety_monitor_creation() {
@@ -363,7 +361,7 @@ mod tests {
     
     #[test]
     fn test_safety_timeout_detection() {
-        let mut monitor = SafetyMonitor::new();
+        let monitor = SafetyMonitor::new();
         
         // Set last check to old timestamp
         monitor.last_safety_check_ms.store(1000, Ordering::SeqCst);

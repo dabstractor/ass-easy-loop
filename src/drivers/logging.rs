@@ -1,3 +1,5 @@
+#![allow(static_mut_refs)]
+
 use crate::types::logging::{LogCategory, LogLevel, LogMessage, LogReport, LoggingConfig};
 use core::sync::atomic::{AtomicU32, Ordering};
 use heapless::spsc::Queue;
