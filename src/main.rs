@@ -4,7 +4,10 @@
 // Import required crates - exact same imports as working reference
 use panic_probe as _;
 use rp2040_hal::{
+    adc::{Adc, AdcPin},
     clocks::{init_clocks_and_plls, Clock},
+    gpio::{Pin, bank0::Gpio26, FunctionSioInput, PullNone},
+    Sio,
     usb::UsbBus,
     watchdog::Watchdog,
 };
@@ -43,7 +46,7 @@ pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_GENERIC_03H;
 static mut USB_BUS: Option<UsbBusAllocator<UsbBus>> = None;
 
 // RTIC app structure - exact same pattern as working reference
-#[rtic::app(device = rp2040_hal::pac, peripherals = true, dispatchers = [TIMER_IRQ_1, TIMER_IRQ_2, TIMER_IRQ_3])]
+#[rtic::app(device = rp2040_hal::pac, peripherals = true, dispatchers = [TIMER_IRQ_0, TIMER_IRQ_1, TIMER_IRQ_2, TIMER_IRQ_3])]
 mod app {
     use super::*;
 
@@ -55,10 +58,15 @@ mod app {
         log_queue: Queue<LogMessage, 32>,
         logging_config: LoggingConfig,
         waveform_config: WaveformConfig,
+        battery_monitor: crate::drivers::adc_battery::BatteryMonitor,
+        safety_flags: crate::types::battery::SafetyFlags,
+        battery_state: crate::types::battery::BatteryState,
     }
 
     #[local]
-    struct Local {}
+    struct Local {
+        battery_pin: AdcPin<Pin<Gpio26, FunctionSioInput, PullNone>>,
+    }
 
     #[monotonic(binds = SysTick, default = true)]
     type MyMono = Systick<1000>;
@@ -81,6 +89,20 @@ mod app {
 
         // Initialize monotonic timer - required for RTIC 1.x
         let mono = Systick::new(ctx.core.SYST, clocks.system_clock.freq().to_Hz());
+
+        // Initialize ADC and GPIO26 for battery monitoring
+        let adc = Adc::new(ctx.device.ADC, &mut ctx.device.RESETS);
+        let sio = Sio::new(ctx.device.SIO);
+        let pins = rp2040_hal::gpio::Pins::new(
+            ctx.device.IO_BANK0,
+            ctx.device.PADS_BANK0,
+            sio.gpio_bank0,
+            &mut ctx.device.RESETS,
+        );
+        let battery_pin = AdcPin::new(pins.gpio26.into_floating_input()).unwrap();
+
+        // Create battery monitor with ADC instance
+        let battery_monitor = crate::drivers::adc_battery::BatteryMonitor::new(adc);
 
         // Set up USB bus allocator and HID class device - exact same as working reference
         let usb_bus = UsbBus::new(
@@ -126,6 +148,9 @@ mod app {
             logging_transmit_task::spawn_after(Duration::<u64, 1, 1000>::millis(30)).unwrap();
         }
 
+        // Spawn the battery monitor task
+        battery_monitor_task::spawn_after(Duration::<u64, 1, 1000>::millis(100)).unwrap();
+
         // Initialize logging system only
         #[cfg(feature = "system-logs")]
         {
@@ -145,8 +170,13 @@ mod app {
                     enabled: true,
                 },
                 waveform_config: WaveformConfig::default(), // 10Hz sawtooth with 33% duty cycle
+                battery_monitor,
+                safety_flags: crate::types::battery::SafetyFlags::new(),
+                battery_state: crate::types::battery::BatteryState::Normal,
             },
-            Local {},
+            Local {
+                battery_pin,
+            },
             init::Monotonics(mono),
         )
     }
@@ -348,5 +378,148 @@ mod app {
             systick_monotonic::fugit::Duration::<u64, 1, 1000>::millis(50),
         )
         .unwrap();
+    }
+
+    /// Battery monitoring RTIC task - runs every 100ms (10Hz) at Priority 4
+    /// 
+    /// This task safely reads battery voltage via ADC, processes the reading through
+    /// the BatteryMonitor driver, handles safety violations, and logs battery state
+    /// changes when the usb-logs feature is enabled.
+    /// 
+    /// CRITICAL: Uses Priority 4 to avoid conflicts with USB tasks (Priority 1)
+    /// and logging tasks (Priority 3). Never change this priority.
+    #[task(
+        local = [battery_pin],
+        shared = [battery_monitor, safety_flags, log_queue, logging_config, battery_state],
+        priority = 4
+    )]
+    fn battery_monitor_task(mut ctx: battery_monitor_task::Context) {
+        use crate::types::errors::BatteryError;
+        
+        // Process battery sample and handle all responses within proper locking
+        let (battery_reading, requires_emergency_action) = (ctx.shared.battery_monitor, ctx.shared.safety_flags, ctx.shared.battery_state).lock(|monitor, flags, state| {
+            // Process the battery sample
+            match monitor.process_sample(ctx.local.battery_pin, flags) {
+                Ok(reading) => {
+                    // Update battery state and check for changes
+                    let state_changed = if *state != reading.state {
+                        let old_state = *state;
+                        *state = reading.state;
+                        Some((old_state, reading.state))
+                    } else {
+                        None
+                    };
+                    
+                    (Ok((reading, state_changed)), false)
+                },
+                Err(error) => {
+                    // Determine if emergency response is needed
+                    let needs_emergency = match &error {
+                        BatteryError::OverVoltage { .. } => true,
+                        BatteryError::UnderVoltage { .. } => true,
+                        BatteryError::OverCurrent { .. } => true,
+                        BatteryError::OverTemperature { .. } => true,
+                        BatteryError::SafetyTimeout { .. } => true,
+                        BatteryError::AdcFailed => false,
+                        _ => false,
+                    };
+                    
+                    if needs_emergency {
+                        // Set emergency stop immediately while we have the lock
+                        flags.set_emergency_stop(true);
+                        *state = crate::types::battery::BatteryState::Fault;
+                    }
+                    
+                    (Err(error), needs_emergency)
+                }
+            }
+        });
+        
+        // Handle results and logging outside of the main lock
+        match battery_reading {
+            Ok((reading, state_changed)) => {
+                // Log battery information if usb-logs feature is enabled
+                #[cfg(feature = "usb-logs")]
+                {
+                    use crate::types::logging::{LogMessage, LogCategory, LogLevel};
+                    use heapless::spsc::Queue;
+                    
+                    let should_log = ctx.shared.logging_config.lock(|config| {
+                        config.enabled && config.enabled_categories & (1 << LogCategory::Battery as u8) != 0
+                    });
+                    
+                    if should_log {
+                        let log_message = if state_changed.is_some() {
+                            // Log state transition
+                            let mut content = [0u8; 52];
+                            let msg_bytes = b"Battery state changed";
+                            let len = core::cmp::min(msg_bytes.len(), 52);
+                            content[..len].copy_from_slice(&msg_bytes[..len]);
+                            
+                            LogMessage {
+                                timestamp_ms: reading.timestamp_ms,
+                                category: LogCategory::Battery,
+                                level: LogLevel::Info,
+                                content,
+                                content_len: len as u8,
+                            }
+                        } else {
+                            // Log periodic reading (at lower verbosity)
+                            let mut content = [0u8; 52];
+                            let msg_bytes = b"Battery reading";
+                            let len = core::cmp::min(msg_bytes.len(), 52);
+                            content[..len].copy_from_slice(&msg_bytes[..len]);
+                            
+                            LogMessage {
+                                timestamp_ms: reading.timestamp_ms,
+                                category: LogCategory::Battery,
+                                level: LogLevel::Debug,
+                                content,
+                                content_len: len as u8,
+                            }
+                        };
+                        
+                        ctx.shared.log_queue.lock(|queue: &mut Queue<LogMessage, 32>| {
+                            let _ = queue.enqueue(log_message);
+                        });
+                    }
+                }
+            },
+            Err(_error) => {
+                // Log the error if logging is available
+                #[cfg(feature = "usb-logs")]
+                {
+                    use crate::types::logging::{LogMessage, LogCategory, LogLevel};
+                    use heapless::spsc::Queue;
+                    
+                    let should_log = ctx.shared.logging_config.lock(|config| {
+                        config.enabled
+                    });
+                    
+                    if should_log {
+                        let mut content = [0u8; 52];
+                        let msg_bytes = b"Battery error detected";
+                        let len = core::cmp::min(msg_bytes.len(), 52);
+                        content[..len].copy_from_slice(&msg_bytes[..len]);
+                        
+                        let log_message = LogMessage {
+                            timestamp_ms: 0, // Would need actual timestamp from monotonic timer
+                            category: LogCategory::Battery,
+                            level: if requires_emergency_action { LogLevel::Error } else { LogLevel::Warn },
+                            content,
+                            content_len: len as u8,
+                        };
+                        
+                        ctx.shared.log_queue.lock(|queue: &mut Queue<LogMessage, 32>| {
+                            let _ = queue.enqueue(log_message);
+                        });
+                    }
+                }
+            }
+        }
+        
+        // Reschedule task for next reading in 100ms (10Hz operation)
+        // This maintains the required 10Hz battery monitoring frequency
+        battery_monitor_task::spawn_after(Duration::<u64, 1, 1000>::millis(100)).unwrap();
     }
 }
