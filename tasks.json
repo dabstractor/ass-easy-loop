@@ -1,0 +1,188 @@
+{
+  "backlog": [
+    {
+      "type": "Phase",
+      "id": "P1",
+      "title": "Ass-Easy-Loop V1.0 Firmware Implementation",
+      "status": "Planned",
+      "description": "Implementation of 10Hz pEMF driver firmware on RP2040-Zero with safety constraints and power management logic.",
+      "milestones": [
+        {
+          "type": "Milestone",
+          "id": "P1.M1",
+          "title": "Environment & Infrastructure",
+          "status": "Planned",
+          "description": "Establish build system, toolchain dependencies, and core configuration.",
+          "tasks": [
+            {
+              "type": "Task",
+              "id": "P1.M1.T1",
+              "title": "Project Configuration",
+              "status": "Complete",
+              "description": "Configure PlatformIO for RP2040-Zero and external libraries.",
+              "subtasks": [
+                {
+                  "type": "Subtask",
+                  "id": "P1.M1.T1.S1",
+                  "title": "PlatformIO Configuration",
+                  "status": "Complete",
+                  "story_points": 1,
+                  "dependencies": [],
+                  "context_scope": "CONTRACT DEFINITION:\n1. INPUT: PRD Section 5.1 (Toolchain).\n2. LOGIC: Create `platformio.ini`. Define environment for `rp2040`. Add `earlephilhower/arduino-pico` core. Add `Adafruit NeoPixel` library dependency. Define build flags for USB Serial support.\n3. OUTPUT: A valid `platformio.ini` file ready for `pio run`."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Milestone",
+          "id": "P1.M2",
+          "title": "Hardware Abstraction Layer (HAL)",
+          "status": "Planned",
+          "description": "Encapsulate direct hardware access (GPIO, Coil, LED) into testable classes.",
+          "tasks": [
+            {
+              "type": "Task",
+              "id": "P1.M2.T1",
+              "title": "Coil Driver HAL",
+              "status": "Planned",
+              "description": "Safe wrapper for MOSFET control.",
+              "subtasks": [
+                {
+                  "type": "Subtask",
+                  "id": "P1.M2.T1.S1",
+                  "title": "Implement CoilDriver Class",
+                  "status": "Planned",
+                  "story_points": 1,
+                  "dependencies": [
+                    "P1.M1.T1.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. INPUT: Pin definition (GPIO 15) from PRD Section 2.2.\n2. LOGIC: Create class `CoilDriver`. Constructor accepts pin number. `begin()` sets pinMode OUTPUT and immediately writes LOW (Safety). `setActive(bool state)` writes HIGH/LOW. Destructor forces LOW.\n3. OUTPUT: `src/hal/CoilDriver.h` and `.cpp`."
+                }
+              ]
+            },
+            {
+              "type": "Task",
+              "id": "P1.M2.T2",
+              "title": "Feedback Driver HAL",
+              "status": "Planned",
+              "description": "Wrapper for synchronous Audio/Visual feedback.",
+              "subtasks": [
+                {
+                  "type": "Subtask",
+                  "id": "P1.M2.T2.S1",
+                  "title": "Implement FeedbackDriver Class",
+                  "status": "Planned",
+                  "story_points": 2,
+                  "dependencies": [
+                    "P1.M1.T1.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. INPUT: PRD Section 2.1 (NeoPixel) & 2.2 (Buzzer GPIO 14).\n2. LOGIC: Create class `FeedbackDriver`. Encapsulate `Adafruit_NeoPixel` object. Constructor accepts buzzer pin and NeoPixel pin. `begin()` initializes NeoPixel and sets buzzer pin OUTPUT. Method `indicateActive(bool isActive)`: If true, set buzzer HIGH and NeoPixel Green (Low Brightness). If false, buzzer LOW and NeoPixel OFF.\n3. OUTPUT: `src/hal/FeedbackDriver.h` and `.cpp`."
+                }
+              ]
+            },
+            {
+              "type": "Task",
+              "id": "P1.M2.T3",
+              "title": "Time Source Interface",
+              "status": "Planned",
+              "description": "Abstraction for time to enable unit testing without `delay()`.",
+              "subtasks": [
+                {
+                  "type": "Subtask",
+                  "id": "P1.M2.T3.S1",
+                  "title": "Implement ITimeSource",
+                  "status": "Planned",
+                  "story_points": 1,
+                  "dependencies": [],
+                  "context_scope": "CONTRACT DEFINITION:\n1. INPUT: None.\n2. LOGIC: Create interface `ITimeSource` with method `unsigned long millis()`. Create concrete class `ArduinoTimeSource` implementing it using Arduino's `millis()`. This allows mocking time in logic tests.\n3. OUTPUT: `src/hal/TimeSource.h`."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Milestone",
+          "id": "P1.M3",
+          "title": "Core Application Logic",
+          "status": "Planned",
+          "description": "Implementation of the therapeutic waveform and session management.",
+          "tasks": [
+            {
+              "type": "Task",
+              "id": "P1.M3.T1",
+              "title": "Waveform Controller",
+              "status": "Planned",
+              "description": "Logic for the 10Hz signal generation.",
+              "subtasks": [
+                {
+                  "type": "Subtask",
+                  "id": "P1.M3.T1.S1",
+                  "title": "Implement WaveformController",
+                  "status": "Planned",
+                  "story_points": 2,
+                  "dependencies": [
+                    "P1.M2.T1.S1",
+                    "P1.M2.T2.S1",
+                    "P1.M2.T3.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. INPUT: `CoilDriver` (P1.M2.T1.S1), `FeedbackDriver` (P1.M2.T2.S1), `ITimeSource` (P1.M2.T3.S1).\n2. LOGIC: Create class `WaveformController`. Method `update()` called in loop. Logic: 10Hz cycle = 100ms period. ON for 2ms, OFF for 98ms. Use `ITimeSource` to track elapsed time non-blocking. Call `CoilDriver` and `FeedbackDriver` based on state.\n3. OUTPUT: `src/logic/WaveformController.h` and `.cpp`."
+                }
+              ]
+            },
+            {
+              "type": "Task",
+              "id": "P1.M3.T2",
+              "title": "Session Manager",
+              "status": "Planned",
+              "description": "Global timer enforcement (15 minutes).",
+              "subtasks": [
+                {
+                  "type": "Subtask",
+                  "id": "P1.M3.T2.S1",
+                  "title": "Implement SessionManager",
+                  "status": "Planned",
+                  "story_points": 2,
+                  "dependencies": [
+                    "P1.M3.T1.S1",
+                    "P1.M2.T3.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. INPUT: `WaveformController` (P1.M3.T1.S1), `ITimeSource`.\n2. LOGIC: Class `SessionManager`. `start()` records start time. `update()` checks if `current_time - start_time > 15 minutes` (900,000ms). If within limit, call `WaveformController.update()`. If limit exceeded, ensure `CoilDriver` is OFF and enter infinite idle loop/state.\n3. OUTPUT: `src/logic/SessionManager.h` and `.cpp`."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "Milestone",
+          "id": "P1.M4",
+          "title": "Integration & Entry Point",
+          "status": "Planned",
+          "description": "Wiring of dependencies and Main Sketch setup.",
+          "tasks": [
+            {
+              "type": "Task",
+              "id": "P1.M4.T1",
+              "title": "Main Sketch",
+              "status": "Planned",
+              "description": "Dependency injection and runtime loop.",
+              "subtasks": [
+                {
+                  "type": "Subtask",
+                  "id": "P1.M4.T1.S1",
+                  "title": "Implement main.cpp",
+                  "status": "Planned",
+                  "story_points": 1,
+                  "dependencies": [
+                    "P1.M3.T2.S1"
+                  ],
+                  "context_scope": "CONTRACT DEFINITION:\n1. INPUT: All previous HAL and Logic classes.\n2. LOGIC: In `setup()`: Init `Serial` (115200 for bootloader per PRD 5.3). Instantiate `CoilDriver` (GPIO 15), `FeedbackDriver` (GPIO 14, NeoPixel), `ArduinoTimeSource`. Inject into `WaveformController`, then into `SessionManager`. Call `SessionManager.start()`. In `loop()`: Call `SessionManager.update()`.\n3. OUTPUT: `src/main.cpp`."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
