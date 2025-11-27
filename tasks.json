@@ -45,14 +45,14 @@
               "type": "Task",
               "id": "P1.M2.T1",
               "title": "Coil Driver HAL",
-              "status": "Planned",
+              "status": "Complete",
               "description": "Safe wrapper for MOSFET control.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M2.T1.S1",
                   "title": "Implement CoilDriver Class",
-                  "status": "Planned",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M1.T1.S1"
@@ -72,7 +72,7 @@
                   "type": "Subtask",
                   "id": "P1.M2.T2.S1",
                   "title": "Implement FeedbackDriver Class",
-                  "status": "Planned",
+                  "status": "Complete",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M1.T1.S1"
