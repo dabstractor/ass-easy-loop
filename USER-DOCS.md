@@ -105,6 +105,14 @@ Result: They should be warm, but not too hot to touch. If they are burning hot, 
 
 Capacity: 1600mAh.
 
-Runtime: The device can perform approximately 90+ sessions on a single charge.
+Runtime: The device performs approximately 9 sessions on a single charge.
 
-Recommendation: Charge weekly to keep the voltage optimal.
+Battery Life Chart:
+- 200mAh battery: ~1 session (0.3 days at 3-4 sessions daily)
+- 250mAh battery: ~1.5 sessions (0.5 days at 3-4 sessions daily)
+- 500mAh battery: ~3 sessions (1 day at 3-4 sessions daily)
+- 750mAh battery: ~4.5 sessions (1.5 days at 3-4 sessions daily)
+- 1000mAh battery: ~6 sessions (2 days at 3-4 sessions daily)
+- 1600mAh battery: ~9 sessions (2.5-3 days at 3-4 sessions daily)
+
+Recommendation: Charge every 2-3 days with regular use to maintain optimal voltage.
