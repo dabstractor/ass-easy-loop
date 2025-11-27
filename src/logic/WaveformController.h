@@ -46,6 +46,14 @@ public:
      */
     void update();
 
+    /**
+     * @brief Force controller to inactive state for safety.
+     *
+     * Immediately turns OFF coil and feedback regardless of timing state.
+     * Used for safety shutdown and session termination.
+     */
+    void forceInactive();
+
 private:
     static constexpr unsigned long PERIOD_MS = 100;    ///< 10Hz = 100ms period
     static constexpr unsigned long ON_DURATION_MS = 2; ///< 2ms ON time

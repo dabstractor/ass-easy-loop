@@ -58,3 +58,10 @@ void WaveformController::setInactiveState() {
     _coilDriver.setActive(false);
     _feedbackDriver.indicateActive(false);
 }
+
+void WaveformController::forceInactive() {
+    _isRunning = false;
+    _isActive = false;
+    _coilDriver.setActive(false);
+    _feedbackDriver.indicateActive(false);
+}
