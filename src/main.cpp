@@ -1,13 +1,14 @@
-// Minimal main.cpp for PlatformIO compilation test
-// This will be replaced in later PRP tasks
+// Minimal main.cpp - ready for next task
+// CoilDriver HAL (P1.M2.T1.S1) is complete and validated
 
 #include <Arduino.h>
+#include "hal/CoilDriver.h"
 
 void setup() {
-  // Initialize serial communication at 115200 baud
   Serial.begin(115200);
+  Serial.println("CoilDriver HAL ready - waiting for next task implementation");
 }
 
 void loop() {
-  // Empty loop for compilation test
+  // Empty loop - waiting for next PRP task
 }
