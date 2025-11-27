@@ -85,14 +85,14 @@
               "type": "Task",
               "id": "P1.M2.T3",
               "title": "Time Source Interface",
-              "status": "Planned",
+              "status": "Complete",
               "description": "Abstraction for time to enable unit testing without `delay()`.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M2.T3.S1",
                   "title": "Implement ITimeSource",
-                  "status": "Planned",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [],
                   "context_scope": "CONTRACT DEFINITION:\n1. INPUT: None.\n2. LOGIC: Create interface `ITimeSource` with method `unsigned long millis()`. Create concrete class `ArduinoTimeSource` implementing it using Arduino's `millis()`. This allows mocking time in logic tests.\n3. OUTPUT: `src/hal/TimeSource.h`."
