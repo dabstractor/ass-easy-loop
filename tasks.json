@@ -112,14 +112,14 @@
               "type": "Task",
               "id": "P1.M3.T1",
               "title": "Waveform Controller",
-              "status": "Planned",
+              "status": "Complete",
               "description": "Logic for the 10Hz signal generation.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M3.T1.S1",
                   "title": "Implement WaveformController",
-                  "status": "Planned",
+                  "status": "Complete",
                   "story_points": 2,
                   "dependencies": [
                     "P1.M2.T1.S1",
