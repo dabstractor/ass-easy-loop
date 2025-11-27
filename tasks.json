@@ -157,21 +157,21 @@
           "type": "Milestone",
           "id": "P1.M4",
           "title": "Integration & Entry Point",
-          "status": "Planned",
+          "status": "Complete",
           "description": "Wiring of dependencies and Main Sketch setup.",
           "tasks": [
             {
               "type": "Task",
               "id": "P1.M4.T1",
               "title": "Main Sketch",
-              "status": "Planned",
+              "status": "Complete",
               "description": "Dependency injection and runtime loop.",
               "subtasks": [
                 {
                   "type": "Subtask",
                   "id": "P1.M4.T1.S1",
                   "title": "Implement main.cpp",
-                  "status": "Planned",
+                  "status": "Complete",
                   "story_points": 1,
                   "dependencies": [
                     "P1.M3.T2.S1"
