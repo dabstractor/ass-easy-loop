@@ -114,42 +114,29 @@ The device uses PlatformIO for programming:
 
 ## Testing Before Use
 
-Before using this on any animal, perform these tests:
+Before using this on any animal, verify the device is working:
 
-### Test 1: Compass Test
-1. Place a compass inside the silicone loop
-2. Turn on the device (press the reset button)
-3. You should see the compass needle vibrate rapidly
-4. This confirms the magnetic field is working
+1. Press the reset button to start the device
+2. Confirm the green LED is flashing rapidly (10 times per second)
+3. Hold a refrigerator magnet loosely in your hand
+4. Slowly bring the magnet close to the loop
+5. You should feel the magnet vibrating in your hand
 
-### Test 2: Magnet Test
-1. Hold a strong magnet near the silicone ring
-2. Turn on the device
-3. You should feel a physical "kick" or "thump" against the magnet
-4. This confirms the pulse strength
-
-### Test 3: Heat Test
-1. Run the device for 2 minutes
-2. Touch the MOSFET and coil
-3. They should be warm but not painfully hot
-4. If burning hot, disconnect the battery immediately
+If you feel the vibration, the device is working correctly and ready for use.
 
 ## How to Use
 
 ### Starting a Treatment
 1. Press the small reset button on the RP2040-Zero
 2. The device starts immediately
-3. Green light flashes rapidly and you hear buzzing
+3. Green light flashes rapidly
 4. Place the loop around the treatment area on your animal
 
 ### During Treatment
 - The green light flashes 10 times per second
-- You hear a soft buzzing/clicking sound
-- Each buzz is one magnetic pulse
 - Treatment automatically stops after 15 minutes
 
 ### When Treatment Ends
-- Buzzing stops
 - Green light turns off
 - Device is safe to remove
 
@@ -204,8 +191,9 @@ With 1600mAh total capacity:
 
 ### No Magnetic Field
 - Check MOSFET connections
-- Verify the diode is installed correctly
-- Test with compass method described above
+- Verify the diode is installed correctly (stripe to positive)
+- Make sure there is no resistor in series between GPIO 15 and the MOSFET
+- Test with refrigerator magnet method described above
 
 ### Device Gets Too Hot
 - Stop use immediately
