@@ -80,6 +80,7 @@ GPIO 15 ──┐
 1. **LED dimly lit when should be OFF** - Floating pin
 2. **Slow voltage transitions** - Overloaded GPIO pin
 3. **MOSFET gets warm** - Gate not fully driven
+4. **No magnetic field but piezo works** - Series resistor in signal path (remove it!) or flyback diode backwards
 
 ---
 

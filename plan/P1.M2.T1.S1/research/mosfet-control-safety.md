@@ -121,8 +121,18 @@ public:
    - Safe operations: `digitalWrite()`, simple assignments
 
 4. **External Pull-Down Resistor** (Hardware recommendation)
-   - 100K-1M ohm pull-down on MOSFET gate
+   - 100K-1M ohm resistor from GPIO pin to GND (parallel with gate)
    - Ensures gate defaults to LOW on startup before firmware runs
+   - **Correct wiring:**
+     ```
+     GPIO 15 ────────┬──── MOSFET Gate
+                     │
+                   [100K]
+                     │
+                    GND
+     ```
+   - **WARNING:** Do NOT put this resistor in series between GPIO and MOSFET gate.
+     A series resistor forms an RC filter with gate capacitance and will kill the drive signal.
 
 ---
 

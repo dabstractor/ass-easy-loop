@@ -79,6 +79,19 @@ Follow this exact wiring diagram:
 - RP2040 GPIO 14 connects to piezo buzzer positive
 - Piezo buzzer negative connects to ground
 
+### Optional Pull-Down Resistor (Recommended)
+Add a 100K-1M ohm resistor between GPIO 15 and ground. This keeps the MOSFET OFF during power-up before the firmware initializes.
+
+```
+GPIO 15 ────────┬──── MOSFET Signal
+                │
+              [100K]
+                │
+               GND
+```
+
+**WARNING:** Do NOT put this resistor in series (between GPIO 15 and the MOSFET). A series resistor will kill the signal and prevent the coil from working.
+
 ### Output Protection (Critical)
 
 **You MUST install this diode correctly:**

@@ -64,12 +64,17 @@ OUT- (or B-)
 
 Signal Path:
 
-RP2040 GPIO 15 
+RP2040 GPIO 15
 →
 →
  MOSFET TRIG/SIG.
 
-RP2040 GPIO 14 
+GPIO 15 Pull-Down (Optional but Recommended):
+100K-1M Ohm resistor from GPIO 15 to GND.
+Purpose: Ensures MOSFET stays OFF during boot before firmware initializes.
+WARNING: Do NOT put resistor in series between GPIO and MOSFET - this kills the signal.
+
+RP2040 GPIO 14
 →
 →
  Piezo Buzzer Positive.
