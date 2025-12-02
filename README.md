@@ -29,8 +29,8 @@ This device involves:
 - TP4056 battery charging board
 - 2x 18300 lithium batteries (3.7V, 800mAh each)
 - 1N4007 or 1N5408 protection diode
-- Piezo buzzer for audio feedback
 - Small push button for reset
+- MT3608 Step Up Boost Converter (Optional)
 
 ### Tools and Supplies
 - Wire stripper and cutter
@@ -76,8 +76,7 @@ Follow this exact wiring diagram:
 
 ### Signal Connections
 - RP2040 GPIO 15 connects to MOSFET trigger/signal pin
-- RP2040 GPIO 14 connects to piezo buzzer positive
-- Piezo buzzer negative connects to ground
+- RP2040 GPIO 14 connects to TP4056 charging indicator (Red LED cathode or Charge status pin)
 
 ### Optional Pull-Down Resistor (Recommended)
 Add a 100K-1M ohm resistor between GPIO 15 and ground. This keeps the MOSFET OFF during power-up before the firmware initializes.
@@ -102,6 +101,15 @@ MOSFET Output (-) -----> Coil End   -----> Diode Black End (Anode)
 ```
 
 The diode goes across the coil terminals - stripe end to positive coil connection, black end to negative. If you get this backwards, you will destroy the MOSFET instantly.
+
+## Optional Power Upgrade (MT3608)
+
+You can add an MT3608 Step Up Boost Converter to boost the voltage for a stronger magnetic field.
+
+- **Requirements:** This requires at least 2 batteries (2 batteries = 6-7V, 3 = 9V, 4 = 12V).
+- **Wiring:**
+  - Battery Output -> MT3608 VIN / GND
+  - MT3608 VOUT / GND -> MOSFET VCC / GND
 
 ## Setting Up the Software
 
@@ -145,6 +153,7 @@ If you feel the vibration, the device is working correctly and ready for use.
 2. Red light means charging
 3. Blue/green light means fully charged
 4. **Never use the device while charging**
+5. **WARNING: The device will NOT start if the charger is connected and active.**
 
 ## Battery Life
 

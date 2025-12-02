@@ -46,7 +46,6 @@ controller: RP2040-Zero (Generic/Waveshare)
 onboard_led: WS2812 RGB LED on GPIO 16
 gpio_assignments:
   mosfet_signal: GPIO 15
-  piezo_buzzer: GPIO 14
   neopixel_led: GPIO 16
 ```
 

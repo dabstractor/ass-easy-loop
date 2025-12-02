@@ -59,8 +59,8 @@ CONTRACT DEFINITION:
 **Context & Scope:**
 ```text
 CONTRACT DEFINITION:
-1. INPUT: PRD Section 2.1 (NeoPixel) & 2.2 (Buzzer GPIO 14).
-2. LOGIC: Create class `FeedbackDriver`. Encapsulate `Adafruit_NeoPixel` object. Constructor accepts buzzer pin and NeoPixel pin. `begin()` initializes NeoPixel and sets buzzer pin OUTPUT. Method `indicateActive(bool isActive)`: If true, set buzzer HIGH and NeoPixel Green (Low Brightness). If false, buzzer LOW and NeoPixel OFF.
+1. INPUT: PRD Section 2.1 (NeoPixel).
+2. LOGIC: Create class `FeedbackDriver`. Encapsulate `Adafruit_NeoPixel` object. Constructor accepts NeoPixel pin. `begin()` initializes NeoPixel. Method `indicateActive(bool isActive)`: If true, set NeoPixel Green (Low Brightness). If false, NeoPixel OFF.
 3. OUTPUT: `src/hal/FeedbackDriver.h` and `.cpp`.
 ```
 

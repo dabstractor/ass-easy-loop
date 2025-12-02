@@ -16,7 +16,7 @@
 // HAL layer - hardware abstractions
 ArduinoTimeSource timeSource;
 CoilDriver coilDriver(15);             // GPIO 15 - MOSFET control
-FeedbackDriver feedbackDriver(14, 16); // GPIO 14 - Buzzer, GPIO 16 - NeoPixel
+FeedbackDriver feedbackDriver(16);     // GPIO 16 - NeoPixel
 
 // Logic layer - business logic with injected dependencies
 WaveformController waveformController(coilDriver, feedbackDriver, timeSource);

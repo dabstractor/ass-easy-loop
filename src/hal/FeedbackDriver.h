@@ -5,37 +5,36 @@
 #include <Adafruit_NeoPixel.h>
 
 /**
- * @brief Safe wrapper for synchronous Audio/Visual feedback.
+ * @brief Safe wrapper for synchronous Visual feedback.
  *
- * Controls onboard WS2812 NeoPixel LED and piezo buzzer for
+ * Controls onboard WS2812 NeoPixel LED for
  * therapeutic session feedback at 10Hz.
  *
  * Implements fail-safe patterns:
- * - begin() initializes both outputs to OFF state
- * - Destructor forces both outputs to OFF
+ * - begin() initializes NeoPixel to OFF state
+ * - Destructor forces NeoPixel to OFF
  * - Non-copyable (hardware resource protection)
  *
- * @note PRD Section 2.1 (NeoPixel GPIO 16) & 2.2 (Buzzer GPIO 14)
+ * @note PRD Section 2.1 (NeoPixel GPIO 16)
  */
 class FeedbackDriver {
 public:
     /**
-     * @brief Construct FeedbackDriver with specified GPIO pins.
-     * @param buzzerPin GPIO pin for piezo buzzer (default: 14)
+     * @brief Construct FeedbackDriver with specified GPIO pin.
      * @param neoPixelPin GPIO pin for WS2812 LED (default: 16)
      * @note Does NOT configure hardware - call begin() in setup()
      */
-    explicit FeedbackDriver(uint8_t buzzerPin = 14, uint8_t neoPixelPin = 16);
+    explicit FeedbackDriver(uint8_t neoPixelPin = 16);
 
     /**
-     * @brief Initialize buzzer and NeoPixel to safe OFF state.
+     * @brief Initialize NeoPixel to safe OFF state.
      * @note Must be called in setup() before any indicateActive() calls
      */
     void begin();
 
     /**
      * @brief Control synchronized feedback state.
-     * @param isActive true = Buzzer HIGH + LED Green, false = both OFF
+     * @param isActive true = LED Green, false = OFF
      */
     void indicateActive(bool isActive);
 
@@ -49,7 +48,6 @@ public:
     FeedbackDriver& operator=(const FeedbackDriver&) = delete;
 
 private:
-    const uint8_t _buzzerPin;          ///< GPIO pin for buzzer (immutable)
     const uint8_t _neoPixelPin;        ///< GPIO pin for NeoPixel (immutable)
     Adafruit_NeoPixel _pixel;          ///< NeoPixel driver instance
 

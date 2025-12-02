@@ -77,7 +77,7 @@
                   "dependencies": [
                     "P1.M1.T1.S1"
                   ],
-                  "context_scope": "CONTRACT DEFINITION:\n1. INPUT: PRD Section 2.1 (NeoPixel) & 2.2 (Buzzer GPIO 14).\n2. LOGIC: Create class `FeedbackDriver`. Encapsulate `Adafruit_NeoPixel` object. Constructor accepts buzzer pin and NeoPixel pin. `begin()` initializes NeoPixel and sets buzzer pin OUTPUT. Method `indicateActive(bool isActive)`: If true, set buzzer HIGH and NeoPixel Green (Low Brightness). If false, buzzer LOW and NeoPixel OFF.\n3. OUTPUT: `src/hal/FeedbackDriver.h` and `.cpp`."
+                  "context_scope": "CONTRACT DEFINITION:\n1. INPUT: PRD Section 2.1 (NeoPixel).\n2. LOGIC: Create class `FeedbackDriver`. Encapsulate `Adafruit_NeoPixel` object. Constructor accepts NeoPixel pin. `begin()` initializes NeoPixel. Method `indicateActive(bool isActive)`: If true, set NeoPixel Green (Low Brightness). If false, NeoPixel OFF.\n3. OUTPUT: `src/hal/FeedbackDriver.h` and `.cpp`."
                 }
               ]
             },
