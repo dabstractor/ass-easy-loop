@@ -38,6 +38,13 @@ void FeedbackDriver::turnOff() {
 }
 
 void FeedbackDriver::update() {
+    // If disabled, keep LED off
+    if (!_enabled) {
+        _pixel.clear();
+        _pixel.show();
+        return;
+    }
+
     uint8_t r = 0, g = 0, b = 0;
 
     if (_chargeMonitor.isCharging()) {
@@ -58,6 +65,24 @@ void FeedbackDriver::update() {
     }
 
     setScaledColor(r, g, b);
+}
+
+void FeedbackDriver::setEnabled(bool enabled) {
+    _enabled = enabled;
+    if (!_enabled) {
+        // Immediately turn off when disabled
+        _pixel.clear();
+        _pixel.show();
+    }
+}
+
+bool FeedbackDriver::isEnabled() const {
+    return _enabled;
+}
+
+bool FeedbackDriver::toggleEnabled() {
+    setEnabled(!_enabled);
+    return _enabled;
 }
 
 void FeedbackDriver::setScaledColor(uint8_t r, uint8_t g, uint8_t b) {

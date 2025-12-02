@@ -48,6 +48,25 @@ public:
     void turnOff();
 
     /**
+     * @brief Enable or disable the NeoPixel output.
+     * @param enabled true to enable visual feedback, false to disable
+     * @note When disabled, LED stays off regardless of update() calls
+     */
+    void setEnabled(bool enabled);
+
+    /**
+     * @brief Check if NeoPixel output is enabled.
+     * @return true if enabled, false if disabled
+     */
+    bool isEnabled() const;
+
+    /**
+     * @brief Toggle the NeoPixel enabled state.
+     * @return New enabled state after toggling
+     */
+    bool toggleEnabled();
+
+    /**
      * @brief Force all outputs to safe state (OFF) on destruction.
      */
     ~FeedbackDriver();
@@ -65,6 +84,9 @@ private:
 
     // Color cycling state
     float _hueOffset = 0.0f;
+
+    // Enable/disable state
+    bool _enabled = true;              ///< Whether NeoPixel output is enabled
 
     /**
      * @brief Helper to set pixel color with brightness scaling

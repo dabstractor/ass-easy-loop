@@ -18,7 +18,8 @@
 ArduinoTimeSource timeSource;
 CoilDriver coilDriver(15);             // GPIO 15 - MOSFET control
 ChargeMonitor chargeMonitor(14);       // GPIO 14 - TP4056 Charging Status (Low = Charging)
-FeedbackDriver feedbackDriver(chargeMonitor, 16);     // GPIO 16 - NeoPixel (needs ChargeMonitor now)
+FeedbackDriver feedbackDriver(chargeMonitor, 16);     // GPIO 16 - NeoPixel
+ButtonController buttonController(timeSource, 26);    // GPIO 26 - Control button
 
 // Logic layer - business logic with injected dependencies
 WaveformController waveformController(coilDriver, feedbackDriver, timeSource);
@@ -30,15 +31,14 @@ void setup() {
 
     // Initialize HAL components
     coilDriver.begin();
-    // We need chargeMonitor initialized before feedbackDriver uses it (though it just stores ref)
-    // But for safety let's init it first
     chargeMonitor.begin();
     feedbackDriver.begin();
+    buttonController.begin();
 
-    waveformController.begin();
-    sessionManager.start();
+    // Start with NeoPixel disabled (must be off when pEMF not running)
+    feedbackDriver.setEnabled(false);
 
-    Serial.println("pEMF Session Started - 15 minute limit");
+    Serial.println("pEMF Device Ready - Press button to start");
 }
 
 void loop() {
