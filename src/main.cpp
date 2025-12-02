@@ -3,13 +3,20 @@
  * @brief Entry point for Ass-Easy-Loop pEMF therapy firmware.
  *
  * Wires together all HAL and Logic components using dependency injection
- * to create a complete 10Hz pEMF therapy system with 15-minute timeout.
+ * to create a complete 10Hz pEMF therapy system with button control.
+ *
+ * Button controls (GPIO26):
+ * - Single press when stopped: Start session
+ * - 3-second hold when running: Stop session
+ * - Single press when running: Toggle NeoPixel on/off
+ * - Double press when running: Extend time by 5 minutes (max 45 min total)
  */
 
 #include <Arduino.h>
 #include "hal/CoilDriver.h"
 #include "hal/FeedbackDriver.h"
 #include "hal/ChargeMonitor.h"
+#include "hal/ButtonController.h"
 #include "hal/TimeSource.h"
 #include "logic/WaveformController.h"
 #include "logic/SessionManager.h"
@@ -54,5 +61,57 @@ void loop() {
         return;
     }
 
-    sessionManager.update();
+    // Process button events
+    ButtonController::Event event = buttonController.update();
+
+    if (sessionManager.isActive()) {
+        // Session is running - handle running-state events
+        switch (event) {
+            case ButtonController::Event::LONG_HOLD:
+                // Stop the session
+                sessionManager.stop();
+                feedbackDriver.setEnabled(false);  // NeoPixel off when pEMF not running
+                Serial.println("Session stopped by user (long hold)");
+                break;
+
+            case ButtonController::Event::SINGLE_PRESS:
+                // Toggle NeoPixel
+                if (feedbackDriver.toggleEnabled()) {
+                    Serial.println("NeoPixel enabled");
+                } else {
+                    Serial.println("NeoPixel disabled");
+                }
+                break;
+
+            case ButtonController::Event::DOUBLE_PRESS:
+                // Extend time by 5 minutes
+                if (sessionManager.extendTime()) {
+                    unsigned long totalMin = sessionManager.getSessionDuration() / 60000UL;
+                    Serial.print("Time extended - total session: ");
+                    Serial.print(totalMin);
+                    Serial.println(" minutes");
+                } else {
+                    Serial.println("Cannot extend - already at max (45 min)");
+                }
+                break;
+
+            default:
+                break;
+        }
+
+        // Update session (handles timing and waveform generation)
+        sessionManager.update();
+
+    } else {
+        // Session is NOT running - handle stopped-state events
+        if (event == ButtonController::Event::SINGLE_PRESS) {
+            // Start a new session
+            sessionManager.start();
+            feedbackDriver.setEnabled(true);  // Enable NeoPixel when session starts
+            Serial.println("pEMF Session Started - 15 minute default");
+        }
+
+        // Keep NeoPixel off when not running (but still call update for consistency)
+        feedbackDriver.update();
+    }
 }
