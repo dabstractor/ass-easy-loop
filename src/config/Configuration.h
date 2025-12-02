@@ -78,12 +78,13 @@ namespace Config {
     // ================================================
 
     /**
-     * NeoPixel color when charging is detected.
+     * NeoPixel color when device is plugged into power (Safety Mode).
      * RGB values (0-255), will be scaled by NEOPIXEL_BRIGHTNESS
+     * Set to 0,0,0 to disable LED while plugged in.
      */
-    static constexpr uint8_t CHARGING_COLOR_R = 255;
-    static constexpr uint8_t CHARGING_COLOR_G = 60;
-    static constexpr uint8_t CHARGING_COLOR_B = 60;
+    static constexpr uint8_t CHARGING_COLOR_R = 0;
+    static constexpr uint8_t CHARGING_COLOR_G = 0;
+    static constexpr uint8_t CHARGING_COLOR_B = 0;
 
     /**
      * Pastel color generation parameters

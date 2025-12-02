@@ -9,6 +9,7 @@
 #include <Arduino.h>
 #include "hal/CoilDriver.h"
 #include "hal/FeedbackDriver.h"
+#include "hal/ChargeMonitor.h"
 #include "hal/TimeSource.h"
 #include "logic/WaveformController.h"
 #include "logic/SessionManager.h"
@@ -16,7 +17,8 @@
 // HAL layer - hardware abstractions
 ArduinoTimeSource timeSource;
 CoilDriver coilDriver(15);             // GPIO 15 - MOSFET control
-FeedbackDriver feedbackDriver(16);     // GPIO 16 - NeoPixel
+ChargeMonitor chargeMonitor(14);       // GPIO 14 - TP4056 Charging Status (Low = Charging)
+FeedbackDriver feedbackDriver(chargeMonitor, 16);     // GPIO 16 - NeoPixel (needs ChargeMonitor now)
 
 // Logic layer - business logic with injected dependencies
 WaveformController waveformController(coilDriver, feedbackDriver, timeSource);
@@ -28,6 +30,9 @@ void setup() {
 
     // Initialize HAL components
     coilDriver.begin();
+    // We need chargeMonitor initialized before feedbackDriver uses it (though it just stores ref)
+    // But for safety let's init it first
+    chargeMonitor.begin();
     feedbackDriver.begin();
 
     // Initialize and start session
@@ -38,5 +43,13 @@ void setup() {
 }
 
 void loop() {
+    // Safety check: Disable pEMF if charging
+    if (chargeMonitor.isCharging()) {
+        waveformController.forceInactive();
+        // Update feedback to show charging state (red)
+        feedbackDriver.update();
+        return;
+    }
+
     sessionManager.update();
 }
