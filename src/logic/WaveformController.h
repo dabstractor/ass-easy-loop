@@ -4,6 +4,7 @@
 #include "../hal/CoilDriver.h"
 #include "../hal/FeedbackDriver.h"
 #include "../hal/TimeSource.h"
+#include "../config/Configuration.h"
 
 /**
  * @brief Controller for generating 10Hz therapeutic pEMF waveform.
@@ -55,9 +56,6 @@ public:
     void forceInactive();
 
 private:
-    static constexpr unsigned long PERIOD_MS = 100;    ///< 10Hz = 100ms period
-    static constexpr unsigned long ON_DURATION_MS = 2; ///< 2ms ON time
-    static constexpr unsigned long OFF_DURATION_MS = 98; ///< 98ms OFF time
 
     CoilDriver& _coilDriver;              ///< Reference to coil control
     FeedbackDriver& _feedbackDriver;      ///< Reference to feedback control
