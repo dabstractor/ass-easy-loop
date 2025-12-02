@@ -19,9 +19,19 @@
 class SessionManager {
 public:
     /**
-     * @brief Maximum session duration in milliseconds (15 minutes).
+     * @brief Default session duration in milliseconds (15 minutes).
      */
-    static constexpr unsigned long MAX_SESSION_DURATION_MS = 900000UL;
+    static constexpr unsigned long DEFAULT_SESSION_DURATION_MS = 900000UL;
+
+    /**
+     * @brief Maximum session duration in milliseconds (45 minutes).
+     */
+    static constexpr unsigned long MAX_SESSION_DURATION_MS = 2700000UL;
+
+    /**
+     * @brief Time extension increment in milliseconds (5 minutes).
+     */
+    static constexpr unsigned long TIME_EXTENSION_MS = 300000UL;
 
     /**
      * @brief Construct SessionManager with required dependencies.
@@ -51,6 +61,14 @@ public:
     bool update();
 
     /**
+     * @brief Stop the current session manually.
+     *
+     * Terminates the session immediately, turning off the coil.
+     * Unlike terminateSession(), this does NOT enter idle loop.
+     */
+    void stop();
+
+    /**
      * @brief Check if session is currently active.
      * @return true if session is running and within time limit
      */
@@ -62,11 +80,25 @@ public:
      */
     unsigned long getRemainingTime() const;
 
+    /**
+     * @brief Extend the session duration by 5 minutes.
+     * @return true if extension was applied, false if already at max (45 min)
+     * @note Extensions are cumulative up to MAX_SESSION_DURATION_MS
+     */
+    bool extendTime();
+
+    /**
+     * @brief Get the current session duration limit.
+     * @return Current session duration in milliseconds
+     */
+    unsigned long getSessionDuration() const;
+
 private:
     WaveformController& _waveformController;  ///< Reference to therapy controller
     const ITimeSource& _timeSource;           ///< Reference to time abstraction
 
     unsigned long _startTime;                  ///< Timestamp when session started
+    unsigned long _sessionDuration;            ///< Current session duration (can be extended)
     bool _isRunning;                          ///< Session running state
 
     /**

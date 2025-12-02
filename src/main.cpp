@@ -35,7 +35,6 @@ void setup() {
     chargeMonitor.begin();
     feedbackDriver.begin();
 
-    // Initialize and start session
     waveformController.begin();
     sessionManager.start();
 
@@ -45,8 +44,12 @@ void setup() {
 void loop() {
     // Safety check: Disable pEMF if charging
     if (chargeMonitor.isCharging()) {
-        waveformController.forceInactive();
-        // Update feedback to show charging state (red)
+        if (sessionManager.isActive()) {
+            sessionManager.stop();
+            feedbackDriver.setEnabled(false);
+            Serial.println("Session stopped - device charging");
+        }
+        // Update feedback to show charging state (if enabled, shows charging color)
         feedbackDriver.update();
         return;
     }
