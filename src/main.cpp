@@ -30,7 +30,7 @@ ButtonController buttonController(timeSource, 26);    // GPIO 26 - Control butto
 
 // Logic layer - business logic with injected dependencies
 WaveformController waveformController(coilDriver, feedbackDriver, timeSource);
-SessionManager sessionManager(waveformController, timeSource);
+SessionManager sessionManager(waveformController, feedbackDriver, timeSource);
 
 void setup() {
     // Enable USB Serial for bootloader backdoor (PRD 5.3)

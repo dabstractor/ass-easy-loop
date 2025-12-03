@@ -94,6 +94,14 @@ namespace Config {
     static constexpr float PASTEL_SATURATION = 0.5f;
     static constexpr float PASTEL_VALUE = 1.0f;
 
+    /**
+     * Blink pattern timing settings in milliseconds
+     */
+    static constexpr unsigned long BLINK_FAST_ON_MS = 100;
+    static constexpr unsigned long BLINK_FAST_OFF_MS = 100;
+    static constexpr unsigned long BLINK_SLOW_ON_MS = 250;
+    static constexpr unsigned long BLINK_SLOW_OFF_MS = 250;
+
 } // namespace Config
 
 #endif // CONFIGURATION_H

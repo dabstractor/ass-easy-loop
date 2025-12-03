@@ -2,6 +2,7 @@
 #define SESSION_MANAGER_H
 
 #include "../hal/TimeSource.h"
+#include "../hal/FeedbackDriver.h"
 #include "WaveformController.h"
 
 /**
@@ -14,6 +15,7 @@
  *
  * Uses dependency injection pattern for testability:
  * - WaveformController for therapy generation control
+ * - FeedbackDriver for session feedback
  * - ITimeSource for time abstraction
  */
 class SessionManager {
@@ -36,9 +38,11 @@ public:
     /**
      * @brief Construct SessionManager with required dependencies.
      * @param waveformController Reference to WaveformController instance
+     * @param feedbackDriver Reference to FeedbackDriver instance
      * @param timeSource Reference to ITimeSource instance
      */
     SessionManager(WaveformController& waveformController,
+                   FeedbackDriver& feedbackDriver,
                    const ITimeSource& timeSource);
 
     /**
@@ -95,6 +99,7 @@ public:
 
 private:
     WaveformController& _waveformController;  ///< Reference to therapy controller
+    FeedbackDriver& _feedbackDriver;          ///< Reference to feedback driver
     const ITimeSource& _timeSource;           ///< Reference to time abstraction
 
     unsigned long _startTime;                  ///< Timestamp when session started

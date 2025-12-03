@@ -124,6 +124,31 @@ void FeedbackDriver::getPastelColor(float hue, uint8_t& r, uint8_t& g, uint8_t& 
     b = (uint8_t)(fb * 255);
 }
 
+void FeedbackDriver::blinkFast(int count) {
+    for (int i = 0; i < count; i++) {
+        // Bright white (max brightness, bypassing scaling)
+        _pixel.setPixelColor(0, 255, 255, 255);
+        _pixel.show();
+        delay(Config::BLINK_FAST_ON_MS);
+
+        _pixel.clear();
+        _pixel.show();
+        delay(Config::BLINK_FAST_OFF_MS);
+    }
+}
+
+void FeedbackDriver::blinkSlow(int count) {
+    for (int i = 0; i < count; i++) {
+        // White (scaled to configured brightness)
+        setScaledColor(255, 255, 255);
+        delay(Config::BLINK_SLOW_ON_MS);
+
+        _pixel.clear();
+        _pixel.show();
+        delay(Config::BLINK_SLOW_OFF_MS);
+    }
+}
+
 FeedbackDriver::~FeedbackDriver() {
     // Use comprehensive cleanup for safety
     turnOff();

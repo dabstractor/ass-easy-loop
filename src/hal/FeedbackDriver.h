@@ -67,6 +67,20 @@ public:
     bool toggleEnabled();
 
     /**
+     * @brief Blink the LED fast and bright.
+     * Blocking operation.
+     * @param count Number of blinks
+     */
+    void blinkFast(int count);
+
+    /**
+     * @brief Blink the LED slowly.
+     * Blocking operation.
+     * @param count Number of blinks
+     */
+    void blinkSlow(int count);
+
+    /**
      * @brief Force all outputs to safe state (OFF) on destruction.
      */
     ~FeedbackDriver();
