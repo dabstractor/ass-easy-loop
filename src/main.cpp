@@ -24,7 +24,7 @@
 // HAL layer - hardware abstractions
 ArduinoTimeSource timeSource;
 CoilDriver coilDriver(15);             // GPIO 15 - MOSFET control
-ChargeMonitor chargeMonitor(14);       // GPIO 14 - TP4056 Charging Status (Low = Charging)
+ChargeMonitor chargeMonitor(14);       // GPIO 14 - USB power detection via voltage divider
 FeedbackDriver feedbackDriver(chargeMonitor, 16);     // GPIO 16 - NeoPixel
 ButtonController buttonController(timeSource, 26);    // GPIO 26 - Control button
 
@@ -49,14 +49,18 @@ void setup() {
 }
 
 void loop() {
-    // Safety check: Disable pEMF if charging
-    if (chargeMonitor.isCharging()) {
+    // Safety check: Disable pEMF if plugged in
+    bool pluggedIn = chargeMonitor.isCharging();
+
+    if (pluggedIn) {
+        // UNCONDITIONAL hardware kill - pEMF must NEVER run while plugged in
+        waveformController.forceInactive();
+
+        // Clean up session state if active
         if (sessionManager.isActive()) {
             sessionManager.stop();
             feedbackDriver.setEnabled(false);
-            Serial.println("Session stopped - device charging");
         }
-        // Update feedback to show charging state (if enabled, shows charging color)
         feedbackDriver.update();
         return;
     }
@@ -68,10 +72,8 @@ void loop() {
         // Session is running - handle running-state events
         switch (event) {
             case ButtonController::Event::LONG_HOLD:
-                // Stop the session
                 sessionManager.stop();
-                feedbackDriver.setEnabled(false);  // NeoPixel off when pEMF not running
-                Serial.println("Session stopped by user (long hold)");
+                feedbackDriver.setEnabled(false);
                 break;
 
             case ButtonController::Event::SINGLE_PRESS:

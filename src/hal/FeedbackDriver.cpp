@@ -126,6 +126,13 @@ void FeedbackDriver::getPastelColor(float hue, uint8_t& r, uint8_t& g, uint8_t& 
 
 void FeedbackDriver::blinkFast(int count) {
     for (int i = 0; i < count; i++) {
+        // Safety: abort blink sequence if charging detected
+        if (_chargeMonitor.isCharging()) {
+            _pixel.clear();
+            _pixel.show();
+            return;
+        }
+
         // Bright white (max brightness, bypassing scaling)
         _pixel.setPixelColor(0, 255, 255, 255);
         _pixel.show();
@@ -139,6 +146,13 @@ void FeedbackDriver::blinkFast(int count) {
 
 void FeedbackDriver::blinkSlow(int count) {
     for (int i = 0; i < count; i++) {
+        // Safety: abort blink sequence if charging detected
+        if (_chargeMonitor.isCharging()) {
+            _pixel.clear();
+            _pixel.show();
+            return;
+        }
+
         // White (scaled to configured brightness)
         setScaledColor(255, 255, 255);
         delay(Config::BLINK_SLOW_ON_MS);

@@ -9,8 +9,15 @@ public:
     void begin();
 
     /**
-     * @brief Checks if the device is plugged into power (USB).
-     * @return true if plugged in (Input Voltage detected), false if portable
+     * @brief Checks if the device is plugged into USB power.
+     * Uses voltage divider on VIN to detect USB connection.
+     * @return true if USB connected, false if running on battery
+     */
+    bool isPluggedIn() const;
+
+    /**
+     * @brief Legacy alias for isPluggedIn().
+     * @deprecated Use isPluggedIn() for clarity
      */
     bool isCharging() const;
 

@@ -1,4 +1,5 @@
 #include "SessionManager.h"
+#include <Arduino.h>
 
 SessionManager::SessionManager(WaveformController& waveformController,
                                FeedbackDriver& feedbackDriver,
@@ -43,23 +44,12 @@ void SessionManager::stop() {
     if (_isRunning) {
         _isRunning = false;
         _waveformController.forceInactive();
-
-        // Blink 3 times fast and bright on stop
         _feedbackDriver.blinkFast(3);
-
-        // Note: Unlike terminateSession(), we do NOT enter idle loop
-        // This allows the session to be restarted
     }
 }
 
 bool SessionManager::isActive() const {
-    if (!_isRunning) {
-        return false;
-    }
-
-    const unsigned long currentTime = _timeSource.millis();
-    const unsigned long elapsedTime = currentTime - _startTime;
-    return elapsedTime <= _sessionDuration;
+    return _isRunning;
 }
 
 unsigned long SessionManager::getRemainingTime() const {
@@ -81,6 +71,9 @@ bool SessionManager::extendTime() {
     if (!_isRunning) {
         return false;
     }
+
+    // Safety first: Ensure coil is OFF before blocking operations
+    _waveformController.forceInactive();
 
     // Calculate new duration
     unsigned long newDuration = _sessionDuration + TIME_EXTENSION_MS;
@@ -111,13 +104,9 @@ unsigned long SessionManager::getSessionDuration() const {
 
 void SessionManager::terminateSession() {
     _isRunning = false;
-    // Ensure CoilDriver is OFF as per safety requirements
     _waveformController.forceInactive();
-
-    // Blink 3 times fast and bright on termination
     _feedbackDriver.blinkFast(3);
-
-    idleLoop();
+    // idleLoop(); // Removed to prevent device freeze
 }
 
 void SessionManager::idleLoop() const {
