@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Physics Coil Calculator (Corrected)</title>
+    <style>
+        /* HYPERCOLOR ELECTROSTATIC GREASED UP DREAM FUNK STYLE */
+        :root {
+            --dark-funk: #100035;
+            --neon-pink: #FF00FF;
+            --neon-cyan: #00FFFF;
+            --neon-green: #00FF7F;
+            --shadow-intensity: 0 0 10px, 0 0 20px;
+        }
+
+        body {
+            background-color: var(--dark-funk);
+            color: var(--neon-cyan);
+            font-family: 'Courier New', Courier, monospace;
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-shadow: var(--shadow-intensity) var(--neon-cyan);
+        }
+
+        .container {
+            width: 90%;
+            max-width: 700px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid var(--neon-pink);
+            box-shadow: var(--shadow-intensity) var(--neon-pink);
+            padding: 30px;
+            border-radius: 15px;
+        }
+
+        h1 {
+            color: var(--neon-green);
+            text-align: center;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+            text-shadow: var(--shadow-intensity) var(--neon-green);
+        }
+
+        .input-group, .output-group {
+            margin-bottom: 25px;
+            padding: 10px;
+            border: 1px dashed var(--neon-cyan);
+            border-radius: 5px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--neon-cyan);
+            font-weight: bold;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--neon-pink);
+            color: var(--neon-pink);
+            text-shadow: var(--shadow-intensity) var(--neon-pink);
+            font-size: 1.1em;
+        }
+
+        .output-group div {
+            padding: 8px 0;
+            border-bottom: 1px dotted var(--neon-cyan);
+        }
+
+        .output-group div:last-child {
+            border-bottom: none;
+        }
+
+        /* Toggle Switch Styling */
+        .toggle-switch {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .toggle-switch input[type="checkbox"] {
+            height: 0;
+            width: 0;
+            visibility: hidden;
+        }
+
+        .toggle-label {
+            cursor: pointer;
+            text-indent: -9999px;
+            width: 80px;
+            height: 40px;
+            background: var(--neon-pink);
+            display: block;
+            border-radius: 40px;
+            position: relative;
+            box-shadow: var(--shadow-intensity) var(--neon-pink);
+        }
+
+        .toggle-label:after {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            width: 30px;
+            height: 30px;
+            background: var(--dark-funk);
+            border-radius: 30px;
+            transition: 0.3s;
+        }
+
+        .toggle-switch input:checked + .toggle-label {
+            background: var(--neon-green);
+            box-shadow: var(--shadow-intensity) var(--neon-green);
+        }
+
+        .toggle-switch input:checked + .toggle-label:after {
+            left: calc(100% - 5px);
+            transform: translateX(-100%);
+        }
+
+        .unit-text {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PHYSICS COIL CALCULATOR (Corrected)</h1>
+
+        <div class="toggle-switch">
+            <span class="unit-text" id="unit-imperial">IMPERIAL</span>
+            <input type="checkbox" id="unit-toggle" onchange="toggleUnits()" checked/>
+            <label for="unit-toggle" class="toggle-label">Toggle</label>
+            <span class="unit-text" id="unit-metric">METRIC</span>
+        </div>
+
+        <div class="input-group">
+            <label for="gauge">Wire Gauge (AWG)</label>
+            <input type="number" id="gauge" value="22" min="10" max="40" step="1" oninput="calculate()">
+
+            <label for="length">Wire Length (<span id="len-unit-label">m</span>)</label>
+            <input type="number" id="length" value="76.81" step="0.01" oninput="calculate()">
+
+            <label for="diameter">Coil Diameter (<span id="diam-unit-label">cm</span>)</label>
+            <input type="number" id="diameter" value="80" step="0.1" oninput="calculate()">
+
+            <label for="voltage">Battery Voltage (V)</label>
+            <input type="number" id="voltage" value="16" step="0.1" oninput="calculate()">
+
+            <label for="capacity">Battery Capacity (mAh)</label>
+            <input type="number" id="capacity" value="2600" step="100" oninput="calculate()">
+
+            <label for="temp">Air Temperature (<span id="temp-unit-label">°C</span>)</label>
+            <input type="number" id="temp" value="27" step="1" oninput="calculate()">
+
+            <label for="duty">Duty Cycle (%)</label>
+            <input type="number" id="duty" value="20" min="0" max="100" step="1" oninput="calculate()">
+        </div>
+
+        <div class="output-group">
+            <h2>&gt; FIELD &amp; RUNTIME OUTPUTS &lt;</h2>
+            <div id="runtime-out">Total Runtime: Calculating...</div>
+            <hr style="border-top: 1px dotted var(--neon-cyan); margin: 10px 0;">
+            <div id="b0-out">Field Strength (Center, $z=0$): Calculating...</div>
+            <div id="b5-out">Field Strength ($z=5 \text{ cm}$): Calculating...</div>
+            <div id="b10-out">Field Strength ($z=10 \text{ cm}$): Calculating...</div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONSTANTS ---
+        const MU_0 = 4 * Math.PI * 1e-7; // Permeability of free space (T*m/A)
+        const ALPHA_COPPER = 0.00393;     // Temperature coefficient of resistance (/°C)
+        const RHO_COPPER = 1.72e-8;       // Resistivity of Copper at 20°C (Ohm*m)
+
+        // --- GLOBAL STATE ---
+        let isMetric = true;
+
+        // --- AWG CALCULATION FUNCTION ---
+        // Calculates the cross-sectional area (A) of a wire given its AWG number.
+        // Formula: d(mm) = 0.127 * 92^((36-AWG)/39). A(m^2) = pi * (d/2)^2 / 1000^2
+        function getWireArea(awg) {
+            const exp = (36 - awg) / 39;
+            const d_mm = 0.127 * Math.pow(92, exp);
+            const r_m = (d_mm / 2) / 1000;
+            return Math.PI * r_m * r_m; // Area in meters squared
+        }
+
+        // --- UNIT CONVERSION LOGIC (same as before) ---
+        function convertToMetric(id, fromImperial) {
+            let val = parseFloat(document.getElementById(id).value);
+            if (isNaN(val)) return null;
+
+            if (id === 'length') return fromImperial ? val * 0.3048 : val; // ft to m
+            if (id === 'diameter') return fromImperial ? val * 2.54 : val; // in to cm
+            if (id === 'temp') return fromImperial ? (val - 32) * (5/9) : val; // °F to °C
+            return val;
+        }
+
+        function convertFromMetric(id, metricVal) {
+            if (id === 'length') return metricVal / 0.3048; // m to ft
+            if (id === 'diameter') return metricVal / 2.54; // cm to in
+            if (id === 'temp') return (metricVal * (9/5)) + 32; // °C to °F
+            return metricVal;
+        }
+
+        function toggleUnits() {
+            const toggle = document.getElementById('unit-toggle');
+            const newIsMetric = toggle.checked;
+            
+            if (isMetric === newIsMetric) {
+                calculate();
+                return;
+            }
+
+            const ids = ['length', 'diameter', 'temp'];
+            ids.forEach(id => {
+                let input = document.getElementById(id);
+                let metricVal = convertToMetric(id, !isMetric);
+                let newVal = newIsMetric ? metricVal : convertFromMetric(id, metricVal);
+
+                input.value = newVal.toFixed(id === 'temp' ? 1 : 2);
+            });
+
+            isMetric = newIsMetric;
+
+            // Update Unit Labels
+            document.getElementById('len-unit-label').textContent = isMetric ? 'm' : 'ft';
+            document.getElementById('diam-unit-label').textContent = isMetric ? 'cm' : 'in';
+            document.getElementById('temp-unit-label').textContent = isMetric ? '°C' : '°F';
+            
+            calculate();
+        }
+        
+        // --- CORE CALCULATION LOGIC ---
+        function calculate() {
+            // 1. Get ALL inputs in their METRIC BASE
+            const AWG = parseFloat(document.getElementById('gauge').value);
+            const V = parseFloat(document.getElementById('voltage').value); 
+            const L_wire_m = convertToMetric('length', !isMetric);
+            const D_coil_cm = convertToMetric('diameter', !isMetric);
+            const Temp_C = convertToMetric('temp', !isMetric);
+            // Capacity is always in mAh now, convert to Ah for calculation
+            const C_mAh = parseFloat(document.getElementById('capacity').value);
+            const C_Ah = C_mAh / 1000;
+            const DC_ratio = parseFloat(document.getElementById('duty').value) / 100;
+
+            const R_coil_m = (D_coil_cm / 100) / 2; // Radius in meters (D in cm -> m -> R)
+
+            // Basic validation
+            if (isNaN(AWG) || isNaN(V) || isNaN(L_wire_m) || isNaN(D_coil_cm) || isNaN(Temp_C) || isNaN(C_Ah) || isNaN(DC_ratio) || R_coil_m <= 0 || L_wire_m <= 0 || V <= 0) {
+                // Display error or default state on invalid input
+                document.getElementById('runtime-out').innerHTML = `Total Runtime: <span style="color:var(--neon-pink);">INVALID INPUT</span>`;
+                document.getElementById('b0-out').innerHTML = `Field Strength (Center, $z=0$): <span style="color:var(--neon-pink);">INVALID INPUT</span>`;
+                document.getElementById('b5-out').innerHTML = `Field Strength ($z=5 \text{ cm}$): <span style="color:var(--neon-pink);">INVALID INPUT</span>`;
+                document.getElementById('b10-out').innerHTML = `Field Strength ($z=10 \text{ cm}$): <span style="color:var(--neon-pink);">INVALID INPUT</span>`;
+                return;
+            }
+
+            // --- A. RESISTANCE & CURRENT ---
+            // 1. Get Cross-Sectional Area (A) based on AWG
+            const A_sq_m = getWireArea(AWG);
+
+            // 2. Resistance at 20°C: R_20C = Rho * (L / A)
+            const R_20C = RHO_COPPER * (L_wire_m / A_sq_m);
+
+            // 3. Apply Temperature Correction: R = R_20C * [1 + alpha * (Temp - 20)]
+            const R_temp_corrected = R_20C * (1 + ALPHA_COPPER * (Temp_C - 20));
+
+            // Current (I): I = V / R
+            const I = V / R_temp_corrected;
+
+            // --- B. NUMBER OF TURNS ---
+            // N = L_wire / Circumference = L_wire / (pi * D_coil_m)
+            const N = L_wire_m / (Math.PI * R_coil_m * 2);
+
+            // --- C. MAGNETIC FIELD STRENGTH B(z) ---
+            
+            // Formula: B(z) = (mu_0 * I * R^2 * N) / (2 * (R^2 + z^2)^(3/2))
+            const calcB = (z_cm) => {
+                const z_m = z_cm / 100;
+                const R_sq = R_coil_m * R_coil_m;
+                const z_sq = z_m * z_m;
+                const numerator = MU_0 * I * R_sq * N;
+                const denominator = 2 * Math.pow(R_sq + z_sq, 1.5);
+                return numerator / denominator; // Returns Tesla
+            };
+
+            const B_0_T = calcB(0);
+            const B_5_T = calcB(5);
+            const B_10_T = calcB(10);
+            
+            // --- D. TOTAL RUNTIME ---
+
+            // Total Charge (Amp-seconds): Q_tot = C_Ah * 3600
+            const Q_tot = C_Ah * 3600;
+
+            // Average Current (Amp): I_avg = I * DC_ratio
+            const I_avg = I * DC_ratio;
+
+            // Total Time (seconds): T_sec = Q_tot / I_avg
+            const T_sec = Q_tot / I_avg;
+            
+            // Convert to Hrs/Mins
+            const T_hr = Math.floor(T_sec / 3600);
+            const T_min = Math.floor((T_sec % 3600) / 60);
+
+            // --- E. OUTPUT FORMATTING ---
+            const B_unit = 'mT';
+            const distance_unit = isMetric ? 'cm' : 'in';
+
+            const formatB = (B_T) => {
+                const B_mT = B_T * 1000; // Convert Tesla to millitesla
+                return B_mT.toFixed(2) + ' ' + B_unit;
+            }
+            
+            // Calculate distances in Imperial for display
+            const dist_5_in = (5 / 2.54).toFixed(1);
+            const dist_10_in = (10 / 2.54).toFixed(1);
+
+            document.getElementById('runtime-out').innerHTML = `Total Runtime: <span style="color:var(--neon-pink);">${T_hr} hrs ${T_min} mins</span>`;
+            document.getElementById('b0-out').innerHTML = `Field Strength (Center, $z=0$): <span style="color:var(--neon-pink);">${formatB(B_0_T)}</span>`;
+            document.getElementById('b5-out').innerHTML = `Field Strength ($z=${isMetric ? '5' : dist_5_in} ${distance_unit}$): <span style="color:var(--neon-pink);">${formatB(B_5_T)}</span>`;
+            document.getElementById('b10-out').innerHTML = `Field Strength ($z=${isMetric ? '10' : dist_10_in} ${distance_unit}$): <span style="color:var(--neon-pink);">${formatB(B_10_T)}</span>`;
+        }
+
+        // Initialize units and calculate on load
+        document.addEventListener('DOMContentLoaded', () => {
+            toggleUnits(); 
+        }); 
+    </script>
+</body>
+</html>
