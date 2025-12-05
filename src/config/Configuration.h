@@ -23,7 +23,7 @@ namespace Config {
      * PRODUCTION: 2 (2% duty cycle for safety)
      * TEST MODE: 500 (longer pulses for visual testing)
      */
-    static constexpr unsigned long ON_DURATION_MS = 2;
+    static constexpr unsigned long ON_DURATION_MS = 8;
 
     /**
      * Duration of pulse OFF time in milliseconds.
@@ -40,7 +40,7 @@ namespace Config {
      * Range: 0.0 (off) to 1.0 (full brightness)
      * Recommended: 0.05 to 0.2 for indoor use
      */
-    static constexpr float NEOPIXEL_BRIGHTNESS = 0.08f;
+    static constexpr float NEOPIXEL_BRIGHTNESS = 0.03f;
 
     /**
      * Speed of pastel color cycling during normal operation.
@@ -91,7 +91,7 @@ namespace Config {
      * Saturation: 0.0 (white) to 1.0 (vibrant)
      * Value: 0.0 (black) to 1.0 (bright)
      */
-    static constexpr float PASTEL_SATURATION = 0.5f;
+    static constexpr float PASTEL_SATURATION = 0.8f;
     static constexpr float PASTEL_VALUE = 1.0f;
 
     /**
